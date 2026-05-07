@@ -1,0 +1,1895 @@
+---
+# ============================================================
+# KANBAN BOARD APP — FULL SYSTEM ARCHITECTURE
+# Generated: 2026-05-07
+# Covers: S-01 through S-32
+# Tech Stack: Next.js 14 / Spring Boot 3.3 / PostgreSQL / Docker
+# ============================================================
+
+# ────────────────────────────────────────────────────────────
+# SECTION 1: DIRECTORY STRUCTURE
+# Requirement source: S-01 (monorepo init), S-29 (Docker Compose),
+#   S-32 (CI pipeline), S-05 (Spring Security), S-21 (WebSocket)
+# ────────────────────────────────────────────────────────────
+
+directory_structure:
+  root: kanban/
+  files:
+    - docker-compose.yml          # S-01 (stub), S-29 (complete)
+    - .env.example                # S-01 (stub), S-29 (complete)
+    - .gitignore                  # S-01
+    - README.md                   # S-01
+  directories:
+    - path: .github/workflows/
+      files:
+        - ci.yml                  # S-32
+
+    - path: frontend/
+      description: Next.js 14 App Router application
+      files:
+        - package.json
+        - tsconfig.json
+        - next.config.ts
+        - .env.local.example
+        - Dockerfile              # S-29
+      directories:
+        - path: frontend/src/app/
+          description: Next.js App Router pages
+          files:
+            - layout.tsx           # root layout, auth provider
+            - page.tsx             # redirect to /boards or /login
+          directories:
+            - path: frontend/src/app/(auth)/
+              files:
+                - login/page.tsx   # S-07
+                - register/page.tsx # S-06
+            - path: frontend/src/app/(protected)/
+              files:
+                - layout.tsx       # auth guard wrapper
+              directories:
+                - path: frontend/src/app/(protected)/boards/
+                  files:
+                    - page.tsx     # S-12: /boards list
+                    - "[boardId]/page.tsx"  # S-13: /boards/[boardId]
+                - path: frontend/src/app/(protected)/join/
+                  files:
+                    - page.tsx     # S-27: /join?token=...
+
+        - path: frontend/src/components/
+          directories:
+            - path: frontend/src/components/auth/
+              files:
+                - LoginForm.tsx    # S-07
+                - RegisterForm.tsx # S-06
+            - path: frontend/src/components/boards/
+              files:
+                - BoardList.tsx    # S-12
+                - BoardCard.tsx    # S-12
+                - CreateBoardModal.tsx # S-10
+            - path: frontend/src/components/board/
+              files:
+                - BoardView.tsx    # S-13
+                - ColumnList.tsx   # S-13
+                - Column.tsx       # S-13
+                - CardItem.tsx     # S-17, S-20
+                - CardCreateForm.tsx  # S-17
+                - CardDrawer.tsx   # S-18
+                - InviteModal.tsx  # S-27
+                - MemberList.tsx   # S-28
+            - path: frontend/src/components/ui/
+              files:
+                - Button.tsx
+                - Input.tsx
+                - Modal.tsx
+                - Drawer.tsx
+                - Spinner.tsx
+
+        - path: frontend/src/lib/
+          files:
+            - api.ts               # typed fetch wrapper, attaches JWT
+            - auth.ts              # JWT storage (httpOnly cookie via Next.js route handler)
+            - websocket.ts         # S-23: STOMP client setup
+
+        - path: frontend/src/store/
+          files:
+            - boardStore.ts        # S-23: Zustand store for board state reconciliation
+            - authStore.ts         # S-07: auth state
+
+        - path: frontend/src/types/
+          files:
+            - api.ts               # shared TypeScript types matching API response schemas
+
+    - path: backend/
+      description: Spring Boot 3.3, Java 21, Gradle
+      files:
+        - build.gradle
+        - settings.gradle
+        - gradlew
+        - Dockerfile
+      directories:
+        - path: backend/src/main/java/com/kanban/
+          directories:
+            - path: backend/src/main/java/com/kanban/controller/
+              files:
+                - AuthController.java      # S-03, S-04
+                - BoardController.java     # S-10
+                - ColumnController.java    # S-11
+                - CardController.java      # S-15, S-19
+                - LabelController.java     # S-16
+                - InvitationController.java # S-25, S-26
+                - MemberController.java    # S-28
+                - HealthController.java    # S-30
+            - path: backend/src/main/java/com/kanban/service/
+              files:
+                - AuthService.java
+                - BoardService.java
+                - ColumnService.java
+                - CardService.java
+                - LabelService.java
+                - InvitationService.java
+                - EventBroadcastService.java  # S-22
+            - path: backend/src/main/java/com/kanban/repository/
+              files:
+                - UserRepository.java
+                - BoardRepository.java
+                - BoardMemberRepository.java
+                - ColumnRepository.java
+                - CardRepository.java
+                - LabelRepository.java
+                - CardLabelRepository.java
+                - InvitationRepository.java
+            - path: backend/src/main/java/com/kanban/model/
+              files:
+                - User.java
+                - Board.java
+                - BoardMember.java
+                - Column.java
+                - Card.java
+                - Label.java
+                - CardLabel.java
+                - Invitation.java
+            - path: backend/src/main/java/com/kanban/security/
+              files:
+                - JwtAuthenticationFilter.java  # S-05
+                - JwtTokenProvider.java         # S-04, S-05
+                - SecurityConfig.java           # S-05
+                - UserDetailsServiceImpl.java   # S-05
+            - path: backend/src/main/java/com/kanban/websocket/
+              files:
+                - WebSocketConfig.java          # S-21
+                - BoardEventPayload.java        # S-22
+            - path: backend/src/main/java/com/kanban/config/
+              files:
+                - CorsConfig.java
+                - LoggingConfig.java            # S-31
+            - path: backend/src/main/java/com/kanban/exception/
+              files:
+                - GlobalExceptionHandler.java
+                - ApiException.java
+            - path: backend/src/main/java/com/kanban/dto/
+              files:
+                - request/RegisterRequest.java
+                - request/LoginRequest.java
+                - request/CreateBoardRequest.java
+                - request/CreateColumnRequest.java
+                - request/CreateCardRequest.java
+                - request/MoveCardRequest.java
+                - request/CreateLabelRequest.java
+                - request/CreateInvitationRequest.java
+                - response/AuthResponse.java
+                - response/BoardResponse.java
+                - response/ColumnResponse.java
+                - response/CardResponse.java
+                - response/LabelResponse.java
+                - response/MemberResponse.java
+                - response/InvitationResponse.java
+                - response/ErrorResponse.java
+
+        - path: backend/src/main/resources/
+          files:
+            - application.yml
+            - application-docker.yml
+          directories:
+            - path: backend/src/main/resources/db/migration/
+              files:
+                - V1__create_users.sql          # S-02
+                - V2__create_boards.sql         # S-08
+                - V3__create_columns.sql        # S-09
+                - V4__create_cards_labels.sql   # S-14
+                - V5__create_invitations.sql    # S-24
+
+        - path: backend/src/test/java/com/kanban/
+          directories:
+            - path: backend/src/test/java/com/kanban/controller/
+            - path: backend/src/test/java/com/kanban/service/
+
+
+# ────────────────────────────────────────────────────────────
+# SECTION 2: DATABASE SCHEMA
+# Requirement source: S-02, S-08, S-09, S-14, S-24
+# Constraint: UUID PKs, soft deletes on critical entities,
+#   indexed reads < 50ms (constraints.md)
+# ────────────────────────────────────────────────────────────
+
+database_schema:
+
+  - table: users
+    migration: V1__create_users.sql
+    story: S-02
+    columns:
+      - name: id
+        type: uuid
+        constraints: [PRIMARY KEY, DEFAULT gen_random_uuid()]
+      - name: email
+        type: varchar(255)
+        constraints: [NOT NULL, UNIQUE]
+      - name: display_name
+        type: varchar(100)
+        constraints: [NOT NULL]
+      - name: password_hash
+        type: varchar(255)
+        constraints: [NOT NULL]
+      - name: deleted_at
+        type: timestamptz
+        constraints: [NULLABLE]
+        note: soft delete — citing constraints.md "Soft deletes for critical entities"
+      - name: created_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+      - name: updated_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - name: idx_users_email
+        columns: [email]
+        type: btree
+        predicate: "WHERE deleted_at IS NULL"
+
+  - table: boards
+    migration: V2__create_boards.sql
+    story: S-08
+    columns:
+      - name: id
+        type: uuid
+        constraints: [PRIMARY KEY, DEFAULT gen_random_uuid()]
+      - name: name
+        type: varchar(255)
+        constraints: [NOT NULL]
+      - name: owner_id
+        type: uuid
+        constraints: [NOT NULL, REFERENCES users(id)]
+      - name: deleted_at
+        type: timestamptz
+        constraints: [NULLABLE]
+      - name: created_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+      - name: updated_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - name: idx_boards_owner
+        columns: [owner_id]
+        type: btree
+        predicate: "WHERE deleted_at IS NULL"
+
+  - table: board_members
+    migration: V2__create_boards.sql
+    story: S-08
+    columns:
+      - name: id
+        type: uuid
+        constraints: [PRIMARY KEY, DEFAULT gen_random_uuid()]
+      - name: board_id
+        type: uuid
+        constraints: [NOT NULL, REFERENCES boards(id) ON DELETE CASCADE]
+      - name: user_id
+        type: uuid
+        constraints: [NOT NULL, REFERENCES users(id)]
+      - name: role
+        type: varchar(20)
+        constraints: [NOT NULL, DEFAULT 'MEMBER']
+        note: "values: OWNER | MEMBER"
+      - name: joined_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - name: idx_board_members_board
+        columns: [board_id]
+        type: btree
+      - name: idx_board_members_user
+        columns: [user_id]
+        type: btree
+      - name: uq_board_members_board_user
+        columns: [board_id, user_id]
+        type: unique
+
+  - table: columns
+    migration: V3__create_columns.sql
+    story: S-09
+    note: "Named 'columns' in schema; mapped to Java entity 'BoardColumn' to avoid SQL reserved-word clash"
+    columns:
+      - name: id
+        type: uuid
+        constraints: [PRIMARY KEY, DEFAULT gen_random_uuid()]
+      - name: board_id
+        type: uuid
+        constraints: [NOT NULL, REFERENCES boards(id) ON DELETE CASCADE]
+      - name: name
+        type: varchar(100)
+        constraints: [NOT NULL]
+      - name: position
+        type: double precision
+        constraints: [NOT NULL]
+        note: fractional indexing — avoids bulk position renumber on reorder
+      - name: deleted_at
+        type: timestamptz
+        constraints: [NULLABLE]
+      - name: created_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+      - name: updated_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - name: idx_columns_board_position
+        columns: [board_id, position]
+        type: btree
+        predicate: "WHERE deleted_at IS NULL"
+
+  - table: cards
+    migration: V4__create_cards_labels.sql
+    story: S-14
+    columns:
+      - name: id
+        type: uuid
+        constraints: [PRIMARY KEY, DEFAULT gen_random_uuid()]
+      - name: column_id
+        type: uuid
+        constraints: [NOT NULL, REFERENCES columns(id) ON DELETE CASCADE]
+      - name: title
+        type: varchar(255)
+        constraints: [NOT NULL]
+      - name: description
+        type: text
+        constraints: [NULLABLE]
+      - name: position
+        type: double precision
+        constraints: [NOT NULL]
+        note: fractional indexing within column
+      - name: assignee_id
+        type: uuid
+        constraints: [NULLABLE, REFERENCES users(id)]
+      - name: due_date
+        type: date
+        constraints: [NULLABLE]
+      - name: deleted_at
+        type: timestamptz
+        constraints: [NULLABLE]
+      - name: created_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+      - name: updated_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - name: idx_cards_column_position
+        columns: [column_id, position]
+        type: btree
+        predicate: "WHERE deleted_at IS NULL"
+      - name: idx_cards_assignee
+        columns: [assignee_id]
+        type: btree
+        predicate: "WHERE deleted_at IS NULL AND assignee_id IS NOT NULL"
+
+  - table: labels
+    migration: V4__create_cards_labels.sql
+    story: S-14
+    columns:
+      - name: id
+        type: uuid
+        constraints: [PRIMARY KEY, DEFAULT gen_random_uuid()]
+      - name: board_id
+        type: uuid
+        constraints: [NOT NULL, REFERENCES boards(id) ON DELETE CASCADE]
+      - name: name
+        type: varchar(50)
+        constraints: [NOT NULL]
+      - name: color
+        type: varchar(7)
+        constraints: [NOT NULL]
+        note: hex color, e.g. "#FF5733"
+      - name: created_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - name: idx_labels_board
+        columns: [board_id]
+        type: btree
+      - name: uq_labels_board_name
+        columns: [board_id, name]
+        type: unique
+
+  - table: card_labels
+    migration: V4__create_cards_labels.sql
+    story: S-14
+    columns:
+      - name: card_id
+        type: uuid
+        constraints: [NOT NULL, REFERENCES cards(id) ON DELETE CASCADE]
+      - name: label_id
+        type: uuid
+        constraints: [NOT NULL, REFERENCES labels(id) ON DELETE CASCADE]
+    indexes:
+      - name: pk_card_labels
+        columns: [card_id, label_id]
+        type: primary_key
+
+  - table: board_invitations
+    migration: V5__create_invitations.sql
+    story: S-24
+    columns:
+      - name: id
+        type: uuid
+        constraints: [PRIMARY KEY, DEFAULT gen_random_uuid()]
+      - name: board_id
+        type: uuid
+        constraints: [NOT NULL, REFERENCES boards(id) ON DELETE CASCADE]
+      - name: invited_by
+        type: uuid
+        constraints: [NOT NULL, REFERENCES users(id)]
+      - name: invitee_email
+        type: varchar(255)
+        constraints: [NOT NULL]
+      - name: token
+        type: varchar(255)
+        constraints: [NOT NULL, UNIQUE]
+        note: secure random token, single-use
+      - name: status
+        type: varchar(20)
+        constraints: [NOT NULL, DEFAULT 'PENDING']
+        note: "values: PENDING | ACCEPTED | EXPIRED"
+      - name: expires_at
+        type: timestamptz
+        constraints: [NOT NULL]
+      - name: created_at
+        type: timestamptz
+        constraints: [NOT NULL, DEFAULT now()]
+    indexes:
+      - name: idx_invitations_token
+        columns: [token]
+        type: btree
+      - name: idx_invitations_board
+        columns: [board_id]
+        type: btree
+      - name: idx_invitations_email
+        columns: [invitee_email]
+        type: btree
+
+
+# ────────────────────────────────────────────────────────────
+# SECTION 3: SERVICE INTERFACES
+# Deep module principle: narrow interface, deep implementation
+# ────────────────────────────────────────────────────────────
+
+service_interfaces:
+
+  - interface: AuthService
+    story_ref: [S-03, S-04, S-05]
+    methods:
+      - name: register
+        input: { email: string, displayName: string, passwordHash: string }
+        output: { userId: uuid, email: string }
+        throws: [UserAlreadyExistsException]
+
+      - name: login
+        input: { email: string, rawPassword: string }
+        output: { accessToken: string, expiresIn: int }
+        throws: [InvalidCredentialsException]
+
+      - name: validateToken
+        input: { token: string }
+        output: { userId: uuid, email: string }
+        throws: [InvalidTokenException, TokenExpiredException]
+
+  - interface: BoardService
+    story_ref: [S-10, S-28]
+    methods:
+      - name: createBoard
+        input: { name: string, requestingUserId: uuid }
+        output: BoardResponse
+        throws: []
+
+      - name: getBoardsForUser
+        input: { userId: uuid }
+        output: List<BoardResponse>
+        throws: []
+
+      - name: getBoardById
+        input: { boardId: uuid, requestingUserId: uuid }
+        output: BoardResponse
+        throws: [BoardNotFoundException, ForbiddenException]
+
+      - name: deleteBoard
+        input: { boardId: uuid, requestingUserId: uuid }
+        output: void
+        throws: [BoardNotFoundException, ForbiddenException]
+
+      - name: getMembers
+        input: { boardId: uuid, requestingUserId: uuid }
+        output: List<MemberResponse>
+        throws: [BoardNotFoundException, ForbiddenException]
+
+  - interface: ColumnService
+    story_ref: [S-11]
+    methods:
+      - name: createColumn
+        input: { boardId: uuid, name: string, requestingUserId: uuid }
+        output: ColumnResponse
+        throws: [BoardNotFoundException, ForbiddenException]
+
+      - name: renameColumn
+        input: { columnId: uuid, name: string, requestingUserId: uuid }
+        output: ColumnResponse
+        throws: [ColumnNotFoundException, ForbiddenException]
+
+      - name: deleteColumn
+        input: { columnId: uuid, requestingUserId: uuid }
+        output: void
+        throws: [ColumnNotFoundException, ForbiddenException]
+
+      - name: reorderColumns
+        input: { boardId: uuid, orderedColumnIds: List<uuid>, requestingUserId: uuid }
+        output: List<ColumnResponse>
+        throws: [BoardNotFoundException, ForbiddenException, InvalidOrderException]
+
+  - interface: CardService
+    story_ref: [S-15, S-19]
+    methods:
+      - name: createCard
+        input: { columnId: uuid, title: string, requestingUserId: uuid }
+        output: CardResponse
+        throws: [ColumnNotFoundException, ForbiddenException]
+
+      - name: getCard
+        input: { cardId: uuid, requestingUserId: uuid }
+        output: CardResponse
+        throws: [CardNotFoundException, ForbiddenException]
+
+      - name: updateCard
+        input: { cardId: uuid, patch: CardPatch, requestingUserId: uuid }
+        output: CardResponse
+        throws: [CardNotFoundException, ForbiddenException]
+
+      - name: deleteCard
+        input: { cardId: uuid, requestingUserId: uuid }
+        output: void
+        throws: [CardNotFoundException, ForbiddenException]
+
+      - name: moveCard
+        input: { cardId: uuid, targetColumnId: uuid, afterCardId: uuid_or_null, requestingUserId: uuid }
+        output: CardResponse
+        throws: [CardNotFoundException, ColumnNotFoundException, ForbiddenException]
+
+  - interface: LabelService
+    story_ref: [S-16]
+    methods:
+      - name: createLabel
+        input: { boardId: uuid, name: string, color: string, requestingUserId: uuid }
+        output: LabelResponse
+        throws: [BoardNotFoundException, ForbiddenException, LabelAlreadyExistsException]
+
+      - name: getLabelsForBoard
+        input: { boardId: uuid, requestingUserId: uuid }
+        output: List<LabelResponse>
+        throws: [BoardNotFoundException, ForbiddenException]
+
+      - name: deleteLabel
+        input: { labelId: uuid, requestingUserId: uuid }
+        output: void
+        throws: [LabelNotFoundException, ForbiddenException]
+
+  - interface: InvitationService
+    story_ref: [S-25, S-26]
+    methods:
+      - name: createInvitation
+        input: { boardId: uuid, inviteeEmail: string, requestingUserId: uuid }
+        output: InvitationResponse
+        throws: [BoardNotFoundException, ForbiddenException, UserAlreadyMemberException]
+
+      - name: acceptInvitation
+        input: { token: string, requestingUserId: uuid }
+        output: BoardResponse
+        throws: [InvitationNotFoundException, InvitationExpiredException, InvitationAlreadyUsedException]
+
+  - interface: EventBroadcastService
+    story_ref: [S-22]
+    methods:
+      - name: broadcastBoardEvent
+        input: { boardId: uuid, event: BoardEventPayload }
+        output: void
+        note: publishes to /topic/boards/{boardId} via SimpMessagingTemplate
+
+
+# ────────────────────────────────────────────────────────────
+# SECTION 4: API CONTRACTS
+# Requirement source: all story endpoints
+# Constraint: /api/v1 URL versioning (constraints.md)
+# Error schema: memory.patterns "API Error Response"
+# ────────────────────────────────────────────────────────────
+
+api_contracts:
+
+  # ── Auth ────────────────────────────────────────────────
+  - id: POST /api/v1/auth/register
+    story: S-03
+    method: POST
+    path: /api/v1/auth/register
+    auth_required: false
+    request_body:
+      email: { type: string, format: email, required: true }
+      displayName: { type: string, minLength: 1, maxLength: 100, required: true }
+      password: { type: string, minLength: 8, required: true }
+    responses:
+      201:
+        id: uuid
+        email: string
+        displayName: string
+        createdAt: iso8601
+      409:
+        error: string
+        code: "EMAIL_ALREADY_EXISTS"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+
+  - id: POST /api/v1/auth/login
+    story: S-04
+    method: POST
+    path: /api/v1/auth/login
+    auth_required: false
+    request_body:
+      email: { type: string, format: email, required: true }
+      password: { type: string, required: true }
+    responses:
+      200:
+        accessToken: string
+        tokenType: "Bearer"
+        expiresIn: 3600
+      401:
+        error: string
+        code: "INVALID_CREDENTIALS"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+
+  # ── Boards ──────────────────────────────────────────────
+  - id: POST /api/v1/boards
+    story: S-10
+    method: POST
+    path: /api/v1/boards
+    auth_required: true
+    request_body:
+      name: { type: string, minLength: 1, maxLength: 255, required: true }
+    responses:
+      201:
+        id: uuid
+        name: string
+        ownerId: uuid
+        createdAt: iso8601
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: GET /api/v1/boards
+    story: S-10
+    method: GET
+    path: /api/v1/boards
+    auth_required: true
+    request_body: null
+    responses:
+      200:
+        items: [{ id: uuid, name: string, ownerId: uuid, role: string, createdAt: iso8601 }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: GET /api/v1/boards/{boardId}
+    story: S-10
+    method: GET
+    path: /api/v1/boards/{boardId}
+    auth_required: true
+    path_params:
+      boardId: uuid
+    responses:
+      200:
+        id: uuid
+        name: string
+        ownerId: uuid
+        columns:
+          - id: uuid
+            name: string
+            position: number
+            cards:
+              - id: uuid
+                title: string
+                description: string
+                position: number
+                assigneeId: uuid
+                dueDate: date
+                labels: [{ id: uuid, name: string, color: string }]
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "BOARD_NOT_FOUND"
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: DELETE /api/v1/boards/{boardId}
+    story: S-10
+    method: DELETE
+    path: /api/v1/boards/{boardId}
+    auth_required: true
+    path_params:
+      boardId: uuid
+    responses:
+      204: {}
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "BOARD_NOT_FOUND"
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  # ── Columns ─────────────────────────────────────────────
+  - id: POST /api/v1/boards/{boardId}/columns
+    story: S-11
+    method: POST
+    path: /api/v1/boards/{boardId}/columns
+    auth_required: true
+    path_params:
+      boardId: uuid
+    request_body:
+      name: { type: string, minLength: 1, maxLength: 100, required: true }
+    responses:
+      201:
+        id: uuid
+        boardId: uuid
+        name: string
+        position: number
+        createdAt: iso8601
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "BOARD_NOT_FOUND"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: PATCH /api/v1/columns/{columnId}
+    story: S-11
+    method: PATCH
+    path: /api/v1/columns/{columnId}
+    auth_required: true
+    path_params:
+      columnId: uuid
+    request_body:
+      name: { type: string, minLength: 1, maxLength: 100, required: true }
+    responses:
+      200:
+        id: uuid
+        boardId: uuid
+        name: string
+        position: number
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "COLUMN_NOT_FOUND"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: DELETE /api/v1/columns/{columnId}
+    story: S-11
+    method: DELETE
+    path: /api/v1/columns/{columnId}
+    auth_required: true
+    path_params:
+      columnId: uuid
+    responses:
+      204: {}
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "COLUMN_NOT_FOUND"
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: PATCH /api/v1/boards/{boardId}/columns/reorder
+    story: S-11
+    method: PATCH
+    path: /api/v1/boards/{boardId}/columns/reorder
+    auth_required: true
+    path_params:
+      boardId: uuid
+    request_body:
+      columnIds: { type: array, items: uuid, required: true }
+      note: ordered list of all column IDs for this board
+    responses:
+      200:
+        items: [{ id: uuid, name: string, position: number }]
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "BOARD_NOT_FOUND"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  # ── Cards ───────────────────────────────────────────────
+  - id: POST /api/v1/columns/{columnId}/cards
+    story: S-15
+    method: POST
+    path: /api/v1/columns/{columnId}/cards
+    auth_required: true
+    path_params:
+      columnId: uuid
+    request_body:
+      title: { type: string, minLength: 1, maxLength: 255, required: true }
+    responses:
+      201:
+        id: uuid
+        columnId: uuid
+        title: string
+        description: null
+        position: number
+        assigneeId: null
+        dueDate: null
+        labels: []
+        createdAt: iso8601
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "COLUMN_NOT_FOUND"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: GET /api/v1/cards/{cardId}
+    story: S-15
+    method: GET
+    path: /api/v1/cards/{cardId}
+    auth_required: true
+    path_params:
+      cardId: uuid
+    responses:
+      200:
+        id: uuid
+        columnId: uuid
+        title: string
+        description: string
+        position: number
+        assigneeId: uuid
+        dueDate: date
+        labels: [{ id: uuid, name: string, color: string }]
+        createdAt: iso8601
+        updatedAt: iso8601
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "CARD_NOT_FOUND"
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: PATCH /api/v1/cards/{cardId}
+    story: S-15
+    method: PATCH
+    path: /api/v1/cards/{cardId}
+    auth_required: true
+    path_params:
+      cardId: uuid
+    request_body:
+      title: { type: string, minLength: 1, maxLength: 255, required: false }
+      description: { type: string, nullable: true, required: false }
+      assigneeId: { type: uuid, nullable: true, required: false }
+      dueDate: { type: date, nullable: true, required: false }
+      labelIds: { type: array, items: uuid, required: false }
+    responses:
+      200:
+        id: uuid
+        columnId: uuid
+        title: string
+        description: string
+        position: number
+        assigneeId: uuid
+        dueDate: date
+        labels: [{ id: uuid, name: string, color: string }]
+        updatedAt: iso8601
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "CARD_NOT_FOUND"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: DELETE /api/v1/cards/{cardId}
+    story: S-15
+    method: DELETE
+    path: /api/v1/cards/{cardId}
+    auth_required: true
+    path_params:
+      cardId: uuid
+    responses:
+      204: {}
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "CARD_NOT_FOUND"
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: PATCH /api/v1/cards/{cardId}/move
+    story: S-19
+    method: PATCH
+    path: /api/v1/cards/{cardId}/move
+    auth_required: true
+    path_params:
+      cardId: uuid
+    request_body:
+      targetColumnId: { type: uuid, required: true }
+      afterCardId:
+        type: uuid
+        nullable: true
+        required: false
+        note: "null means insert at top of column; positions card before first existing card"
+    responses:
+      200:
+        id: uuid
+        columnId: uuid
+        position: number
+        updatedAt: iso8601
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "CARD_NOT_FOUND"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  # ── Labels ──────────────────────────────────────────────
+  - id: POST /api/v1/boards/{boardId}/labels
+    story: S-16
+    method: POST
+    path: /api/v1/boards/{boardId}/labels
+    auth_required: true
+    path_params:
+      boardId: uuid
+    request_body:
+      name: { type: string, minLength: 1, maxLength: 50, required: true }
+      color: { type: string, pattern: "^#[0-9A-Fa-f]{6}$", required: true }
+    responses:
+      201:
+        id: uuid
+        boardId: uuid
+        name: string
+        color: string
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "BOARD_NOT_FOUND"
+      409:
+        error: string
+        code: "LABEL_ALREADY_EXISTS"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: GET /api/v1/boards/{boardId}/labels
+    story: S-16
+    method: GET
+    path: /api/v1/boards/{boardId}/labels
+    auth_required: true
+    path_params:
+      boardId: uuid
+    responses:
+      200:
+        items: [{ id: uuid, name: string, color: string }]
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "BOARD_NOT_FOUND"
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: DELETE /api/v1/labels/{labelId}
+    story: S-16
+    method: DELETE
+    path: /api/v1/labels/{labelId}
+    auth_required: true
+    path_params:
+      labelId: uuid
+    responses:
+      204: {}
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "LABEL_NOT_FOUND"
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  # ── Invitations ─────────────────────────────────────────
+  - id: POST /api/v1/boards/{boardId}/invitations
+    story: S-25
+    method: POST
+    path: /api/v1/boards/{boardId}/invitations
+    auth_required: true
+    path_params:
+      boardId: uuid
+    request_body:
+      email: { type: string, format: email, required: true }
+    responses:
+      201:
+        id: uuid
+        boardId: uuid
+        inviteeEmail: string
+        token: string
+        status: "PENDING"
+        expiresAt: iso8601
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "BOARD_NOT_FOUND"
+      409:
+        error: string
+        code: "USER_ALREADY_MEMBER"
+      422:
+        error: string
+        code: "VALIDATION_FAILED"
+        fields: [{ field: string, message: string }]
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  - id: POST /api/v1/invitations/accept
+    story: S-26
+    method: POST
+    path: /api/v1/invitations/accept
+    auth_required: true
+    request_body:
+      token: { type: string, required: true }
+    responses:
+      200:
+        id: uuid
+        name: string
+        ownerId: uuid
+        createdAt: iso8601
+        note: returns the Board the user just joined
+      404:
+        error: string
+        code: "INVITATION_NOT_FOUND"
+      410:
+        error: string
+        code: "INVITATION_EXPIRED"
+      409:
+        error: string
+        code: "INVITATION_ALREADY_USED"
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  # ── Members ─────────────────────────────────────────────
+  - id: GET /api/v1/boards/{boardId}/members
+    story: S-28
+    method: GET
+    path: /api/v1/boards/{boardId}/members
+    auth_required: true
+    path_params:
+      boardId: uuid
+    responses:
+      200:
+        items:
+          - userId: uuid
+            displayName: string
+            email: string
+            role: string
+            joinedAt: iso8601
+      403:
+        error: string
+        code: "FORBIDDEN"
+      404:
+        error: string
+        code: "BOARD_NOT_FOUND"
+      401:
+        error: string
+        code: "UNAUTHORIZED"
+
+  # ── Health ──────────────────────────────────────────────
+  - id: GET /api/v1/health
+    story: S-30
+    method: GET
+    path: /api/v1/health
+    auth_required: false
+    responses:
+      200:
+        status: "UP"
+        db: "UP"
+        timestamp: iso8601
+      503:
+        status: "DOWN"
+        db: "DOWN"
+        timestamp: iso8601
+
+
+# ────────────────────────────────────────────────────────────
+# SECTION 5: WEBSOCKET EVENTS
+# Requirement source: S-21 (STOMP config), S-22 (broadcast),
+#   S-23 (client subscription)
+# Constraint: real-time sync delay < 500ms (constraints.md)
+# Pattern: board-scoped topic limits fan-out to members only
+# ────────────────────────────────────────────────────────────
+
+websocket:
+  transport: STOMP over SockJS
+  endpoint: /ws
+    note: SockJS fallback endpoint registered in WebSocketConfig
+  broker_prefix: /topic
+  app_destination_prefix: /app
+    note: client-to-server messages (not used in this design — all mutations go via REST)
+
+  subscription_topics:
+    - topic: /topic/boards/{boardId}
+      description: >
+        All board-level events for a given board. The backend validates
+        that the subscribing user is a member of the board before the
+        subscription is honored (citing security constraint — auth required).
+      auth_required: true
+
+  events:
+
+    - name: CARD_CREATED
+      story: S-22
+      topic: /topic/boards/{boardId}
+      trigger: POST /api/v1/columns/{columnId}/cards succeeds
+      payload:
+        eventType: "CARD_CREATED"
+        boardId: uuid
+        timestamp: iso8601
+        data:
+          id: uuid
+          columnId: uuid
+          title: string
+          position: number
+          assigneeId: uuid_or_null
+          dueDate: date_or_null
+          labels: []
+
+    - name: CARD_UPDATED
+      story: S-22
+      topic: /topic/boards/{boardId}
+      trigger: PATCH /api/v1/cards/{cardId} succeeds
+      payload:
+        eventType: "CARD_UPDATED"
+        boardId: uuid
+        timestamp: iso8601
+        data:
+          id: uuid
+          columnId: uuid
+          title: string
+          description: string_or_null
+          assigneeId: uuid_or_null
+          dueDate: date_or_null
+          labels: [{ id: uuid, name: string, color: string }]
+          updatedAt: iso8601
+
+    - name: CARD_MOVED
+      story: S-22
+      topic: /topic/boards/{boardId}
+      trigger: PATCH /api/v1/cards/{cardId}/move succeeds
+      payload:
+        eventType: "CARD_MOVED"
+        boardId: uuid
+        timestamp: iso8601
+        data:
+          id: uuid
+          fromColumnId: uuid
+          toColumnId: uuid
+          newPosition: number
+          updatedAt: iso8601
+
+    - name: CARD_DELETED
+      story: S-22
+      topic: /topic/boards/{boardId}
+      trigger: DELETE /api/v1/cards/{cardId} succeeds
+      payload:
+        eventType: "CARD_DELETED"
+        boardId: uuid
+        timestamp: iso8601
+        data:
+          id: uuid
+          columnId: uuid
+
+    - name: COLUMN_CREATED
+      story: S-22
+      topic: /topic/boards/{boardId}
+      trigger: POST /api/v1/boards/{boardId}/columns succeeds
+      payload:
+        eventType: "COLUMN_CREATED"
+        boardId: uuid
+        timestamp: iso8601
+        data:
+          id: uuid
+          name: string
+          position: number
+
+    - name: COLUMN_UPDATED
+      story: S-22
+      topic: /topic/boards/{boardId}
+      trigger: PATCH /api/v1/columns/{columnId} succeeds
+      payload:
+        eventType: "COLUMN_UPDATED"
+        boardId: uuid
+        timestamp: iso8601
+        data:
+          id: uuid
+          name: string
+
+    - name: COLUMN_REORDERED
+      story: S-22
+      topic: /topic/boards/{boardId}
+      trigger: PATCH /api/v1/boards/{boardId}/columns/reorder succeeds
+      payload:
+        eventType: "COLUMN_REORDERED"
+        boardId: uuid
+        timestamp: iso8601
+        data:
+          columns: [{ id: uuid, position: number }]
+
+    - name: COLUMN_DELETED
+      story: S-22
+      topic: /topic/boards/{boardId}
+      trigger: DELETE /api/v1/columns/{columnId} succeeds
+      payload:
+        eventType: "COLUMN_DELETED"
+        boardId: uuid
+        timestamp: iso8601
+        data:
+          id: uuid
+
+
+# ────────────────────────────────────────────────────────────
+# SECTION 6: STORY CONTRACTS
+# One entry per story — machine-parseable contract ownership
+# ────────────────────────────────────────────────────────────
+
+story_contracts:
+
+  - id: S-01
+    title: Initialize monorepo directory structure
+    phase: PHASE-001
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - kanban/                # root monorepo directory
+      - frontend/              # Next.js scaffold
+      - backend/               # Spring Boot Gradle scaffold
+      - docker-compose.yml     # stub (version line only); completed in S-29 | owner: S-01
+      - .env.example           # stub (empty var names, no values); completed in S-29 | owner: S-01
+      - .gitignore             # owner: S-01
+      - README.md              # owner: S-01
+    dependencies: []
+
+  - id: S-02
+    title: PostgreSQL schema — users table migration
+    phase: PHASE-001
+    db_tables: [users]
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/resources/db/migration/V1__create_users.sql
+    dependencies: [S-01]
+
+  - id: S-03
+    title: Backend POST /api/v1/auth/register
+    phase: PHASE-001
+    db_tables: []
+    api_endpoints: [POST /api/v1/auth/register]
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/controller/AuthController.java
+      - backend/src/main/java/com/kanban/service/AuthService.java
+      - backend/src/main/java/com/kanban/dto/request/RegisterRequest.java
+      - backend/src/main/java/com/kanban/dto/response/AuthResponse.java
+    dependencies: [S-02]
+
+  - id: S-04
+    title: Backend POST /api/v1/auth/login + JWT issuance
+    phase: PHASE-001
+    db_tables: []
+    api_endpoints: [POST /api/v1/auth/login]
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/security/JwtTokenProvider.java
+      - backend/src/main/java/com/kanban/dto/request/LoginRequest.java
+    dependencies: [S-03]
+
+  - id: S-05
+    title: Backend JWT authentication filter (Spring Security)
+    phase: PHASE-001
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/security/JwtAuthenticationFilter.java
+      - backend/src/main/java/com/kanban/security/SecurityConfig.java
+      - backend/src/main/java/com/kanban/security/UserDetailsServiceImpl.java
+    dependencies: [S-04]
+
+  - id: S-06
+    title: Frontend Register page UI
+    phase: PHASE-001
+    db_tables: []
+    api_endpoints: []
+    frontend_routes:
+      - path: /register
+        file: frontend/src/app/(auth)/register/page.tsx
+        component: RegisterForm.tsx
+    ws_events: []
+    dependencies: [S-03]
+
+  - id: S-07
+    title: Frontend Login page UI + JWT storage + auth redirect
+    phase: PHASE-001
+    db_tables: []
+    api_endpoints: []
+    frontend_routes:
+      - path: /login
+        file: frontend/src/app/(auth)/login/page.tsx
+        component: LoginForm.tsx
+    ws_events: []
+    artifacts:
+      - frontend/src/store/authStore.ts
+      - frontend/src/lib/auth.ts
+    dependencies: [S-04, S-06]
+
+  - id: S-08
+    title: PostgreSQL schema — boards and board_members tables migration
+    phase: PHASE-002
+    db_tables: [boards, board_members]
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/resources/db/migration/V2__create_boards.sql
+    dependencies: [S-02]
+
+  - id: S-09
+    title: PostgreSQL schema — columns table migration
+    phase: PHASE-002
+    db_tables: [columns]
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/resources/db/migration/V3__create_columns.sql
+    dependencies: [S-08]
+
+  - id: S-10
+    title: Backend Board CRUD endpoints (POST, GET, DELETE)
+    phase: PHASE-002
+    db_tables: []
+    api_endpoints:
+      - POST /api/v1/boards
+      - GET /api/v1/boards
+      - GET /api/v1/boards/{boardId}
+      - DELETE /api/v1/boards/{boardId}
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/controller/BoardController.java
+      - backend/src/main/java/com/kanban/service/BoardService.java
+      - backend/src/main/java/com/kanban/model/Board.java
+      - backend/src/main/java/com/kanban/model/BoardMember.java
+      - backend/src/main/java/com/kanban/repository/BoardRepository.java
+      - backend/src/main/java/com/kanban/repository/BoardMemberRepository.java
+      - backend/src/main/java/com/kanban/dto/request/CreateBoardRequest.java
+      - backend/src/main/java/com/kanban/dto/response/BoardResponse.java
+    dependencies: [S-05, S-08]
+
+  - id: S-11
+    title: Backend Column CRUD endpoints (POST, PATCH, DELETE, reorder)
+    phase: PHASE-002
+    db_tables: []
+    api_endpoints:
+      - POST /api/v1/boards/{boardId}/columns
+      - PATCH /api/v1/columns/{columnId}
+      - DELETE /api/v1/columns/{columnId}
+      - PATCH /api/v1/boards/{boardId}/columns/reorder
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/controller/ColumnController.java
+      - backend/src/main/java/com/kanban/service/ColumnService.java
+      - backend/src/main/java/com/kanban/model/Column.java
+      - backend/src/main/java/com/kanban/repository/ColumnRepository.java
+      - backend/src/main/java/com/kanban/dto/request/CreateColumnRequest.java
+      - backend/src/main/java/com/kanban/dto/response/ColumnResponse.java
+    dependencies: [S-10, S-09]
+
+  - id: S-12
+    title: Frontend Boards list page (/boards)
+    phase: PHASE-002
+    db_tables: []
+    api_endpoints: []
+    frontend_routes:
+      - path: /boards
+        file: frontend/src/app/(protected)/boards/page.tsx
+        components: [BoardList.tsx, BoardCard.tsx, CreateBoardModal.tsx]
+    ws_events: []
+    dependencies: [S-10, S-07]
+
+  - id: S-13
+    title: Frontend Board detail page with column layout (/boards/[boardId])
+    phase: PHASE-002
+    db_tables: []
+    api_endpoints: []
+    frontend_routes:
+      - path: "/boards/[boardId]"
+        file: "frontend/src/app/(protected)/boards/[boardId]/page.tsx"
+        components: [BoardView.tsx, ColumnList.tsx, Column.tsx, CardItem.tsx]
+    ws_events: []
+    dependencies: [S-11, S-12]
+
+  - id: S-14
+    title: PostgreSQL schema — cards and labels tables migration
+    phase: PHASE-003
+    db_tables: [cards, labels, card_labels]
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/resources/db/migration/V4__create_cards_labels.sql
+    dependencies: [S-09]
+
+  - id: S-15
+    title: Backend Card CRUD endpoints (POST, GET, PATCH, DELETE)
+    phase: PHASE-003
+    db_tables: []
+    api_endpoints:
+      - POST /api/v1/columns/{columnId}/cards
+      - GET /api/v1/cards/{cardId}
+      - PATCH /api/v1/cards/{cardId}
+      - DELETE /api/v1/cards/{cardId}
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/controller/CardController.java
+      - backend/src/main/java/com/kanban/service/CardService.java
+      - backend/src/main/java/com/kanban/model/Card.java
+      - backend/src/main/java/com/kanban/repository/CardRepository.java
+      - backend/src/main/java/com/kanban/dto/request/CreateCardRequest.java
+      - backend/src/main/java/com/kanban/dto/response/CardResponse.java
+    dependencies: [S-11, S-14]
+
+  - id: S-16
+    title: Backend Label CRUD endpoints
+    phase: PHASE-003
+    db_tables: []
+    api_endpoints:
+      - POST /api/v1/boards/{boardId}/labels
+      - GET /api/v1/boards/{boardId}/labels
+      - DELETE /api/v1/labels/{labelId}
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/controller/LabelController.java
+      - backend/src/main/java/com/kanban/service/LabelService.java
+      - backend/src/main/java/com/kanban/model/Label.java
+      - backend/src/main/java/com/kanban/model/CardLabel.java
+      - backend/src/main/java/com/kanban/repository/LabelRepository.java
+      - backend/src/main/java/com/kanban/repository/CardLabelRepository.java
+      - backend/src/main/java/com/kanban/dto/request/CreateLabelRequest.java
+      - backend/src/main/java/com/kanban/dto/response/LabelResponse.java
+    dependencies: [S-15]
+
+  - id: S-17
+    title: Frontend Card creation inline form
+    phase: PHASE-003
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - frontend/src/components/board/CardCreateForm.tsx
+    dependencies: [S-15, S-13]
+
+  - id: S-18
+    title: Frontend Card detail drawer (view/edit all fields)
+    phase: PHASE-003
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - frontend/src/components/board/CardDrawer.tsx
+    dependencies: [S-16, S-17]
+
+  - id: S-19
+    title: Backend PATCH /api/v1/cards/{cardId}/move
+    phase: PHASE-004
+    db_tables: []
+    api_endpoints:
+      - PATCH /api/v1/cards/{cardId}/move
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/dto/request/MoveCardRequest.java
+      - note: moveCard method added to CardService.java and CardController.java (S-15 files)
+    dependencies: [S-15]
+
+  - id: S-20
+    title: Frontend drag-and-drop with dnd-kit
+    phase: PHASE-004
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - note: DnD context wired into BoardView.tsx and Column.tsx (S-13 files)
+    dependencies: [S-19, S-13]
+
+  - id: S-21
+    title: Backend WebSocket STOMP gateway configuration
+    phase: PHASE-005
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/websocket/WebSocketConfig.java
+    dependencies: [S-05]
+
+  - id: S-22
+    title: Backend broadcast board events on mutations
+    phase: PHASE-005
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events:
+      - CARD_CREATED
+      - CARD_UPDATED
+      - CARD_MOVED
+      - CARD_DELETED
+      - COLUMN_CREATED
+      - COLUMN_UPDATED
+      - COLUMN_REORDERED
+      - COLUMN_DELETED
+    artifacts:
+      - backend/src/main/java/com/kanban/service/EventBroadcastService.java
+      - backend/src/main/java/com/kanban/websocket/BoardEventPayload.java
+      - note: EventBroadcastService injected into CardService, ColumnService
+    dependencies: [S-21, S-15, S-19, S-11]
+
+  - id: S-23
+    title: Frontend WebSocket client subscription + board state reconciliation
+    phase: PHASE-005
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events:
+      - consumes: [CARD_CREATED, CARD_UPDATED, CARD_MOVED, CARD_DELETED,
+                   COLUMN_CREATED, COLUMN_UPDATED, COLUMN_REORDERED, COLUMN_DELETED]
+    artifacts:
+      - frontend/src/lib/websocket.ts
+      - frontend/src/store/boardStore.ts
+      - note: WebSocket subscription mounted in BoardView.tsx (S-13 file)
+    dependencies: [S-22, S-20, S-18]
+
+  - id: S-24
+    title: PostgreSQL schema — board_invitations table migration
+    phase: PHASE-006
+    db_tables: [board_invitations]
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/resources/db/migration/V5__create_invitations.sql
+    dependencies: [S-08]
+
+  - id: S-25
+    title: Backend POST /api/v1/boards/{boardId}/invitations
+    phase: PHASE-006
+    db_tables: []
+    api_endpoints:
+      - POST /api/v1/boards/{boardId}/invitations
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/controller/InvitationController.java
+      - backend/src/main/java/com/kanban/service/InvitationService.java
+      - backend/src/main/java/com/kanban/model/Invitation.java
+      - backend/src/main/java/com/kanban/repository/InvitationRepository.java
+      - backend/src/main/java/com/kanban/dto/request/CreateInvitationRequest.java
+      - backend/src/main/java/com/kanban/dto/response/InvitationResponse.java
+    dependencies: [S-10, S-24, S-05]
+
+  - id: S-26
+    title: Backend POST /api/v1/invitations/accept
+    phase: PHASE-006
+    db_tables: []
+    api_endpoints:
+      - POST /api/v1/invitations/accept
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - note: acceptInvitation method added to InvitationService.java and InvitationController.java (S-25 files)
+    dependencies: [S-25]
+
+  - id: S-27
+    title: Frontend Board invite UI + /join page
+    phase: PHASE-006
+    db_tables: []
+    api_endpoints: []
+    frontend_routes:
+      - path: /join
+        file: frontend/src/app/(protected)/join/page.tsx
+        note: reads ?token= query param, calls POST /api/v1/invitations/accept
+      - note: InviteModal.tsx rendered inside BoardView.tsx (/boards/[boardId])
+    ws_events: []
+    artifacts:
+      - frontend/src/components/board/InviteModal.tsx
+    dependencies: [S-26, S-13]
+
+  - id: S-28
+    title: Backend GET /api/v1/boards/{boardId}/members
+    phase: PHASE-006
+    db_tables: []
+    api_endpoints:
+      - GET /api/v1/boards/{boardId}/members
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/controller/MemberController.java
+      - backend/src/main/java/com/kanban/dto/response/MemberResponse.java
+      - note: getMembers method already modeled in BoardService.java (S-10 file)
+      - frontend/src/components/board/MemberList.tsx
+    dependencies: [S-10, S-05]
+
+  - id: S-29
+    title: Docker Compose full stack configuration
+    phase: PHASE-007
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - docker-compose.yml    # complete (all service definitions); stub created in S-01
+      - backend/Dockerfile
+      - frontend/Dockerfile   # not listed in directory_structure, added here
+      - .env.example          # complete (all env var names + example values); stub created in S-01
+    docker_services:
+      - name: postgres
+        image: postgres:16-alpine
+        env: [POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD]
+        port: 5432
+        volume: postgres_data:/var/lib/postgresql/data
+      - name: backend
+        build: ./backend
+        env: [SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD, JWT_SECRET, JWT_EXPIRY_MS]
+        port: 8080
+        depends_on: [postgres]
+      - name: frontend
+        build: ./frontend
+        env: [NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL]
+        port: 3000
+        depends_on: [backend]
+    dependencies: [S-01]
+
+  - id: S-30
+    title: Backend /api/v1/health endpoint
+    phase: PHASE-007
+    db_tables: []
+    api_endpoints:
+      - GET /api/v1/health
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/controller/HealthController.java
+    dependencies: [S-21]
+    note: S-21 is listed as dependency in kanban.json; health check validates DB + WS broker readiness
+
+  - id: S-31
+    title: Backend structured JSON logging with correlation IDs
+    phase: PHASE-007
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - backend/src/main/java/com/kanban/config/LoggingConfig.java
+      - note: MDC correlation ID filter wired into JwtAuthenticationFilter (S-05 file)
+      - note: logstash-logback-encoder added to build.gradle
+    pattern_ref: "Structured Logging (memory.patterns)"
+    dependencies: [S-05]
+
+  - id: S-32
+    title: CI GitHub Actions pipeline
+    phase: PHASE-007
+    db_tables: []
+    api_endpoints: []
+    frontend_routes: []
+    ws_events: []
+    artifacts:
+      - .github/workflows/ci.yml
+    ci_jobs:
+      - name: backend-test
+        runs_on: ubuntu-latest
+        steps: [checkout, setup-java-21, gradle-test, gradle-build]
+      - name: frontend-test
+        runs_on: ubuntu-latest
+        steps: [checkout, setup-node-20, npm-ci, npm-run-build, npm-run-lint]
+      - name: docker-build
+        runs_on: ubuntu-latest
+        needs: [backend-test, frontend-test]
+        steps: [docker-compose-build]
+    dependencies: [S-29]
+
+
+# ────────────────────────────────────────────────────────────
+# SECTION 7: COMPONENT BOUNDARIES
+# Deep Modules: narrow interface, deep implementation
+# ────────────────────────────────────────────────────────────
+
+component_boundaries:
+
+  - name: AuthModule
+    story_ref: [S-02, S-03, S-04, S-05]
+    responsibilities:
+      - User registration with password hashing (BCrypt)
+      - JWT issuance and validation
+      - Spring Security filter chain configuration
+    hides:
+      - BCrypt salt and hash internals
+      - JWT signing algorithm and secret rotation
+      - UserDetails loading logic
+    interface_surface: [POST /api/v1/auth/register, POST /api/v1/auth/login, JwtAuthenticationFilter (internal Spring filter)]
+
+  - name: BoardModule
+    story_ref: [S-08, S-10, S-28]
+    responsibilities:
+      - Board lifecycle (create, read, soft-delete)
+      - Board membership enforcement (authorization gate for all board-scoped resources)
+      - Member listing
+    hides:
+      - board_members join table management
+      - soft-delete filter application
+    interface_surface: [POST /api/v1/boards, GET /api/v1/boards, GET /api/v1/boards/{boardId}, DELETE /api/v1/boards/{boardId}, GET /api/v1/boards/{boardId}/members]
+
+  - name: ColumnModule
+    story_ref: [S-09, S-11]
+    responsibilities:
+      - Column CRUD within a board
+      - Position assignment using fractional indexing
+    hides:
+      - fractional position recalculation algorithm
+      - board membership check delegation to BoardModule
+    interface_surface: [POST /api/v1/boards/{boardId}/columns, PATCH /api/v1/columns/{columnId}, DELETE /api/v1/columns/{columnId}, PATCH /api/v1/boards/{boardId}/columns/reorder]
+
+  - name: CardModule
+    story_ref: [S-14, S-15, S-16, S-19]
+    responsibilities:
+      - Card CRUD within a column
+      - Card move across columns with position recalculation
+      - Label assignment to cards
+    hides:
+      - position midpoint calculation for moves
+      - label-card join table management
+    interface_surface: [POST /api/v1/columns/{columnId}/cards, GET /api/v1/cards/{cardId}, PATCH /api/v1/cards/{cardId}, DELETE /api/v1/cards/{cardId}, PATCH /api/v1/cards/{cardId}/move, POST /api/v1/boards/{boardId}/labels, GET /api/v1/boards/{boardId}/labels, DELETE /api/v1/labels/{labelId}]
+
+  - name: RealtimeModule
+    story_ref: [S-21, S-22, S-23]
+    responsibilities:
+      - STOMP WebSocket gateway configuration
+      - Broadcasting board mutations to all board subscribers
+    hides:
+      - SimpMessagingTemplate usage
+      - topic name construction
+    interface_surface: [EventBroadcastService.broadcastBoardEvent (internal), /topic/boards/{boardId} (subscription)]
+
+  - name: InvitationModule
+    story_ref: [S-24, S-25, S-26, S-27, S-28]
+    responsibilities:
+      - Invitation token generation and single-use enforcement
+      - Invitation acceptance — adds user to board_members
+    hides:
+      - token generation strategy (SecureRandom)
+      - expiry enforcement logic
+    interface_surface: [POST /api/v1/boards/{boardId}/invitations, POST /api/v1/invitations/accept]
+
+  - name: FrontendBoardState
+    story_ref: [S-12, S-13, S-17, S-18, S-20, S-23]
+    responsibilities:
+      - Zustand store as single source of truth for board data
+      - Optimistic UI updates on drag-drop, then reconcile with WS event
+      - Card drawer manages card detail read/write
+    hides:
+      - WS message dispatch-to-store reducer logic
+      - dnd-kit sensor configuration
+    interface_surface: [boardStore.ts exports (useBoardStore hook), websocket.ts (internal subscribe call)]

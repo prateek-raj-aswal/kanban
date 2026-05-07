@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(New-Item -ItemType Directory -Path \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\runs\\\\tests\" -Force)",
+      "Bash(Out-Null)",
+      "Bash(Write-Output \"Created\")",
+      "PowerShell($env:SKIP_COMPILE_TEST = \"1\"; & powershell.exe -File \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\runs\\\\tests\\\\s01_scaffold_tests.ps1\")",
+      "PowerShell($env:SKIP_COMPILE_TEST = \"1\"; powershell.exe -File \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\runs\\\\tests\\\\s01_scaffold_tests.ps1\")",
+      "PowerShell(powershell.exe -NonInteractive -File \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\runs\\\\tests\\\\s01_scaffold_tests.ps1\")",
+      "Bash(cd /d \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\")",
+      "Bash(curl -s \"https://registry.npmjs.org/next/latest\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('version','unknown'\\)\\)\")",
+      "Bash(curl -s \"https://registry.npmjs.org/next\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); versions=list\\(d.get\\('versions',{}\\).keys\\(\\)\\); print\\('\\\\n'.join\\([v for v in versions if v.startswith\\('14.'\\)]\\)[-10:]\\)\")"
+    ]
+  }
+}

@@ -1,0 +1,265 @@
+{
+  "stories": [
+    {
+      "id": "S-01",
+      "title": "Initialize monorepo directory structure",
+      "phase": "PHASE-001",
+      "dependencies": [],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-02",
+      "title": "PostgreSQL schema — users table migration",
+      "phase": "PHASE-001",
+      "dependencies": ["S-01"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-03",
+      "title": "Backend — POST /api/v1/auth/register endpoint",
+      "phase": "PHASE-001",
+      "dependencies": ["S-02"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-04",
+      "title": "Backend — POST /api/v1/auth/login endpoint with JWT issuance",
+      "phase": "PHASE-001",
+      "dependencies": ["S-03"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-05",
+      "title": "Backend — JWT authentication filter (Spring Security)",
+      "phase": "PHASE-001",
+      "dependencies": ["S-04"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-06",
+      "title": "Frontend — Register page UI and API integration",
+      "phase": "PHASE-001",
+      "dependencies": ["S-03"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-07",
+      "title": "Frontend — Login page UI, JWT storage, and auth redirect",
+      "phase": "PHASE-001",
+      "dependencies": ["S-04", "S-06"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-08",
+      "title": "PostgreSQL schema — boards and board_members tables migration",
+      "phase": "PHASE-002",
+      "dependencies": ["S-02"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-09",
+      "title": "PostgreSQL schema — columns table migration",
+      "phase": "PHASE-002",
+      "dependencies": ["S-08"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-10",
+      "title": "Backend — Board CRUD endpoints (POST, GET, DELETE)",
+      "phase": "PHASE-002",
+      "dependencies": ["S-05", "S-08"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-11",
+      "title": "Backend — Column CRUD endpoints (POST, PATCH name, DELETE, reorder)",
+      "phase": "PHASE-002",
+      "dependencies": ["S-10", "S-09"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-12",
+      "title": "Frontend — Boards list page (/boards)",
+      "phase": "PHASE-002",
+      "dependencies": ["S-10", "S-07"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-13",
+      "title": "Frontend — Board detail page with column layout (/boards/[boardId])",
+      "phase": "PHASE-002",
+      "dependencies": ["S-11", "S-12"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-14",
+      "title": "PostgreSQL schema — cards and labels tables migration",
+      "phase": "PHASE-003",
+      "dependencies": ["S-09"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-15",
+      "title": "Backend — Card CRUD endpoints (POST, GET, PATCH, DELETE)",
+      "phase": "PHASE-003",
+      "dependencies": ["S-11", "S-14"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-16",
+      "title": "Backend — Label CRUD endpoints for a board",
+      "phase": "PHASE-003",
+      "dependencies": ["S-15"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-17",
+      "title": "Frontend — Card creation inline form inside a column",
+      "phase": "PHASE-003",
+      "dependencies": ["S-15", "S-13"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-18",
+      "title": "Frontend — Card detail drawer (view and edit all fields)",
+      "phase": "PHASE-003",
+      "dependencies": ["S-16", "S-17"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-19",
+      "title": "Backend — PATCH /api/v1/cards/{cardId}/move endpoint",
+      "phase": "PHASE-004",
+      "dependencies": ["S-15"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-20",
+      "title": "Frontend — Drag-and-drop card reordering with dnd-kit",
+      "phase": "PHASE-004",
+      "dependencies": ["S-19", "S-13"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-21",
+      "title": "Backend — WebSocket STOMP gateway configuration",
+      "phase": "PHASE-005",
+      "dependencies": ["S-05"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-22",
+      "title": "Backend — Broadcast board events on card and column mutations",
+      "phase": "PHASE-005",
+      "dependencies": ["S-21", "S-15", "S-19", "S-11"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-23",
+      "title": "Frontend — WebSocket client subscription and board state reconciliation",
+      "phase": "PHASE-005",
+      "dependencies": ["S-22", "S-20", "S-18"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-24",
+      "title": "PostgreSQL schema — board_invitations table migration",
+      "phase": "PHASE-006",
+      "dependencies": ["S-08"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-25",
+      "title": "Backend — POST /api/v1/boards/{boardId}/invitations endpoint",
+      "phase": "PHASE-006",
+      "dependencies": ["S-10", "S-24", "S-05"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-26",
+      "title": "Backend — POST /api/v1/invitations/accept endpoint",
+      "phase": "PHASE-006",
+      "dependencies": ["S-25"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-27",
+      "title": "Frontend — Board invite UI and /join invitation acceptance page",
+      "phase": "PHASE-006",
+      "dependencies": ["S-26", "S-13"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-28",
+      "title": "Backend — GET /api/v1/boards/{boardId}/members endpoint",
+      "phase": "PHASE-006",
+      "dependencies": ["S-10", "S-05"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-29",
+      "title": "Docker Compose — full stack configuration with env vars",
+      "phase": "PHASE-007",
+      "dependencies": ["S-01"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-30",
+      "title": "Backend — /api/v1/health endpoint",
+      "phase": "PHASE-007",
+      "dependencies": ["S-21"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-31",
+      "title": "Backend — Structured JSON logging with correlation IDs",
+      "phase": "PHASE-007",
+      "dependencies": ["S-05"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "S-32",
+      "title": "CI — GitHub Actions pipeline for backend and frontend",
+      "phase": "PHASE-007",
+      "dependencies": ["S-29"],
+      "status": "todo",
+      "acceptance_criteria": []
+    }
+  ],
+  "summary": {
+    "todo": 31,
+    "in_progress": 0,
+    "done": 1
+  }
+}

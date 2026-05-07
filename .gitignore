@@ -1,0 +1,74 @@
+# ---- Java / Gradle ----
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+.gradle/
+build/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Gradle wrapper generated files (keep properties, ignore caches)
+.gradle
+
+# Spring Boot
+*.log
+spring.log
+
+# ---- Node / Frontend ----
+node_modules/
+.next/
+.nuxt/
+dist/
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.yarn/
+
+# ---- Environment / Secrets ----
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# ---- Docker ----
+.docker/
+
+# ---- IDE: IntelliJ IDEA ----
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# ---- IDE: VS Code ----
+.vscode/
+*.code-workspace
+
+# ---- IDE: Eclipse ----
+.classpath
+.project
+.settings/
+bin/
+
+# ---- macOS ----
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ---- Windows ----
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ---- OS misc ----
+*.swp
+*.swo
+*~
