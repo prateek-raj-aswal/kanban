@@ -13,7 +13,7 @@
       "title": "PostgreSQL schema — users table migration",
       "phase": "PHASE-001",
       "dependencies": ["S-01"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -21,7 +21,7 @@
       "title": "Backend — POST /api/v1/auth/register endpoint",
       "phase": "PHASE-001",
       "dependencies": ["S-02"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -29,7 +29,7 @@
       "title": "Backend — POST /api/v1/auth/login endpoint with JWT issuance",
       "phase": "PHASE-001",
       "dependencies": ["S-03"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -37,7 +37,7 @@
       "title": "Backend — JWT authentication filter (Spring Security)",
       "phase": "PHASE-001",
       "dependencies": ["S-04"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -45,7 +45,7 @@
       "title": "Frontend — Register page UI and API integration",
       "phase": "PHASE-001",
       "dependencies": ["S-03"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -53,7 +53,7 @@
       "title": "Frontend — Login page UI, JWT storage, and auth redirect",
       "phase": "PHASE-001",
       "dependencies": ["S-04", "S-06"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -61,7 +61,7 @@
       "title": "PostgreSQL schema — boards and board_members tables migration",
       "phase": "PHASE-002",
       "dependencies": ["S-02"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -69,7 +69,7 @@
       "title": "PostgreSQL schema — columns table migration",
       "phase": "PHASE-002",
       "dependencies": ["S-08"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -77,7 +77,7 @@
       "title": "Backend — Board CRUD endpoints (POST, GET, DELETE)",
       "phase": "PHASE-002",
       "dependencies": ["S-05", "S-08"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -85,7 +85,7 @@
       "title": "Backend — Column CRUD endpoints (POST, PATCH name, DELETE, reorder)",
       "phase": "PHASE-002",
       "dependencies": ["S-10", "S-09"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -93,7 +93,7 @@
       "title": "Frontend — Boards list page (/boards)",
       "phase": "PHASE-002",
       "dependencies": ["S-10", "S-07"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -101,7 +101,7 @@
       "title": "Frontend — Board detail page with column layout (/boards/[boardId])",
       "phase": "PHASE-002",
       "dependencies": ["S-11", "S-12"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -109,7 +109,7 @@
       "title": "PostgreSQL schema — cards and labels tables migration",
       "phase": "PHASE-003",
       "dependencies": ["S-09"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -117,7 +117,7 @@
       "title": "Backend — Card CRUD endpoints (POST, GET, PATCH, DELETE)",
       "phase": "PHASE-003",
       "dependencies": ["S-11", "S-14"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -125,7 +125,7 @@
       "title": "Backend — Label CRUD endpoints for a board",
       "phase": "PHASE-003",
       "dependencies": ["S-15"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -133,7 +133,7 @@
       "title": "Frontend — Card creation inline form inside a column",
       "phase": "PHASE-003",
       "dependencies": ["S-15", "S-13"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -141,7 +141,7 @@
       "title": "Frontend — Card detail drawer (view and edit all fields)",
       "phase": "PHASE-003",
       "dependencies": ["S-16", "S-17"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -149,16 +149,29 @@
       "title": "Backend — PATCH /api/v1/cards/{cardId}/move endpoint",
       "phase": "PHASE-004",
       "dependencies": ["S-15"],
-      "status": "todo",
-      "acceptance_criteria": []
+      "status": "done",
+      "acceptance_criteria": [
+        "PATCH /api/v1/cards/{cardId}/move returns 200 with updated CardResponse",
+        "Moves card to target column with given position",
+        "Returns 404 when card not found",
+        "Returns 404 when target column not found",
+        "Returns 422 when target column is on a different board",
+        "Returns 403 when user is not a board member"
+      ]
     },
     {
       "id": "S-20",
       "title": "Frontend — Drag-and-drop card reordering with dnd-kit",
       "phase": "PHASE-004",
       "dependencies": ["S-19", "S-13"],
-      "status": "todo",
-      "acceptance_criteria": []
+      "status": "done",
+      "acceptance_criteria": [
+        "Cards can be dragged within the same column to reorder",
+        "Cards can be dragged across columns",
+        "Drag triggers PATCH /api/v1/cards/{cardId}/move on drop",
+        "UI updates optimistically before API response",
+        "Drag is disabled while a move request is in-flight"
+      ]
     },
     {
       "id": "S-21",
@@ -258,8 +271,8 @@
     }
   ],
   "summary": {
-    "todo": 31,
+    "todo": 12,
     "in_progress": 0,
-    "done": 1
+    "done": 20
   }
 }
