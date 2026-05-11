@@ -38,6 +38,7 @@ class CardServiceTest {
     @Mock ColumnRepository columnRepository;
     @Mock LabelRepository labelRepository;
     @Mock BoardAccessPolicy accessPolicy;
+    @Mock EventBroadcastService eventBroadcastService;
 
     @InjectMocks CardService cardService;
 

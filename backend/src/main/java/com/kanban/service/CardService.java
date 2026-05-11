@@ -13,6 +13,7 @@ import com.kanban.repository.CardRepository;
 import com.kanban.repository.ColumnRepository;
 import com.kanban.repository.LabelRepository;
 import com.kanban.security.BoardAccessPolicy;
+import com.kanban.websocket.BoardEventPayload;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,13 +29,16 @@ public class CardService {
     private final ColumnRepository columnRepository;
     private final LabelRepository labelRepository;
     private final BoardAccessPolicy accessPolicy;
+    private final EventBroadcastService eventBroadcastService;
 
     public CardService(CardRepository cardRepository, ColumnRepository columnRepository,
-                       LabelRepository labelRepository, BoardAccessPolicy accessPolicy) {
+                       LabelRepository labelRepository, BoardAccessPolicy accessPolicy,
+                       EventBroadcastService eventBroadcastService) {
         this.cardRepository = cardRepository;
         this.columnRepository = columnRepository;
         this.labelRepository = labelRepository;
         this.accessPolicy = accessPolicy;
+        this.eventBroadcastService = eventBroadcastService;
     }
 
     @Transactional
@@ -52,6 +56,13 @@ public class CardService {
         card.setAssigneeId(request.assigneeId());
         card.setPosition(maxPos + 1000.0);
         card = cardRepository.save(card);
+
+        UUID boardId = column.getBoard().getId();
+        eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("CARD_CREATED", boardId,
+                new BoardEventPayload.CardCreatedData(
+                        card.getId(), columnId, card.getTitle(), card.getPosition(),
+                        card.getAssigneeId(), card.getDueDate(), List.of())));
+
         return toResponse(card);
     }
 
@@ -83,7 +94,15 @@ public class CardService {
         }
 
         card = cardRepository.save(card);
-        return toResponse(card);
+
+        UUID boardId = card.getColumn().getBoard().getId();
+        CardResponse response = toResponse(card);
+        eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("CARD_UPDATED", boardId,
+                new BoardEventPayload.CardUpdatedData(
+                        card.getId(), card.getColumn().getId(), card.getTitle(), card.getDescription(),
+                        card.getAssigneeId(), card.getDueDate(), response.labels(), card.getUpdatedAt())));
+
+        return response;
     }
 
     @Transactional
@@ -101,9 +120,17 @@ public class CardService {
 
         accessPolicy.assertMember(card.getColumn().getBoard().getId(), requestingUserId);
 
+        UUID fromColumnId = card.getColumn().getId();
+        UUID boardId = card.getColumn().getBoard().getId();
+
         card.setColumn(targetColumn);
         card.setPosition(position);
         card = cardRepository.save(card);
+
+        eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("CARD_MOVED", boardId,
+                new BoardEventPayload.CardMovedData(
+                        card.getId(), fromColumnId, targetColumnId, position, card.getUpdatedAt())));
+
         return toResponse(card);
     }
 
@@ -112,8 +139,15 @@ public class CardService {
         Card card = cardRepository.findActiveById(cardId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CARD_NOT_FOUND", "Card not found"));
         accessPolicy.assertMember(card.getColumn().getBoard().getId(), requestingUserId);
+
+        UUID boardId = card.getColumn().getBoard().getId();
+        UUID columnId = card.getColumn().getId();
+
         card.setDeletedAt(Instant.now());
         cardRepository.save(card);
+
+        eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("CARD_DELETED", boardId,
+                new BoardEventPayload.CardDeletedData(cardId, columnId)));
     }
 
     private CardResponse toResponse(Card card) {

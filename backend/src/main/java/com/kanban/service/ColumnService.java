@@ -8,6 +8,7 @@ import com.kanban.model.BoardColumn;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.ColumnRepository;
 import com.kanban.security.BoardAccessPolicy;
+import com.kanban.websocket.BoardEventPayload;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,12 +23,14 @@ public class ColumnService {
     private final ColumnRepository columnRepository;
     private final BoardRepository boardRepository;
     private final BoardAccessPolicy accessPolicy;
+    private final EventBroadcastService eventBroadcastService;
 
     public ColumnService(ColumnRepository columnRepository, BoardRepository boardRepository,
-                         BoardAccessPolicy accessPolicy) {
+                         BoardAccessPolicy accessPolicy, EventBroadcastService eventBroadcastService) {
         this.columnRepository = columnRepository;
         this.boardRepository = boardRepository;
         this.accessPolicy = accessPolicy;
+        this.eventBroadcastService = eventBroadcastService;
     }
 
     @Transactional
@@ -42,6 +45,10 @@ public class ColumnService {
         col.setName(request.name());
         col.setPosition(maxPos + 1000.0);
         col = columnRepository.save(col);
+
+        eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("COLUMN_CREATED", boardId,
+                new BoardEventPayload.ColumnCreatedData(col.getId(), col.getName(), col.getPosition())));
+
         return toResponse(col);
     }
 
@@ -51,7 +58,13 @@ public class ColumnService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "COLUMN_NOT_FOUND", "Column not found"));
         accessPolicy.assertMember(col.getBoard().getId(), requestingUserId);
         col.setName(name);
-        return toResponse(columnRepository.save(col));
+        col = columnRepository.save(col);
+
+        UUID boardId = col.getBoard().getId();
+        eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("COLUMN_UPDATED", boardId,
+                new BoardEventPayload.ColumnUpdatedData(col.getId(), col.getName())));
+
+        return toResponse(col);
     }
 
     @Transactional
@@ -59,8 +72,15 @@ public class ColumnService {
         BoardColumn col = columnRepository.findActiveById(columnId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "COLUMN_NOT_FOUND", "Column not found"));
         accessPolicy.assertMember(col.getBoard().getId(), requestingUserId);
+
+        UUID boardId = col.getBoard().getId();
+        UUID deletedId = col.getId();
+
         col.setDeletedAt(Instant.now());
         columnRepository.save(col);
+
+        eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("COLUMN_DELETED", boardId,
+                new BoardEventPayload.ColumnDeletedData(deletedId)));
     }
 
     @Transactional
@@ -85,7 +105,16 @@ public class ColumnService {
             columnRepository.save(col);
         }
 
-        return columnRepository.findActiveByBoardId(boardId).stream().map(this::toResponse).toList();
+        List<ColumnResponse> result = columnRepository.findActiveByBoardId(boardId).stream()
+                .map(this::toResponse).toList();
+
+        List<BoardEventPayload.ColumnPosition> positions = result.stream()
+                .map(r -> new BoardEventPayload.ColumnPosition(r.id(), r.position()))
+                .toList();
+        eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("COLUMN_REORDERED", boardId,
+                new BoardEventPayload.ColumnReorderedData(positions)));
+
+        return result;
     }
 
     private ColumnResponse toResponse(BoardColumn col) {

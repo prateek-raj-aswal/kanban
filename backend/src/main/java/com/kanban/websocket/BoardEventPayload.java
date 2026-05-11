@@ -1,0 +1,38 @@
+package com.kanban.websocket;
+
+import com.kanban.dto.response.LabelResponse;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+public record BoardEventPayload(String eventType, UUID boardId, Instant timestamp, Object data) {
+
+    public static BoardEventPayload of(String eventType, UUID boardId, Object data) {
+        return new BoardEventPayload(eventType, boardId, Instant.now(), data);
+    }
+
+    public record CardCreatedData(
+            UUID id, UUID columnId, String title, double position,
+            UUID assigneeId, LocalDate dueDate, List<LabelResponse> labels) {}
+
+    public record CardUpdatedData(
+            UUID id, UUID columnId, String title, String description,
+            UUID assigneeId, LocalDate dueDate, List<LabelResponse> labels, Instant updatedAt) {}
+
+    public record CardMovedData(
+            UUID id, UUID fromColumnId, UUID toColumnId, double newPosition, Instant updatedAt) {}
+
+    public record CardDeletedData(UUID id, UUID columnId) {}
+
+    public record ColumnCreatedData(UUID id, String name, double position) {}
+
+    public record ColumnUpdatedData(UUID id, String name) {}
+
+    public record ColumnReorderedData(List<ColumnPosition> columns) {}
+
+    public record ColumnDeletedData(UUID id) {}
+
+    public record ColumnPosition(UUID id, double position) {}
+}
