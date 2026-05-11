@@ -1,12 +1,16 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { api, ApiError } from '@/lib/api'
-import type { BoardResponse, ColumnResponse, CardResponse } from '@/types/api'
+import { getToken } from '@/lib/auth'
+import { subscribeToBoard } from '@/lib/websocket'
+import { useBoardStore } from '@/store/boardStore'
+import type { ColumnResponse, CardResponse } from '@/types/api'
 import { T } from '@/lib/theme'
 import Icon from '@/components/ui/Icon'
 import Sidebar from './Sidebar'
 import ColumnList from './ColumnList'
 import CardModal from './CardModal'
+import InviteModal from './InviteModal'
 
 interface Props {
   boardId: string
@@ -20,41 +24,43 @@ const VIEW_TABS = [
 ] as const
 
 export default function BoardView({ boardId }: Props) {
-  const [board, setBoard] = useState<BoardResponse | null>(null)
+  const { board, setBoard, addCard, updateCard, moveCard, deleteCard, addColumn, deleteColumn, applyEvent } = useBoardStore()
   const [newColName, setNewColName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [selectedCard, setSelectedCard] = useState<{ card: CardResponse; columnName: string } | null>(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
-  async function load() {
-    try {
-      const data = await api.get<BoardResponse>(`/api/v1/boards/${boardId}`)
-      setBoard(data)
-    } catch (err) {
-      if (err instanceof ApiError) setError(err.message)
-    }
-  }
+  // Load board data
+  useEffect(() => {
+    setBoard(null)
+    api.get<import('@/types/api').BoardResponse>(`/api/v1/boards/${boardId}`)
+      .then(setBoard)
+      .catch(err => { if (err instanceof ApiError) setError(err.message) })
+  }, [boardId])
 
-  useEffect(() => { load() }, [boardId])
+  // WebSocket subscription — reconnects when boardId changes
+  useEffect(() => {
+    const token = getToken()
+    if (!token) return
+    return subscribeToBoard(boardId, token, applyEvent)
+  }, [boardId])
 
-  async function addColumn(e: React.FormEvent) {
+  async function addColumnHandler(e: React.FormEvent) {
     e.preventDefault()
     if (!newColName.trim()) return
     try {
       const col = await api.post<ColumnResponse>(`/api/v1/boards/${boardId}/columns`, { name: newColName })
-      setBoard(prev => prev ? { ...prev, columns: [...(prev.columns ?? []), col] } : prev)
+      addColumn(col)
       setNewColName('')
     } catch (err) {
       if (err instanceof ApiError) setError(err.message)
     }
   }
 
-  async function deleteColumn(colId: string) {
+  async function deleteColumnHandler(colId: string) {
     try {
       await api.delete(`/api/v1/columns/${colId}`)
-      setBoard(prev => prev ? {
-        ...prev,
-        columns: (prev.columns ?? []).filter(c => c.id !== colId)
-      } : prev)
+      deleteColumn(colId)
     } catch (err) {
       if (err instanceof ApiError) setError(err.message)
     }
@@ -65,55 +71,13 @@ export default function BoardView({ boardId }: Props) {
     setSelectedCard({ card, columnName: col?.name ?? '' })
   }
 
-  function handleAddCard(columnId: string, newCard: CardResponse) {
-    setBoard(prev => prev ? {
-      ...prev,
-      columns: (prev.columns ?? []).map(col =>
-        col.id === columnId
-          ? { ...col, cards: [...(col.cards ?? []), newCard] }
-          : col
-      )
-    } : prev)
-  }
-
   function handleCardUpdate(updated: CardResponse) {
-    setBoard(prev => prev ? {
-      ...prev,
-      columns: (prev.columns ?? []).map(col =>
-        col.id === updated.columnId
-          ? { ...col, cards: (col.cards ?? []).map(c => c.id === updated.id ? updated : c) }
-          : col
-      )
-    } : prev)
-    setSelectedCard(prev => prev && prev.card.id === updated.id
-      ? { ...prev, card: updated }
-      : prev
-    )
-  }
-
-  function handleCardMove(updated: CardResponse) {
-    setBoard(prev => {
-      if (!prev) return prev
-      const cols = prev.columns ?? []
-      const newCols = cols.map(col => {
-        const filtered = (col.cards ?? []).filter(c => c.id !== updated.id)
-        if (col.id === updated.columnId) {
-          return { ...col, cards: [...filtered, updated].sort((a, b) => a.position - b.position) }
-        }
-        return { ...col, cards: filtered }
-      })
-      return { ...prev, columns: newCols }
-    })
+    updateCard(updated)
+    setSelectedCard(prev => prev && prev.card.id === updated.id ? { ...prev, card: updated } : prev)
   }
 
   function handleCardDelete(cardId: string) {
-    setBoard(prev => prev ? {
-      ...prev,
-      columns: (prev.columns ?? []).map(col => ({
-        ...col,
-        cards: (col.cards ?? []).filter(c => c.id !== cardId)
-      }))
-    } : prev)
+    deleteCard(cardId)
     setSelectedCard(null)
   }
 
@@ -144,13 +108,15 @@ export default function BoardView({ boardId }: Props) {
             <span style={{ color: T.text, fontWeight: 600 }}>{board?.name ?? '…'}</span>
           </div>
           <span style={{ flex: 1 }} />
-          <button style={{
-            height: 28, padding: '0 10px',
-            background: 'transparent', color: T.text,
-            border: `1px solid ${T.cardBorder}`, borderRadius: 6,
-            fontSize: 12, fontWeight: 500, cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-          }}>
+          <button
+            onClick={() => setInviteOpen(true)}
+            style={{
+              height: 28, padding: '0 10px',
+              background: 'transparent', color: T.text,
+              border: `1px solid ${T.cardBorder}`, borderRadius: 6,
+              fontSize: 12, fontWeight: 500, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}>
             <Icon name="user" size={13} sw={1.7} />
             Share
           </button>
@@ -170,7 +136,7 @@ export default function BoardView({ boardId }: Props) {
             </div>
 
             {/* Add column */}
-            <form onSubmit={addColumn} style={{ display: 'flex', gap: 6 }}>
+            <form onSubmit={addColumnHandler} style={{ display: 'flex', gap: 6 }}>
               <input
                 type="text"
                 placeholder="Column name"
@@ -268,14 +234,18 @@ export default function BoardView({ boardId }: Props) {
           ) : (
             <ColumnList
               columns={columns}
-              onDeleteColumn={deleteColumn}
+              onDeleteColumn={deleteColumnHandler}
               onSelectCard={handleSelectCard}
-              onAddCard={handleAddCard}
-              onCardMoved={handleCardMove}
+              onAddCard={addCard}
+              onCardMoved={moveCard}
             />
           )}
         </div>
       </div>
+
+      {inviteOpen && (
+        <InviteModal boardId={boardId} onClose={() => setInviteOpen(false)} />
+      )}
 
       {selectedCard && (
         <CardModal

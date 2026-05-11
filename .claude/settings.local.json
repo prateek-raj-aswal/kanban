@@ -54,7 +54,18 @@
       "Read(//tmp/**)",
       "Read(//c/Users/HP/AppData/Local/Temp/claude/**)",
       "Bash(netstat -ano)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(dir /s /b \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\backend\\\\src\\\\test\")",
+      "Bash(dir /s /b \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\frontend\\\\src\")",
+      "Bash(Get-ChildItem -Recurse \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\frontend\\\\src\" -File)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(./gradlew compileJava compileTestJava)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('scripts',{}\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(./gradlew cleanTest test --tests \"com.kanban.filter.*\" --tests \"com.kanban.service.*\" --tests \"com.kanban.websocket.*\" --no-daemon)",
+      "Bash(xargs grep -l \"testcase\")",
+      "Bash(python -c ' *)",
+      "Bash(./gradlew cleanTest test --tests \"com.kanban.controller.HealthControllerTest\" --no-daemon)"
     ]
   }
 }

@@ -56,6 +56,15 @@ export interface MemberResponse {
   joinedAt: string
 }
 
+export interface InvitationResponse {
+  id: string
+  boardId: string
+  inviteeEmail: string
+  token: string
+  status: string
+  expiresAt: string
+}
+
 export interface ApiError {
   error: string
   code: string

@@ -178,7 +178,7 @@
       "title": "Backend — WebSocket STOMP gateway configuration",
       "phase": "PHASE-005",
       "dependencies": ["S-05"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -186,7 +186,7 @@
       "title": "Backend — Broadcast board events on card and column mutations",
       "phase": "PHASE-005",
       "dependencies": ["S-21", "S-15", "S-19", "S-11"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -194,7 +194,7 @@
       "title": "Frontend — WebSocket client subscription and board state reconciliation",
       "phase": "PHASE-005",
       "dependencies": ["S-22", "S-20", "S-18"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -202,7 +202,7 @@
       "title": "PostgreSQL schema — board_invitations table migration",
       "phase": "PHASE-006",
       "dependencies": ["S-08"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -210,7 +210,7 @@
       "title": "Backend — POST /api/v1/boards/{boardId}/invitations endpoint",
       "phase": "PHASE-006",
       "dependencies": ["S-10", "S-24", "S-05"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -218,7 +218,7 @@
       "title": "Backend — POST /api/v1/invitations/accept endpoint",
       "phase": "PHASE-006",
       "dependencies": ["S-25"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -226,7 +226,7 @@
       "title": "Frontend — Board invite UI and /join invitation acceptance page",
       "phase": "PHASE-006",
       "dependencies": ["S-26", "S-13"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -234,7 +234,7 @@
       "title": "Backend — GET /api/v1/boards/{boardId}/members endpoint",
       "phase": "PHASE-006",
       "dependencies": ["S-10", "S-05"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -242,7 +242,7 @@
       "title": "Docker Compose — full stack configuration with env vars",
       "phase": "PHASE-007",
       "dependencies": ["S-01"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -250,7 +250,7 @@
       "title": "Backend — /api/v1/health endpoint",
       "phase": "PHASE-007",
       "dependencies": ["S-21"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -258,7 +258,7 @@
       "title": "Backend — Structured JSON logging with correlation IDs",
       "phase": "PHASE-007",
       "dependencies": ["S-05"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -266,13 +266,13 @@
       "title": "CI — GitHub Actions pipeline for backend and frontend",
       "phase": "PHASE-007",
       "dependencies": ["S-29"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     }
   ],
   "summary": {
-    "todo": 12,
+    "todo": 0,
     "in_progress": 0,
-    "done": 20
+    "done": 32
   }
 }
