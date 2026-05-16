@@ -1,10 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, ApiError } from '@/lib/api'
 import { getToken } from '@/lib/auth'
 import { subscribeToBoard } from '@/lib/websocket'
 import { useBoardStore } from '@/store/boardStore'
-import type { ColumnResponse, CardResponse, Priority } from '@/types/api'
+import type { ColumnResponse, CardResponse, Priority, MemberResponse } from '@/types/api'
 import { T } from '@/lib/theme'
 import Icon from '@/components/ui/Icon'
 import Sidebar from './Sidebar'
@@ -31,14 +31,22 @@ export default function BoardView({ boardId }: Props) {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [searchQ, setSearchQ] = useState('')
   const [filterPriority, setFilterPriority] = useState<Priority | ''>('')
+  const [filterAssigneeId, setFilterAssigneeId] = useState('')
+  const [members, setMembers] = useState<MemberResponse[]>([])
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
+  const [editingBoardName, setEditingBoardName] = useState(false)
+  const [boardNameVal, setBoardNameVal] = useState('')
+  const boardNameRef = useRef<HTMLInputElement>(null)
 
-  // Load board data
+  // Load board data and members
   useEffect(() => {
     setBoard(null)
     api.get<import('@/types/api').BoardResponse>(`/api/v1/boards/${boardId}`)
       .then(setBoard)
       .catch(err => { if (err instanceof ApiError) setError(err.message) })
+    api.get<MemberResponse[]>(`/api/v1/boards/${boardId}/members`)
+      .then(setMembers)
+      .catch(() => {})
   }, [boardId])
 
   // WebSocket subscription — reconnects when boardId changes
@@ -47,6 +55,16 @@ export default function BoardView({ boardId }: Props) {
     if (!token) return
     return subscribeToBoard(boardId, token, applyEvent)
   }, [boardId])
+
+  async function handleBoardRename() {
+    const name = boardNameVal.trim()
+    setEditingBoardName(false)
+    if (!name || name === board?.name) return
+    try {
+      await api.patch(`/api/v1/boards/${boardId}`, { name })
+      setBoard({ ...board!, name })
+    } catch { /* ignore */ }
+  }
 
   async function addColumnHandler(e: React.FormEvent) {
     e.preventDefault()
@@ -91,6 +109,9 @@ export default function BoardView({ boardId }: Props) {
     }
     if (filterPriority) {
       cards = cards.filter(c => c.priority === filterPriority)
+    }
+    if (filterAssigneeId) {
+      cards = cards.filter(c => c.assigneeId === filterAssigneeId)
     }
     return { ...col, cards }
   })
@@ -139,10 +160,31 @@ export default function BoardView({ boardId }: Props) {
         <div style={{ padding: '14px 18px 0', flexShrink: 0, background: T.canvas }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginBottom: 14 }}>
             <div style={{ flex: 1 }}>
-              <h1 style={{
-                fontSize: 20, fontWeight: 700, letterSpacing: '-.02em',
-                color: T.text, margin: '0 0 4px',
-              }}>{board?.name ?? 'Loading…'}</h1>
+              {editingBoardName ? (
+                <input
+                  ref={boardNameRef}
+                  value={boardNameVal}
+                  onChange={e => setBoardNameVal(e.target.value)}
+                  onBlur={handleBoardRename}
+                  onKeyDown={e => { if (e.key === 'Enter') boardNameRef.current?.blur(); if (e.key === 'Escape') setEditingBoardName(false) }}
+                  style={{
+                    fontSize: 20, fontWeight: 700, letterSpacing: '-.02em',
+                    color: T.text, background: 'transparent',
+                    border: 'none', borderBottom: `2px solid ${T.accent}`,
+                    outline: 'none', fontFamily: 'inherit', padding: 0,
+                    margin: '0 0 4px', width: '100%',
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <h1
+                  onClick={() => { setBoardNameVal(board?.name ?? ''); setEditingBoardName(true) }}
+                  title="Click to rename"
+                  style={{
+                    fontSize: 20, fontWeight: 700, letterSpacing: '-.02em',
+                    color: T.text, margin: '0 0 4px', cursor: 'text',
+                  }}>{board?.name ?? 'Loading…'}</h1>
+              )}
               <div style={{ fontSize: 12.5, color: T.textMuted }}>
                 {columns.length} column{columns.length !== 1 ? 's' : ''} · {cardCount} card{cardCount !== 1 ? 's' : ''}
               </div>
@@ -251,6 +293,24 @@ export default function BoardView({ boardId }: Props) {
               }}>×</button>
             )}
           </div>
+          {/* Assignee filter */}
+          {members.length > 0 && (
+            <select
+              value={filterAssigneeId}
+              onChange={e => setFilterAssigneeId(e.target.value)}
+              style={{
+                height: 28, padding: '0 6px',
+                border: `1px solid ${T.cardBorder}`, borderRadius: 5,
+                fontSize: 12, background: T.card, color: filterAssigneeId ? T.text : T.textMuted,
+                cursor: 'pointer', outline: 'none', fontFamily: 'inherit',
+              }}
+            >
+              <option value="">All assignees</option>
+              {members.map(m => (
+                <option key={m.userId} value={m.userId}>{m.displayName || m.email}</option>
+              ))}
+            </select>
+          )}
           {/* Priority filter */}
           <select
             value={filterPriority}
@@ -267,9 +327,9 @@ export default function BoardView({ boardId }: Props) {
               <option key={p} value={p}>{p}</option>
             ))}
           </select>
-          {(searchQ || filterPriority) && (
+          {(searchQ || filterPriority || filterAssigneeId) && (
             <button
-              onClick={() => { setSearchQ(''); setFilterPriority('') }}
+              onClick={() => { setSearchQ(''); setFilterPriority(''); setFilterAssigneeId('') }}
               style={{
                 height: 28, padding: '0 9px',
                 background: T.chipBg, color: T.textMuted,

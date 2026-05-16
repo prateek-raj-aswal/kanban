@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { T, type IconKey } from '@/lib/theme'
-import type { BoardResponse } from '@/types/api'
+import type { BoardResponse, AuthResponse } from '@/types/api'
 import Icon from '@/components/ui/Icon'
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher'
 import NotificationPanel from '@/components/ui/NotificationPanel'
@@ -15,12 +15,14 @@ export default function Sidebar({ currentBoardId }: Props) {
   const [boards, setBoards] = useState<BoardResponse[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [profile, setProfile] = useState<AuthResponse | null>(null)
 
   useEffect(() => {
     api.get<BoardResponse[]>('/api/v1/boards').then(setBoards).catch(() => {})
     api.get<{ count: number }>('/api/v1/notifications/unread-count')
       .then(r => setUnreadCount(r.count))
       .catch(() => {})
+    api.get<AuthResponse>('/api/v1/users/me').then(setProfile).catch(() => {})
   }, [])
 
   const NavItem = ({ label, icon, count, active, href }: {
@@ -152,7 +154,16 @@ export default function Sidebar({ currentBoardId }: Props) {
           <Icon name="user" size={12} sw={1.5} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.1 }}>Account</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.1,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {profile?.displayName || profile?.email || 'Account'}
+          </div>
+          {profile?.email && (
+            <div style={{ fontSize: 10.5, color: T.textFaint, lineHeight: 1.1, marginTop: 2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {profile.email}
+            </div>
+          )}
         </div>
         <ThemeSwitcher />
         <div style={{ position: 'relative' }}>
