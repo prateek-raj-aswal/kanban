@@ -34,6 +34,9 @@ public class Card {
     @Column(name = "due_date")
     private LocalDate dueDate;
 
+    @Column(nullable = false, length = 10)
+    private String priority = "NONE";
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -67,6 +70,8 @@ public class Card {
     public void setAssigneeId(UUID assigneeId) { this.assigneeId = assigneeId; }
     public LocalDate getDueDate() { return dueDate; }
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
     public Instant getCreatedAt() { return createdAt; }

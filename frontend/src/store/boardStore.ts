@@ -1,6 +1,6 @@
 'use client'
 import { create } from 'zustand'
-import type { BoardResponse, CardResponse, ColumnResponse, LabelResponse } from '@/types/api'
+import type { BoardResponse, CardResponse, ColumnResponse, LabelResponse, Priority } from '@/types/api'
 import type { BoardEvent } from '@/lib/websocket'
 
 interface BoardStore {
@@ -20,16 +20,21 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
   setBoard: (board) => set({ board }),
 
-  addCard: (columnId, card) => set(({ board }) => board ? {
-    board: {
-      ...board,
-      columns: (board.columns ?? []).map(col =>
-        col.id === columnId
-          ? { ...col, cards: [...(col.cards ?? []), card] }
-          : col
-      ),
-    },
-  } : {}),
+  addCard: (columnId, card) => set(({ board }) => {
+    if (!board) return {}
+    const exists = (board.columns ?? []).flatMap(c => c.cards ?? []).some(c => c.id === card.id)
+    if (exists) return {}
+    return {
+      board: {
+        ...board,
+        columns: (board.columns ?? []).map(col =>
+          col.id === columnId
+            ? { ...col, cards: [...(col.cards ?? []), card] }
+            : col
+        ),
+      },
+    }
+  }),
 
   updateCard: (updated) => set(({ board }) => board ? {
     board: {
@@ -63,9 +68,11 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     },
   } : {}),
 
-  addColumn: (col) => set(({ board }) => board ? {
-    board: { ...board, columns: [...(board.columns ?? []), col] },
-  } : {}),
+  addColumn: (col) => set(({ board }) => {
+    if (!board) return {}
+    if ((board.columns ?? []).some(c => c.id === col.id)) return {}
+    return { board: { ...board, columns: [...(board.columns ?? []), col] } }
+  }),
 
   deleteColumn: (columnId) => set(({ board }) => board ? {
     board: {
@@ -82,26 +89,26 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       case 'CARD_CREATED': {
         const d = event.data as {
           id: string; columnId: string; title: string; position: number
-          assigneeId: string | null; dueDate: string | null; labels: LabelResponse[]
+          assigneeId: string | null; dueDate: string | null; priority: Priority; labels: LabelResponse[]
         }
         get().addCard(d.columnId, {
           id: d.id, columnId: d.columnId, title: d.title, description: null,
           position: d.position, assigneeId: d.assigneeId, dueDate: d.dueDate,
-          labels: d.labels ?? [],
+          priority: d.priority ?? 'NONE', labels: d.labels ?? [],
         })
         break
       }
       case 'CARD_UPDATED': {
         const d = event.data as {
           id: string; columnId: string; title: string; description: string | null
-          assigneeId: string | null; dueDate: string | null; labels: LabelResponse[]
+          assigneeId: string | null; dueDate: string | null; priority: Priority; labels: LabelResponse[]
           updatedAt: string
         }
         get().updateCard({
           id: d.id, columnId: d.columnId, title: d.title, description: d.description,
           position: (board.columns ?? []).flatMap(c => c.cards ?? []).find(c => c.id === d.id)?.position ?? 0,
-          assigneeId: d.assigneeId, dueDate: d.dueDate, labels: d.labels ?? [],
-          updatedAt: d.updatedAt,
+          assigneeId: d.assigneeId, dueDate: d.dueDate, priority: d.priority ?? 'NONE',
+          labels: d.labels ?? [], updatedAt: d.updatedAt,
         })
         break
       }

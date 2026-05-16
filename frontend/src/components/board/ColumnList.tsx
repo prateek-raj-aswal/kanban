@@ -133,6 +133,10 @@ export default function ColumnList({ columns, onDeleteColumn, onSelectCard, onAd
     }
   }
 
+  function handleRenameColumn(id: string, name: string) {
+    setLocalColumns(prev => prev.map(c => c.id === id ? { ...c, name } : c))
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -150,6 +154,7 @@ export default function ColumnList({ columns, onDeleteColumn, onSelectCard, onAd
             key={col.id}
             column={col}
             onDeleteColumn={onDeleteColumn}
+            onRenameColumn={handleRenameColumn}
             onSelectCard={onSelectCard}
             onAddCard={onAddCard}
           />

@@ -1,6 +1,7 @@
 package com.kanban.service;
 
 import com.kanban.dto.request.CreateBoardRequest;
+import com.kanban.dto.request.UpdateBoardRequest;
 import com.kanban.dto.response.BoardResponse;
 import com.kanban.dto.response.CardResponse;
 import com.kanban.dto.response.ColumnResponse;
@@ -12,6 +13,8 @@ import com.kanban.model.BoardMember;
 import com.kanban.model.User;
 import com.kanban.repository.BoardMemberRepository;
 import com.kanban.repository.BoardRepository;
+import com.kanban.repository.CommentRepository;
+import com.kanban.repository.SubtaskRepository;
 import com.kanban.repository.UserRepository;
 import com.kanban.security.BoardAccessPolicy;
 import org.springframework.http.HttpStatus;
@@ -32,15 +35,21 @@ public class BoardService {
     private final BoardMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final BoardAccessPolicy accessPolicy;
+    private final SubtaskRepository subtaskRepository;
+    private final CommentRepository commentRepository;
 
     public BoardService(BoardRepository boardRepository,
                         BoardMemberRepository memberRepository,
                         UserRepository userRepository,
-                        BoardAccessPolicy accessPolicy) {
+                        BoardAccessPolicy accessPolicy,
+                        SubtaskRepository subtaskRepository,
+                        CommentRepository commentRepository) {
         this.boardRepository = boardRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
         this.accessPolicy = accessPolicy;
+        this.subtaskRepository = subtaskRepository;
+        this.commentRepository = commentRepository;
     }
 
     @Transactional
@@ -81,6 +90,18 @@ public class BoardService {
     }
 
     @Transactional
+    public BoardResponse updateBoard(UUID boardId, UpdateBoardRequest request, UUID requestingUserId) {
+        Board board = boardRepository.findActiveById(boardId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"));
+        accessPolicy.assertMember(boardId, requestingUserId);
+        board.setName(request.name());
+        board = boardRepository.save(board);
+        String role = memberRepository.findByBoardIdAndUserId(boardId, requestingUserId)
+                .map(BoardMember::getRole).orElse("MEMBER");
+        return toBoardResponse(board, role, false);
+    }
+
+    @Transactional
     public void deleteBoard(UUID boardId, UUID requestingUserId) {
         Board board = boardRepository.findActiveById(boardId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"));
@@ -114,27 +135,45 @@ public class BoardService {
     }
 
     private BoardResponse toBoardResponse(Board board, String role, boolean includeColumns) {
-        List<ColumnResponse> columns = includeColumns
-                ? board.getColumns().stream()
+        List<ColumnResponse> columns = null;
+        if (includeColumns) {
+            List<UUID> cardIds = board.getColumns().stream()
+                    .filter(c -> c.getDeletedAt() == null)
+                    .flatMap(c -> c.getCards().stream().filter(card -> card.getDeletedAt() == null))
+                    .map(card -> card.getId())
+                    .toList();
+
+            Map<UUID, int[]> subtaskCounts = cardIds.isEmpty() ? Map.of()
+                    : subtaskRepository.getCountsByCardIds(cardIds);
+            Map<UUID, Integer> commentCounts = cardIds.isEmpty() ? Map.of()
+                    : commentRepository.getCountsByCardIds(cardIds);
+
+            columns = board.getColumns().stream()
                     .filter(c -> c.getDeletedAt() == null)
                     .map(c -> {
                         List<CardResponse> cards = c.getCards().stream()
                                 .filter(card -> card.getDeletedAt() == null)
-                                .map(card -> new CardResponse(
-                                        card.getId(), card.getColumn().getId(),
-                                        card.getTitle(), card.getDescription(),
-                                        card.getPosition(), card.getAssigneeId(), card.getDueDate(),
-                                        card.getLabels().stream()
-                                                .map(l -> new LabelResponse(l.getId(), l.getName(), l.getColor()))
-                                                .toList(),
-                                        card.getCreatedAt(), card.getUpdatedAt()
-                                ))
+                                .map(card -> {
+                                    int[] sc = subtaskCounts.getOrDefault(card.getId(), new int[]{0, 0});
+                                    int cc = commentCounts.getOrDefault(card.getId(), 0);
+                                    return new CardResponse(
+                                            card.getId(), card.getColumn().getId(),
+                                            card.getTitle(), card.getDescription(),
+                                            card.getPosition(), card.getAssigneeId(), card.getDueDate(),
+                                            card.getPriority(),
+                                            card.getLabels().stream()
+                                                    .map(l -> new LabelResponse(l.getId(), l.getName(), l.getColor()))
+                                                    .toList(),
+                                            sc[0], sc[1], cc,
+                                            card.getCreatedAt(), card.getUpdatedAt()
+                                    );
+                                })
                                 .toList();
                         return new ColumnResponse(c.getId(), c.getBoard().getId(), c.getName(),
                                 c.getPosition(), c.getCreatedAt(), cards);
                     })
-                    .toList()
-                : null;
+                    .toList();
+        }
         return new BoardResponse(board.getId(), board.getName(), board.getOwnerId(),
                 role, board.getCreatedAt(), columns);
     }

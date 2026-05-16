@@ -8,19 +8,78 @@ import type { ColumnResponse, CardResponse } from '@/types/api'
 import CardItem from './CardItem'
 import Icon from '@/components/ui/Icon'
 
+function ColumnMenu({ onDelete, onRename }: { onDelete: () => void; onRename: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const menuItem = (label: string, icon: string, color: string, action: () => void) => (
+    <button
+      onClick={() => { setOpen(false); action() }}
+      style={{
+        width: '100%', textAlign: 'left',
+        padding: '7px 12px', background: 'none', border: 'none',
+        fontSize: 13, color, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}
+    >
+      <Icon name={icon as never} size={13} sw={1.8} />
+      {label}
+    </button>
+  )
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background: 'none', border: 'none', padding: 2,
+          cursor: 'pointer', color: T.textMuted,
+          display: 'flex', alignItems: 'center', borderRadius: 4,
+        }}
+      >
+        <Icon name="more" size={14} sw={2} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, zIndex: 50,
+          background: T.card, border: `1px solid ${T.cardBorder}`,
+          borderRadius: 7, boxShadow: '0 4px 12px rgba(0,0,0,.12)',
+          minWidth: 140, padding: '4px 0', marginTop: 4,
+        }}>
+          {menuItem('Rename', 'flag', T.textMuted, onRename)}
+          {menuItem('Delete column', 'trash', T.danger, onDelete)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   column: ColumnResponse
   onDeleteColumn: (id: string) => void
+  onRenameColumn?: (id: string, name: string) => void
   onSelectCard?: (card: CardResponse) => void
   onAddCard?: (columnId: string, card: CardResponse) => void
 }
 
-export default function Column({ column, onDeleteColumn, onSelectCard, onAddCard }: Props) {
+export default function Column({ column, onDeleteColumn, onRenameColumn, onSelectCard, onAddCard }: Props) {
   const cards = column.cards ?? []
   const [showAdd, setShowAdd] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [renameVal, setRenameVal] = useState(column.name)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const renameRef = useRef<HTMLInputElement>(null)
 
   const { setNodeRef } = useDroppable({ id: column.id })
 
@@ -28,9 +87,30 @@ export default function Column({ column, onDeleteColumn, onSelectCard, onAddCard
     if (showAdd) textareaRef.current?.focus()
   }, [showAdd])
 
+  useEffect(() => {
+    if (renaming) {
+      setRenameVal(column.name)
+      renameRef.current?.focus()
+      renameRef.current?.select()
+    }
+  }, [renaming, column.name])
+
   function handleDelete() {
     if (window.confirm(`Delete column "${column.name}" and all its cards?`)) {
       onDeleteColumn(column.id)
+    }
+  }
+
+  async function handleRename() {
+    const name = renameVal.trim()
+    if (!name || name === column.name) { setRenaming(false); return }
+    try {
+      await api.patch<ColumnResponse>(`/api/v1/columns/${column.id}`, { name })
+      onRenameColumn?.(column.id, name)
+    } catch (err) {
+      if (err instanceof ApiError) alert(err.message)
+    } finally {
+      setRenaming(false)
     }
   }
 
@@ -70,31 +150,45 @@ export default function Column({ column, onDeleteColumn, onSelectCard, onAddCard
         display: 'flex', alignItems: 'center', gap: 8,
         flexShrink: 0,
       }}>
-        <span style={{
-          fontSize: 12, fontWeight: 600,
-          color: T.text, letterSpacing: '-.005em',
-        }}>{column.name}</span>
-        <span style={{
-          fontSize: 11, color: T.textFaint,
-          fontVariantNumeric: 'tabular-nums', fontWeight: 500,
-        }}>{cards.length}</span>
+        {renaming ? (
+          <input
+            ref={renameRef}
+            value={renameVal}
+            onChange={e => setRenameVal(e.target.value)}
+            onBlur={handleRename}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleRename()
+              if (e.key === 'Escape') setRenaming(false)
+            }}
+            style={{
+              flex: 1, fontSize: 12, fontWeight: 600,
+              color: T.text, letterSpacing: '-.005em',
+              background: T.card, border: `1px solid ${T.accent}`,
+              borderRadius: 4, padding: '2px 6px', outline: 'none',
+              fontFamily: 'inherit',
+            }}
+          />
+        ) : (
+          <>
+            <span style={{
+              fontSize: 12, fontWeight: 600,
+              color: T.text, letterSpacing: '-.005em',
+            }}>{column.name}</span>
+            <span style={{
+              fontSize: 11, color: T.textFaint,
+              fontVariantNumeric: 'tabular-nums', fontWeight: 500,
+            }}>{cards.length}</span>
+          </>
+        )}
         <span style={{ flex: 1 }} />
-        <Icon
-          name="plus" size={13} sw={2}
-          style={{ color: T.textMuted, cursor: 'pointer' }}
-          onClick={() => setShowAdd(true)}
-        />
-        <button
-          onClick={handleDelete}
-          title={`Delete "${column.name}"`}
-          style={{
-            background: 'none', border: 'none', padding: 0,
-            cursor: 'pointer', color: T.textMuted,
-            display: 'flex', alignItems: 'center',
-          }}
-        >
-          <Icon name="more" size={14} sw={2} />
-        </button>
+        {!renaming && (
+          <Icon
+            name="plus" size={13} sw={2}
+            style={{ color: T.textMuted, cursor: 'pointer' }}
+            onClick={() => setShowAdd(true)}
+          />
+        )}
+        <ColumnMenu onDelete={handleDelete} onRename={() => setRenaming(true)} />
       </div>
 
       {/* Cards */}

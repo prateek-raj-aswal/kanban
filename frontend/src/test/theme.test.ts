@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { darkenHex, T, ICONS } from '@/lib/theme'
+import { darkenHex, T, THEMES, ICONS } from '@/lib/theme'
 
 describe('darkenHex', () => {
   it('darkens white (#ffffff) by 50% to grey', () => {
@@ -25,11 +25,11 @@ describe('darkenHex', () => {
 
 describe('theme tokens', () => {
   it('accent is a valid hex color', () => {
-    expect(T.accent).toMatch(/^#[0-9a-fA-F]{6}$/)
+    expect(THEMES.light.accent).toMatch(/^#[0-9a-fA-F]{6}$/)
   })
 
   it('danger is a valid hex color', () => {
-    expect(T.danger).toMatch(/^#[0-9a-fA-F]{6}$/)
+    expect(THEMES.light.danger).toMatch(/^#[0-9a-fA-F]{6}$/)
   })
 })
 

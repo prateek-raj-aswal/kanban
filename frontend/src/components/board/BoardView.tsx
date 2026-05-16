@@ -4,7 +4,7 @@ import { api, ApiError } from '@/lib/api'
 import { getToken } from '@/lib/auth'
 import { subscribeToBoard } from '@/lib/websocket'
 import { useBoardStore } from '@/store/boardStore'
-import type { ColumnResponse, CardResponse } from '@/types/api'
+import type { ColumnResponse, CardResponse, Priority } from '@/types/api'
 import { T } from '@/lib/theme'
 import Icon from '@/components/ui/Icon'
 import Sidebar from './Sidebar'
@@ -29,6 +29,9 @@ export default function BoardView({ boardId }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [selectedCard, setSelectedCard] = useState<{ card: CardResponse; columnName: string } | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [searchQ, setSearchQ] = useState('')
+  const [filterPriority, setFilterPriority] = useState<Priority | ''>('')
+  const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
 
   // Load board data
   useEffect(() => {
@@ -81,8 +84,18 @@ export default function BoardView({ boardId }: Props) {
     setSelectedCard(null)
   }
 
-  const columns = board?.columns ?? []
-  const cardCount = columns.reduce((n, c) => n + (c.cards?.length ?? 0), 0)
+  const columns = (board?.columns ?? []).map(col => {
+    let cards = col.cards ?? []
+    if (searchQ.trim()) {
+      cards = cards.filter(c => c.title.toLowerCase().includes(searchQ.toLowerCase()))
+    }
+    if (filterPriority) {
+      cards = cards.filter(c => c.priority === filterPriority)
+    }
+    return { ...col, cards }
+  })
+  const rawColumns = board?.columns ?? []
+  const cardCount = rawColumns.reduce((n, c) => n + (c.cards?.length ?? 0), 0)
 
   return (
     <div style={{
@@ -174,18 +187,25 @@ export default function BoardView({ boardId }: Props) {
             width: 'fit-content',
           }}>
             {VIEW_TABS.map(tab => {
-              const active = tab.id === 'board'
+              const active = (tab.id === 'board' && viewMode === 'board') ||
+                             (tab.id === 'list' && viewMode === 'list')
               return (
-                <div key={tab.id} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '6px 9px', borderRadius: 5,
-                  fontSize: 12, fontWeight: 500,
-                  color: active ? T.text : T.textMuted,
-                  background: active ? T.card : 'transparent',
-                  border: active ? `1px solid ${T.cardBorder}` : '1px solid transparent',
-                  boxShadow: active ? T.cardShadow : 'none',
-                  cursor: 'pointer',
-                }}>
+                <div
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.id === 'board') setViewMode('board')
+                    else if (tab.id === 'list') setViewMode('list')
+                  }}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '6px 9px', borderRadius: 5,
+                    fontSize: 12, fontWeight: 500,
+                    color: active ? T.text : T.textMuted,
+                    background: active ? T.card : 'transparent',
+                    border: active ? `1px solid ${T.cardBorder}` : '1px solid transparent',
+                    boxShadow: active ? T.cardShadow : 'none',
+                    cursor: 'pointer',
+                  }}>
                   <Icon name={tab.icon} size={12} sw={1.7} />
                   {tab.label}
                 </div>
@@ -196,10 +216,11 @@ export default function BoardView({ boardId }: Props) {
 
         {/* Filter bar */}
         <div style={{
-          padding: '10px 18px 12px',
+          padding: '8px 18px 10px',
           display: 'flex', alignItems: 'center', gap: 8,
           flexShrink: 0, background: T.canvas,
           borderBottom: `1px solid ${T.topbarBorder}`,
+          flexWrap: 'wrap',
         }}>
           {error && (
             <span style={{
@@ -207,23 +228,59 @@ export default function BoardView({ boardId }: Props) {
               background: '#fee2e2', padding: '4px 8px', borderRadius: 5,
             }}>{error}</span>
           )}
-          {[
-            { icon: 'filter', label: 'Filter' },
-            { icon: 'sort',   label: 'Sort' },
-          ].map(({ icon, label }) => (
-            <div key={label} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '5px 9px', borderRadius: 5, fontSize: 12, fontWeight: 500,
-              color: T.textMuted, background: T.card, border: `1px solid ${T.cardBorder}`,
-              cursor: 'pointer',
-            }}>
-              <Icon name={icon as 'filter'} size={11} sw={1.7} />
-              {label}
-            </div>
-          ))}
+          {/* Search */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '4px 9px', borderRadius: 5, fontSize: 12,
+            background: T.card, border: `1px solid ${T.cardBorder}`,
+          }}>
+            <Icon name="search" size={11} sw={1.7} style={{ color: T.textMuted }} />
+            <input
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              placeholder="Search cards…"
+              style={{
+                border: 'none', outline: 'none', background: 'transparent',
+                fontSize: 12, color: T.text, width: 130, fontFamily: 'inherit',
+              }}
+            />
+            {searchQ && (
+              <button onClick={() => setSearchQ('')} style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: T.textFaint, fontSize: 14, padding: 0,
+              }}>×</button>
+            )}
+          </div>
+          {/* Priority filter */}
+          <select
+            value={filterPriority}
+            onChange={e => setFilterPriority(e.target.value as Priority | '')}
+            style={{
+              height: 28, padding: '0 6px',
+              border: `1px solid ${T.cardBorder}`, borderRadius: 5,
+              fontSize: 12, background: T.card, color: filterPriority ? T.text : T.textMuted,
+              cursor: 'pointer', outline: 'none', fontFamily: 'inherit',
+            }}
+          >
+            <option value="">All priorities</option>
+            {(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as Priority[]).map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          {(searchQ || filterPriority) && (
+            <button
+              onClick={() => { setSearchQ(''); setFilterPriority('') }}
+              style={{
+                height: 28, padding: '0 9px',
+                background: T.chipBg, color: T.textMuted,
+                border: `1px solid ${T.cardBorder}`, borderRadius: 5,
+                fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >Clear filters</button>
+          )}
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: 11.5, color: T.textFaint }}>
-            {columns.length} columns · {cardCount} cards
+            {rawColumns.length} columns · {cardCount} cards
           </span>
         </div>
 
@@ -231,6 +288,58 @@ export default function BoardView({ boardId }: Props) {
         <div style={{ flex: 1, overflow: 'hidden' }}>
           {!board ? (
             <div style={{ padding: 24, color: T.textMuted, fontSize: 13 }}>Loading…</div>
+          ) : viewMode === 'list' ? (
+            <div style={{ overflowY: 'auto', height: '100%', padding: '14px 18px' }}>
+              {columns.map(col => (
+                <div key={col.id} style={{ marginBottom: 24 }}>
+                  <div style={{
+                    fontSize: 11.5, fontWeight: 700, letterSpacing: '.06em',
+                    color: T.textFaint, textTransform: 'uppercase',
+                    marginBottom: 8, padding: '4px 0',
+                    borderBottom: `1px solid ${T.cardBorder}`,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}>
+                    {col.name}
+                    <span style={{ fontWeight: 500, fontSize: 11 }}>{col.cards?.length ?? 0}</span>
+                  </div>
+                  {(col.cards ?? []).length === 0 ? (
+                    <div style={{ fontSize: 12, color: T.textFaint, padding: '6px 0' }}>No cards</div>
+                  ) : (col.cards ?? []).map(card => (
+                    <div
+                      key={card.id}
+                      onClick={() => handleSelectCard(card)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '8px 10px', marginBottom: 4,
+                        background: T.card, border: `1px solid ${T.cardBorder}`,
+                        borderRadius: 6, cursor: 'pointer',
+                        boxShadow: T.cardShadow,
+                      }}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 500, color: T.text, flex: 1 }}>
+                        {card.title}
+                      </span>
+                      {card.priority && card.priority !== 'NONE' && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700,
+                          color: { LOW: '#3b82f6', MEDIUM: '#eab308', HIGH: '#f97316', URGENT: '#ef4444' }[card.priority] ?? T.textFaint,
+                        }}>{card.priority}</span>
+                      )}
+                      {card.dueDate && (
+                        <span style={{ fontSize: 11, color: T.textFaint }}>
+                          <Icon name="clock" size={10} sw={1.5} /> {card.dueDate}
+                        </span>
+                      )}
+                      {(card.subtaskTotal ?? 0) > 0 && (
+                        <span style={{ fontSize: 11, color: T.textMuted }}>
+                          ✓ {card.subtaskDone}/{card.subtaskTotal}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           ) : (
             <ColumnList
               columns={columns}

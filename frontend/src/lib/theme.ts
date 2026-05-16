@@ -1,28 +1,147 @@
 export const T = {
-  canvas: '#f5f7fa',
-  sidebar: '#ffffff',
-  sidebarBorder: '#e7eaef',
-  topbar: '#ffffff',
-  topbarBorder: '#e7eaef',
-  column: '#eef1f5',
-  card: '#ffffff',
-  cardBorder: '#e2e6ec',
-  cardShadow: '0 1px 2px rgba(15,23,42,.04), 0 1px 1px rgba(15,23,42,.03)',
-  text: '#0f172a',
-  textMuted: '#475569',
-  textFaint: '#94a3b8',
-  accent: '#2563eb',
-  accentSoft: '#dbeafe',
-  accentText: '#ffffff',
-  danger: '#dc2626',
-  warn: '#d97706',
-  ok: '#16a34a',
-  hover: '#f1f5f9',
-  chipBg: '#f1f5f9',
-  chipText: '#334155',
-  selectedBg: '#dbeafe',
-  selectedText: '#1d4ed8',
+  canvas:        'var(--canvas)',
+  sidebar:       'var(--sidebar)',
+  sidebarBorder: 'var(--sidebar-border)',
+  topbar:        'var(--topbar)',
+  topbarBorder:  'var(--topbar-border)',
+  column:        'var(--column)',
+  card:          'var(--card)',
+  cardBorder:    'var(--card-border)',
+  cardShadow:    'var(--card-shadow)',
+  text:          'var(--text)',
+  textMuted:     'var(--text-muted)',
+  textFaint:     'var(--text-faint)',
+  accent:        'var(--accent)',
+  accentSoft:    'var(--accent-soft)',
+  accentText:    'var(--accent-text)',
+  danger:        'var(--danger)',
+  warn:          'var(--warn)',
+  ok:            'var(--ok)',
+  hover:         'var(--hover)',
+  chipBg:        'var(--chip-bg)',
+  chipText:      'var(--chip-text)',
+  selectedBg:    'var(--selected-bg)',
+  selectedText:  'var(--selected-text)',
 } as const
+
+type ThemeTokens = {
+  canvas: string; sidebar: string; sidebarBorder: string
+  topbar: string; topbarBorder: string
+  column: string; card: string; cardBorder: string; cardShadow: string
+  text: string; textMuted: string; textFaint: string
+  accent: string; accentSoft: string; accentText: string
+  danger: string; warn: string; ok: string
+  hover: string; chipBg: string; chipText: string
+  selectedBg: string; selectedText: string
+}
+
+export type ThemeName = 'light' | 'midnight' | 'graphite'
+
+export const THEMES: Record<ThemeName, ThemeTokens> = {
+  light: {
+    canvas:        '#f5f7fa',
+    sidebar:       '#ffffff',
+    sidebarBorder: '#e7eaef',
+    topbar:        '#ffffff',
+    topbarBorder:  '#e7eaef',
+    column:        '#eef1f5',
+    card:          '#ffffff',
+    cardBorder:    '#e2e6ec',
+    cardShadow:    '0 1px 2px rgba(15,23,42,.04), 0 1px 1px rgba(15,23,42,.03)',
+    text:          '#0f172a',
+    textMuted:     '#475569',
+    textFaint:     '#94a3b8',
+    accent:        '#2563eb',
+    accentSoft:    '#dbeafe',
+    accentText:    '#ffffff',
+    danger:        '#dc2626',
+    warn:          '#d97706',
+    ok:            '#16a34a',
+    hover:         '#f1f5f9',
+    chipBg:        '#f1f5f9',
+    chipText:      '#334155',
+    selectedBg:    '#dbeafe',
+    selectedText:  '#1d4ed8',
+  },
+  midnight: {
+    canvas:        '#0f1117',
+    sidebar:       '#161b27',
+    sidebarBorder: '#1e2533',
+    topbar:        '#161b27',
+    topbarBorder:  '#1e2533',
+    column:        '#1a2236',
+    card:          '#1e2a42',
+    cardBorder:    '#253045',
+    cardShadow:    '0 1px 2px rgba(0,0,0,.3), 0 1px 1px rgba(0,0,0,.2)',
+    text:          '#e2e8f0',
+    textMuted:     '#94a3b8',
+    textFaint:     '#475569',
+    accent:        '#3b82f6',
+    accentSoft:    '#1e3a5f',
+    accentText:    '#ffffff',
+    danger:        '#f87171',
+    warn:          '#fbbf24',
+    ok:            '#4ade80',
+    hover:         '#1e2a3d',
+    chipBg:        '#253045',
+    chipText:      '#94a3b8',
+    selectedBg:    '#1e3a5f',
+    selectedText:  '#60a5fa',
+  },
+  graphite: {
+    canvas:        '#1a1a1a',
+    sidebar:       '#222222',
+    sidebarBorder: '#2d2d2d',
+    topbar:        '#222222',
+    topbarBorder:  '#2d2d2d',
+    column:        '#2a2a2a',
+    card:          '#2f2f2f',
+    cardBorder:    '#3a3a3a',
+    cardShadow:    '0 1px 2px rgba(0,0,0,.3), 0 1px 1px rgba(0,0,0,.2)',
+    text:          '#e4e4e7',
+    textMuted:     '#a1a1aa',
+    textFaint:     '#52525b',
+    accent:        '#818cf8',
+    accentSoft:    '#312e81',
+    accentText:    '#ffffff',
+    danger:        '#f87171',
+    warn:          '#fbbf24',
+    ok:            '#4ade80',
+    hover:         '#333333',
+    chipBg:        '#3a3a3a',
+    chipText:      '#a1a1aa',
+    selectedBg:    '#312e81',
+    selectedText:  '#a5b4fc',
+  },
+}
+
+export function applyTheme(name: ThemeName) {
+  const t = THEMES[name]
+  const r = document.documentElement
+  r.style.setProperty('--canvas',        t.canvas)
+  r.style.setProperty('--sidebar',       t.sidebar)
+  r.style.setProperty('--sidebar-border',t.sidebarBorder)
+  r.style.setProperty('--topbar',        t.topbar)
+  r.style.setProperty('--topbar-border', t.topbarBorder)
+  r.style.setProperty('--column',        t.column)
+  r.style.setProperty('--card',          t.card)
+  r.style.setProperty('--card-border',   t.cardBorder)
+  r.style.setProperty('--card-shadow',   t.cardShadow)
+  r.style.setProperty('--text',          t.text)
+  r.style.setProperty('--text-muted',    t.textMuted)
+  r.style.setProperty('--text-faint',    t.textFaint)
+  r.style.setProperty('--accent',        t.accent)
+  r.style.setProperty('--accent-soft',   t.accentSoft)
+  r.style.setProperty('--accent-text',   t.accentText)
+  r.style.setProperty('--danger',        t.danger)
+  r.style.setProperty('--warn',          t.warn)
+  r.style.setProperty('--ok',            t.ok)
+  r.style.setProperty('--hover',         t.hover)
+  r.style.setProperty('--chip-bg',       t.chipBg)
+  r.style.setProperty('--chip-text',     t.chipText)
+  r.style.setProperty('--selected-bg',   t.selectedBg)
+  r.style.setProperty('--selected-text', t.selectedText)
+}
 
 export const ICONS = {
   search:   'M7 12.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11ZM14 14l-3-3',
@@ -47,6 +166,9 @@ export const ICONS = {
   cog:      'M8 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM8 1v2M8 13v2M3 8H1M15 8h-2M4.5 4.5L3 3M13 13l-1.5-1.5M4.5 11.5L3 13M13 3l-1.5 1.5',
   flag:     'M4 13V3M4 3h7l-1.5 2.5L11 8H4',
   trash:    'M3 5h10M5 5V3h6v2M6 8v4M10 8v4M4 5l1 8h6l1-8',
+  sun:      'M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M3.2 12.8l1.1-1.1M11.7 4.3l1.1-1.1',
+  moon:     'M12 12.5a6 6 0 0 1-6-10 6.5 6.5 0 1 0 6 10Z',
+  palette:  'M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8ZM5 8h.01M8 5h.01M11 8h.01M8 11h.01',
 } as const
 
 export type IconKey = keyof typeof ICONS

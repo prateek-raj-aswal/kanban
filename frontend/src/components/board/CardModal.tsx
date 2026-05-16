@@ -2,8 +2,17 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError } from '@/lib/api'
 import { T, darkenHex } from '@/lib/theme'
-import type { CardResponse, LabelResponse } from '@/types/api'
+import type { CardResponse, LabelResponse, Priority, SubtaskResponse, CommentResponse, ActivityLogResponse } from '@/types/api'
 import Icon from '@/components/ui/Icon'
+
+const PRIORITIES: Priority[] = ['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT']
+const PRIORITY_COLOR: Record<Priority, string> = {
+  NONE: '#94a3b8',
+  LOW: '#3b82f6',
+  MEDIUM: '#eab308',
+  HIGH: '#f97316',
+  URGENT: '#ef4444',
+}
 
 interface Props {
   card: CardResponse
@@ -66,6 +75,7 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
   const [title, setTitle] = useState(card.title)
   const [description, setDescription] = useState(card.description ?? '')
   const [dueDate, setDueDate] = useState(card.dueDate ?? '')
+  const [priority, setPriority] = useState<Priority>(card.priority ?? 'NONE')
   const [selectedLabelIds, setSelectedLabelIds] = useState<Set<string>>(
     new Set(card.labels.map(l => l.id))
   )
@@ -73,6 +83,16 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [subtasks, setSubtasks] = useState<SubtaskResponse[]>([])
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('')
+  const [addingSubtask, setAddingSubtask] = useState(false)
+  const [comments, setComments] = useState<CommentResponse[]>([])
+  const [newComment, setNewComment] = useState('')
+  const [postingComment, setPostingComment] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editingCommentBody, setEditingCommentBody] = useState('')
+  const [activityLog, setActivityLog] = useState<ActivityLogResponse[]>([])
+  const [leftTab, setLeftTab] = useState<'details' | 'activity'>('details')
 
   const isOverdue = dueDate ? new Date(dueDate) < new Date() : false
 
@@ -80,7 +100,16 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
     api.get<LabelResponse[]>(`/api/v1/boards/${boardId}/labels`)
       .then(setBoardLabels)
       .catch(() => {})
-  }, [boardId])
+    api.get<SubtaskResponse[]>(`/api/v1/cards/${card.id}/subtasks`)
+      .then(setSubtasks)
+      .catch(() => {})
+    api.get<CommentResponse[]>(`/api/v1/cards/${card.id}/comments`)
+      .then(setComments)
+      .catch(() => {})
+    api.get<ActivityLogResponse[]>(`/api/v1/cards/${card.id}/activity`)
+      .then(setActivityLog)
+      .catch(() => {})
+  }, [boardId, card.id])
 
   function toggleLabel(labelId: string) {
     setSelectedLabelIds(prev => {
@@ -92,6 +121,66 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
     setDirty(true)
   }
 
+  async function addSubtask(e: React.FormEvent) {
+    e.preventDefault()
+    const title = newSubtaskTitle.trim()
+    if (!title) return
+    setAddingSubtask(true)
+    try {
+      const s = await api.post<SubtaskResponse>(`/api/v1/cards/${card.id}/subtasks`, { title })
+      setSubtasks(prev => [...prev, s])
+      setNewSubtaskTitle('')
+    } catch { /* ignore */ } finally {
+      setAddingSubtask(false)
+    }
+  }
+
+  async function toggleSubtask(id: string, completed: boolean) {
+    try {
+      const s = await api.patch<SubtaskResponse>(`/api/v1/subtasks/${id}`, { completed })
+      setSubtasks(prev => prev.map(x => x.id === id ? s : x))
+    } catch { /* ignore */ }
+  }
+
+  async function deleteSubtask(id: string) {
+    try {
+      await api.delete(`/api/v1/subtasks/${id}`)
+      setSubtasks(prev => prev.filter(x => x.id !== id))
+    } catch { /* ignore */ }
+  }
+
+  async function postComment(e: React.FormEvent) {
+    e.preventDefault()
+    const body = newComment.trim()
+    if (!body) return
+    setPostingComment(true)
+    try {
+      const c = await api.post<CommentResponse>(`/api/v1/cards/${card.id}/comments`, { body })
+      setComments(prev => [...prev, c])
+      setNewComment('')
+    } catch { /* ignore */ } finally {
+      setPostingComment(false)
+    }
+  }
+
+  async function saveCommentEdit(id: string) {
+    const body = editingCommentBody.trim()
+    if (!body) return
+    try {
+      const c = await api.patch<CommentResponse>(`/api/v1/comments/${id}`, { body })
+      setComments(prev => prev.map(x => x.id === id ? c : x))
+    } catch { /* ignore */ } finally {
+      setEditingCommentId(null)
+    }
+  }
+
+  async function deleteComment(id: string) {
+    try {
+      await api.delete(`/api/v1/comments/${id}`)
+      setComments(prev => prev.filter(x => x.id !== id))
+    } catch { /* ignore */ }
+  }
+
   async function handleSave() {
     if (!title.trim()) return
     setSaving(true)
@@ -101,6 +190,7 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
         description: description || null,
         dueDate: dueDate || null,
         assigneeId: card.assigneeId,
+        priority,
         labelIds: Array.from(selectedLabelIds),
       })
       onUpdate(updated)
@@ -221,7 +311,26 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
 
         {/* Body */}
         <div style={{ display: 'flex', minHeight: 0, flex: 1, overflow: 'hidden' }}>
-          {/* Left: description + labels */}
+          {/* Left: tabbed content */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            {/* Tabs */}
+            <div style={{
+              display: 'flex', gap: 2, padding: '8px 16px 0',
+              borderBottom: `1px solid ${T.cardBorder}`, flexShrink: 0,
+            }}>
+              {(['details', 'activity'] as const).map(tab => (
+                <button key={tab} onClick={() => setLeftTab(tab)} style={{
+                  padding: '6px 12px',
+                  fontSize: 12, fontWeight: leftTab === tab ? 600 : 500,
+                  color: leftTab === tab ? T.text : T.textMuted,
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  borderBottom: leftTab === tab ? `2px solid ${T.accent}` : '2px solid transparent',
+                  textTransform: 'capitalize', marginBottom: -1,
+                }}>{tab}</button>
+              ))}
+            </div>
+
+          {leftTab === 'details' ? (
           <div style={{
             flex: 1, padding: '18px 22px', display: 'flex', flexDirection: 'column',
             gap: 22, minWidth: 0, overflowY: 'auto',
@@ -246,6 +355,75 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
               />
             </div>
 
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+                <SectionLabel>Checklist</SectionLabel>
+                {subtasks.length > 0 && (
+                  <span style={{
+                    fontSize: 10.5, fontWeight: 600, color: T.textFaint,
+                    marginBottom: 8,
+                  }}>
+                    {subtasks.filter(s => s.completed).length}/{subtasks.length}
+                  </span>
+                )}
+              </div>
+              {subtasks.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                  {subtasks.map(s => (
+                    <div key={s.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '4px 6px', borderRadius: 5,
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={s.completed}
+                        onChange={() => toggleSubtask(s.id, !s.completed)}
+                        style={{ width: 14, height: 14, cursor: 'pointer', accentColor: T.accent }}
+                      />
+                      <span style={{
+                        flex: 1, fontSize: 13, color: s.completed ? T.textFaint : T.text,
+                        textDecoration: s.completed ? 'line-through' : 'none',
+                      }}>{s.title}</span>
+                      <button
+                        onClick={() => deleteSubtask(s.id)}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: T.textFaint, display: 'inline-flex', alignItems: 'center',
+                          padding: 2, borderRadius: 3,
+                        }}
+                      >
+                        <Icon name="trash" size={11} sw={1.5} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <form onSubmit={addSubtask} style={{ display: 'flex', gap: 6 }}>
+                <input
+                  value={newSubtaskTitle}
+                  onChange={e => setNewSubtaskTitle(e.target.value)}
+                  placeholder="Add subtask…"
+                  style={{
+                    flex: 1, height: 28, padding: '0 8px',
+                    fontSize: 12, border: `1px solid ${T.cardBorder}`,
+                    borderRadius: 5, background: T.card, color: T.text,
+                    outline: 'none', fontFamily: 'inherit',
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!newSubtaskTitle.trim() || addingSubtask}
+                  style={{
+                    height: 28, padding: '0 10px',
+                    background: newSubtaskTitle.trim() ? T.accent : T.chipBg,
+                    color: newSubtaskTitle.trim() ? T.accentText : T.textFaint,
+                    border: 'none', borderRadius: 5,
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >Add</button>
+              </form>
+            </div>
+
             {boardLabels.length > 0 && (
               <div>
                 <SectionLabel>Labels</SectionLabel>
@@ -262,6 +440,149 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
                 </div>
               </div>
             )}
+
+            <div>
+              <SectionLabel>Comments {comments.length > 0 ? `(${comments.length})` : ''}</SectionLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>
+                {comments.map(c => (
+                  <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        width: 22, height: 22, borderRadius: '50%',
+                        background: T.accentSoft, color: T.accent,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0, fontSize: 10, fontWeight: 700,
+                      }}>{c.authorName.charAt(0).toUpperCase()}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{c.authorName}</span>
+                      <span style={{ fontSize: 11, color: T.textFaint, flex: 1 }}>
+                        {new Date(c.createdAt).toLocaleDateString()}
+                      </span>
+                      <button
+                        onClick={() => { setEditingCommentId(c.id); setEditingCommentBody(c.body) }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.textFaint, padding: 2 }}
+                      ><Icon name="flag" size={11} sw={1.5} /></button>
+                      <button
+                        onClick={() => deleteComment(c.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.danger, padding: 2 }}
+                      ><Icon name="trash" size={11} sw={1.5} /></button>
+                    </div>
+                    {editingCommentId === c.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <textarea
+                          value={editingCommentBody}
+                          onChange={e => setEditingCommentBody(e.target.value)}
+                          rows={2}
+                          autoFocus
+                          style={{
+                            width: '100%', boxSizing: 'border-box',
+                            padding: '6px 8px', fontSize: 13,
+                            border: `1px solid ${T.accent}`, borderRadius: 5,
+                            background: T.card, color: T.text,
+                            resize: 'none', outline: 'none', fontFamily: 'inherit',
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveCommentEdit(c.id) }
+                            if (e.key === 'Escape') setEditingCommentId(null)
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            onClick={() => saveCommentEdit(c.id)}
+                            style={{
+                              height: 26, padding: '0 9px',
+                              background: T.accent, color: T.accentText,
+                              border: 'none', borderRadius: 5,
+                              fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                            }}
+                          >Save</button>
+                          <button
+                            onClick={() => setEditingCommentId(null)}
+                            style={{
+                              height: 26, padding: '0 9px',
+                              background: T.chipBg, color: T.textMuted,
+                              border: 'none', borderRadius: 5,
+                              fontSize: 11, cursor: 'pointer',
+                            }}
+                          >Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{
+                        margin: 0, fontSize: 13, lineHeight: 1.5,
+                        color: T.text, paddingLeft: 28,
+                        whiteSpace: 'pre-wrap',
+                      }}>{c.body}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <form onSubmit={postComment} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <textarea
+                  value={newComment}
+                  onChange={e => setNewComment(e.target.value)}
+                  placeholder="Write a comment…"
+                  rows={2}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '7px 10px', fontSize: 13,
+                    border: `1px solid ${T.cardBorder}`, borderRadius: 5,
+                    background: T.card, color: T.text,
+                    resize: 'none', outline: 'none', fontFamily: 'inherit',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = T.accent }}
+                  onBlur={e => { e.currentTarget.style.borderColor = T.cardBorder }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(e as unknown as React.FormEvent) }
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!newComment.trim() || postingComment}
+                  style={{
+                    alignSelf: 'flex-end', height: 28, padding: '0 12px',
+                    background: newComment.trim() ? T.accent : T.chipBg,
+                    color: newComment.trim() ? T.accentText : T.textFaint,
+                    border: 'none', borderRadius: 5,
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >Comment</button>
+              </form>
+            </div>
+          </div>
+          ) : (
+          <div style={{
+            flex: 1, padding: '16px 22px', overflowY: 'auto',
+            display: 'flex', flexDirection: 'column', gap: 10,
+          }}>
+            {activityLog.length === 0 ? (
+              <div style={{ fontSize: 13, color: T.textFaint, textAlign: 'center', paddingTop: 24 }}>
+                No activity yet
+              </div>
+            ) : activityLog.map(entry => (
+              <div key={entry.id} style={{
+                display: 'flex', gap: 10, alignItems: 'flex-start',
+                padding: '8px 10px', borderRadius: 6,
+                background: T.hover, fontSize: 12,
+              }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                  background: T.accentSoft, color: T.accent,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, fontWeight: 700,
+                }}>{entry.actorName?.charAt(0).toUpperCase() ?? '?'}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ color: T.text }}>{entry.summary}</span>
+                  {entry.actorName && (
+                    <span style={{ color: T.textMuted }}> by {entry.actorName}</span>
+                  )}
+                  <div style={{ fontSize: 10.5, color: T.textFaint, marginTop: 2 }}>
+                    {new Date(entry.createdAt).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          )}
           </div>
 
           {/* Right: properties */}
@@ -283,6 +604,35 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.selectedText }} />
                 {columnName}
               </span>
+            </PropRow>
+
+            <PropRow label="Priority">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {PRIORITIES.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => { setPriority(p); setDirty(true) }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '3px 7px', borderRadius: 4, border: 'none',
+                      fontSize: 10.5, fontWeight: 600, cursor: 'pointer',
+                      letterSpacing: '.03em',
+                      background: priority === p ? PRIORITY_COLOR[p] + '28' : T.chipBg,
+                      color: priority === p ? PRIORITY_COLOR[p] : T.textMuted,
+                      outline: priority === p ? `2px solid ${PRIORITY_COLOR[p]}` : 'none',
+                      outlineOffset: 1,
+                    }}
+                  >
+                    {p !== 'NONE' && (
+                      <span style={{
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: PRIORITY_COLOR[p], flexShrink: 0,
+                      }} />
+                    )}
+                    {p}
+                  </button>
+                ))}
+              </div>
             </PropRow>
 
             <PropRow label="Due date">

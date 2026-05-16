@@ -10,7 +10,7 @@ const makeBoard = (): BoardResponse => ({
       id: 'col-1', boardId: 'board-1', name: 'Todo', position: 1000,
       cards: [
         { id: 'card-1', columnId: 'col-1', title: 'Card 1', description: null,
-          position: 1000, assigneeId: null, dueDate: null, labels: [] },
+          position: 1000, assigneeId: null, dueDate: null, priority: 'NONE', labels: [] },
       ],
     },
     {
@@ -34,7 +34,7 @@ describe('boardStore', () => {
     useBoardStore.getState().setBoard(makeBoard())
     const newCard: CardResponse = {
       id: 'card-2', columnId: 'col-1', title: 'New', description: null,
-      position: 2000, assigneeId: null, dueDate: null, labels: [],
+      position: 2000, assigneeId: null, dueDate: null, priority: 'NONE', labels: [],
     }
     useBoardStore.getState().addCard('col-1', newCard)
     const cards = useBoardStore.getState().board!.columns![0].cards!
@@ -46,7 +46,7 @@ describe('boardStore', () => {
     useBoardStore.getState().setBoard(makeBoard())
     const updated: CardResponse = {
       id: 'card-1', columnId: 'col-1', title: 'Updated', description: 'desc',
-      position: 1000, assigneeId: null, dueDate: null, labels: [],
+      position: 1000, assigneeId: null, dueDate: null, priority: 'NONE', labels: [],
     }
     useBoardStore.getState().updateCard(updated)
     const card = useBoardStore.getState().board!.columns![0].cards![0]
@@ -58,7 +58,7 @@ describe('boardStore', () => {
     useBoardStore.getState().setBoard(makeBoard())
     const moved: CardResponse = {
       id: 'card-1', columnId: 'col-2', title: 'Card 1', description: null,
-      position: 500, assigneeId: null, dueDate: null, labels: [],
+      position: 500, assigneeId: null, dueDate: null, priority: 'NONE', labels: [],
     }
     useBoardStore.getState().moveCard(moved)
     const cols = useBoardStore.getState().board!.columns!

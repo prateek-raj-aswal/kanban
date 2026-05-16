@@ -1,4 +1,4 @@
-import { getToken } from './auth'
+import { getToken, clearToken } from './auth'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
 
@@ -19,6 +19,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
   if (!res.ok) {
+    if (res.status === 401) {
+      clearToken()
+      window.location.href = '/login'
+      throw new ApiError(401, 'UNAUTHORIZED', 'Session expired')
+    }
     const body = await res.json().catch(() => ({}))
     throw new ApiError(res.status, body.code ?? 'UNKNOWN', body.error ?? 'Request failed', body.fields)
   }

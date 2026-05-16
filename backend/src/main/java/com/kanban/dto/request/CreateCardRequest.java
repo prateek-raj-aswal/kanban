@@ -8,5 +8,6 @@ public record CreateCardRequest(
         @NotBlank String title,
         String description,
         LocalDate dueDate,
-        UUID assigneeId
+        UUID assigneeId,
+        String priority
 ) {}

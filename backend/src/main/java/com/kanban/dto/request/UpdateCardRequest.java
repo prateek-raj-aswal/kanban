@@ -9,5 +9,6 @@ public record UpdateCardRequest(
         String description,
         LocalDate dueDate,
         UUID assigneeId,
+        String priority,
         List<UUID> labelIds
 ) {}

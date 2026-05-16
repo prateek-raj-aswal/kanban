@@ -1,9 +1,11 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { T, type IconKey } from '@/lib/theme'
 import type { BoardResponse } from '@/types/api'
 import Icon from '@/components/ui/Icon'
+import ThemeSwitcher from '@/components/ui/ThemeSwitcher'
+import NotificationPanel from '@/components/ui/NotificationPanel'
 
 interface Props {
   currentBoardId: string
@@ -11,9 +13,14 @@ interface Props {
 
 export default function Sidebar({ currentBoardId }: Props) {
   const [boards, setBoards] = useState<BoardResponse[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifOpen, setNotifOpen] = useState(false)
 
   useEffect(() => {
     api.get<BoardResponse[]>('/api/v1/boards').then(setBoards).catch(() => {})
+    api.get<{ count: number }>('/api/v1/notifications/unread-count')
+      .then(r => setUnreadCount(r.count))
+      .catch(() => {})
   }, [])
 
   const NavItem = ({ label, icon, count, active, href }: {
@@ -134,7 +141,7 @@ export default function Sidebar({ currentBoardId }: Props) {
         padding: '10px 12px',
         borderTop: `1px solid ${T.sidebarBorder}`,
         display: 'flex', alignItems: 'center', gap: 9,
-        flexShrink: 0,
+        flexShrink: 0, position: 'relative',
       }}>
         <div style={{
           width: 24, height: 24, borderRadius: '50%',
@@ -146,6 +153,31 @@ export default function Sidebar({ currentBoardId }: Props) {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.1 }}>Account</div>
+        </div>
+        <ThemeSwitcher />
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setNotifOpen(o => !o)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: T.textMuted, display: 'inline-flex', alignItems: 'center',
+              padding: 2, borderRadius: 4, position: 'relative',
+            }}
+          >
+            <Icon name="inbox" size={14} />
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -2, right: -2,
+                width: 14, height: 14, borderRadius: '50%',
+                background: T.danger, color: '#fff',
+                fontSize: 9, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+            )}
+          </button>
+          {notifOpen && (
+            <NotificationPanel onClose={() => setNotifOpen(false)} />
+          )}
         </div>
         <Icon name="cog" size={14} style={{ color: T.textMuted, cursor: 'pointer' }} />
       </div>

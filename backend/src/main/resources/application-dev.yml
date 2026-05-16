@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/kanbandb}
+    username: ${SPRING_DATASOURCE_USERNAME:sandboxadmin}
+    password: ${SPRING_DATASOURCE_PASSWORD:sandbox@2024}
+
+jwt:
+  secret: ${JWT_SECRET:local-dev-secret-at-least-32-chars-long}

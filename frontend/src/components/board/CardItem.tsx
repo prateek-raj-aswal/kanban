@@ -2,8 +2,16 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { T, darkenHex } from '@/lib/theme'
-import type { CardResponse } from '@/types/api'
+import type { CardResponse, Priority } from '@/types/api'
 import Icon from '@/components/ui/Icon'
+
+const PRIORITY_COLOR: Record<Priority, string> = {
+  NONE: 'transparent',
+  LOW: '#3b82f6',
+  MEDIUM: '#eab308',
+  HIGH: '#f97316',
+  URGENT: '#ef4444',
+}
 
 interface Props {
   card: CardResponse
@@ -31,7 +39,11 @@ export default function CardItem({ card, onClick }: Props) {
     useSortable({ id: card.id })
 
   const isOverdue = card.dueDate ? new Date(card.dueDate) < new Date() : false
-  const hasMeta = card.dueDate || card.assigneeId
+  const priority = card.priority ?? 'NONE'
+  const subtaskTotal = card.subtaskTotal ?? 0
+  const subtaskDone = card.subtaskDone ?? 0
+  const commentCount = card.commentCount ?? 0
+  const hasMeta = card.dueDate || card.assigneeId || priority !== 'NONE' || subtaskTotal > 0 || commentCount > 0
 
   return (
     <div
@@ -73,6 +85,19 @@ export default function CardItem({ card, onClick }: Props) {
           display: 'flex', alignItems: 'center', gap: 8,
           fontSize: 11.5, color: T.textMuted,
         }}>
+          {priority !== 'NONE' && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              fontSize: 10, fontWeight: 700, letterSpacing: '.04em',
+              color: PRIORITY_COLOR[priority],
+            }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: PRIORITY_COLOR[priority], flexShrink: 0,
+              }} />
+              {priority}
+            </span>
+          )}
           {card.dueDate && (
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -87,6 +112,25 @@ export default function CardItem({ card, onClick }: Props) {
             </span>
           )}
           <span style={{ flex: 1 }} />
+          {subtaskTotal > 0 && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              fontSize: 10, color: subtaskDone === subtaskTotal ? T.ok : T.textMuted,
+              fontWeight: 600,
+            }}>
+              <Icon name="check" size={10} sw={subtaskDone === subtaskTotal ? 2.5 : 1.8} />
+              {subtaskDone}/{subtaskTotal}
+            </span>
+          )}
+          {commentCount > 0 && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              fontSize: 10, color: T.textMuted, fontWeight: 600,
+            }}>
+              <Icon name="msg" size={10} sw={1.8} />
+              {commentCount}
+            </span>
+          )}
           {card.assigneeId && (
             <span style={{
               width: 20, height: 20, borderRadius: '50%',

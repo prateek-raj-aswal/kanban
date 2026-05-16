@@ -13,7 +13,11 @@ public record CardResponse(
         double position,
         UUID assigneeId,
         LocalDate dueDate,
+        String priority,
         List<LabelResponse> labels,
+        int subtaskTotal,
+        int subtaskDone,
+        int commentCount,
         Instant createdAt,
         Instant updatedAt
 ) {}

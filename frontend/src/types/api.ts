@@ -29,6 +29,8 @@ export interface ColumnResponse {
   cards?: CardResponse[]
 }
 
+export type Priority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+
 export interface CardResponse {
   id: string
   columnId: string
@@ -37,7 +39,11 @@ export interface CardResponse {
   position: number
   assigneeId: string | null
   dueDate: string | null
+  priority: Priority
   labels: LabelResponse[]
+  subtaskTotal?: number
+  subtaskDone?: number
+  commentCount?: number
   createdAt?: string
   updatedAt?: string
 }
@@ -63,6 +69,46 @@ export interface InvitationResponse {
   token: string
   status: string
   expiresAt: string
+}
+
+export interface SubtaskResponse {
+  id: string
+  cardId: string
+  title: string
+  completed: boolean
+  position: number
+  createdAt: string
+}
+
+export interface CommentResponse {
+  id: string
+  cardId: string
+  authorId: string
+  authorName: string
+  body: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ActivityLogResponse {
+  id: string
+  boardId: string
+  cardId: string | null
+  actorId: string | null
+  actorName: string | null
+  eventType: string
+  summary: string
+  createdAt: string
+}
+
+export interface NotificationResponse {
+  id: string
+  cardId: string | null
+  boardId: string | null
+  type: string
+  message: string
+  read: boolean
+  createdAt: string
 }
 
 export interface ApiError {

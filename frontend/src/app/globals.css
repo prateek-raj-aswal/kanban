@@ -1,3 +1,29 @@
+:root {
+  --canvas:        #f5f7fa;
+  --sidebar:       #ffffff;
+  --sidebar-border:#e7eaef;
+  --topbar:        #ffffff;
+  --topbar-border: #e7eaef;
+  --column:        #eef1f5;
+  --card:          #ffffff;
+  --card-border:   #e2e6ec;
+  --card-shadow:   0 1px 2px rgba(15,23,42,.04), 0 1px 1px rgba(15,23,42,.03);
+  --text:          #0f172a;
+  --text-muted:    #475569;
+  --text-faint:    #94a3b8;
+  --accent:        #2563eb;
+  --accent-soft:   #dbeafe;
+  --accent-text:   #ffffff;
+  --danger:        #dc2626;
+  --warn:          #d97706;
+  --ok:            #16a34a;
+  --hover:         #f1f5f9;
+  --chip-bg:       #f1f5f9;
+  --chip-text:     #334155;
+  --selected-bg:   #dbeafe;
+  --selected-text: #1d4ed8;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
