@@ -10,5 +10,6 @@ public record BoardResponse(
         UUID ownerId,
         String role,
         Instant createdAt,
+        UUID workspaceId,
         List<ColumnResponse> columns
 ) {}

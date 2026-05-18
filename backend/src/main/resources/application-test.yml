@@ -7,4 +7,4 @@ spring:
     enabled: true
 
 jwt:
-  secret: test-secret-key-for-unit-tests-only-32c
+  secret: ${JWT_SECRET}

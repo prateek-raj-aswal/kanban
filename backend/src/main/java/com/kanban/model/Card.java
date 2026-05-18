@@ -28,8 +28,8 @@ public class Card {
     @Column(nullable = false)
     private double position;
 
-    @Column(name = "assignee_id")
-    private UUID assigneeId;
+    @Column(name = "start_date")
+    private LocalDate startDate;
 
     @Column(name = "due_date")
     private LocalDate dueDate;
@@ -66,8 +66,8 @@ public class Card {
     public void setDescription(String description) { this.description = description; }
     public double getPosition() { return position; }
     public void setPosition(double position) { this.position = position; }
-    public UUID getAssigneeId() { return assigneeId; }
-    public void setAssigneeId(UUID assigneeId) { this.assigneeId = assigneeId; }
+    public LocalDate getStartDate() { return startDate; }
+    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
     public LocalDate getDueDate() { return dueDate; }
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
     public String getPriority() { return priority; }

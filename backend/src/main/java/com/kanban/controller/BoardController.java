@@ -7,6 +7,8 @@ import com.kanban.dto.response.CardResponse;
 import com.kanban.dto.response.LabelResponse;
 import com.kanban.dto.response.MemberResponse;
 import com.kanban.model.Card;
+import com.kanban.model.CardAssignee;
+import com.kanban.repository.CardAssigneeRepository;
 import com.kanban.repository.CardRepository;
 import com.kanban.repository.CommentRepository;
 import com.kanban.repository.LabelRepository;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/boards")
@@ -33,16 +36,20 @@ public class BoardController {
     private final LabelRepository labelRepository;
     private final SubtaskRepository subtaskRepository;
     private final CommentRepository commentRepository;
+    private final CardAssigneeRepository cardAssigneeRepository;
     private final BoardAccessPolicy boardAccessPolicy;
 
     public BoardController(BoardService boardService, CardRepository cardRepository,
                             LabelRepository labelRepository, SubtaskRepository subtaskRepository,
-                            CommentRepository commentRepository, BoardAccessPolicy boardAccessPolicy) {
+                            CommentRepository commentRepository,
+                            CardAssigneeRepository cardAssigneeRepository,
+                            BoardAccessPolicy boardAccessPolicy) {
         this.boardService = boardService;
         this.cardRepository = cardRepository;
         this.labelRepository = labelRepository;
         this.subtaskRepository = subtaskRepository;
         this.commentRepository = commentRepository;
+        this.cardAssigneeRepository = cardAssigneeRepository;
         this.boardAccessPolicy = boardAccessPolicy;
     }
 
@@ -94,19 +101,24 @@ public class BoardController {
         boardAccessPolicy.assertMember(boardId, user.id());
         List<Card> cards = cardRepository.searchCards(boardId,
                 q != null && !q.isBlank() ? q : null, assigneeId, priority);
-        List<UUID> cardIds = cards.stream().map(Card::getId).toList();
-        java.util.Map<UUID, int[]> subtaskCounts = cardIds.isEmpty() ? java.util.Map.of()
+        List<UUID> cardIds = cards.stream().map(Card::getId).collect(Collectors.toList());
+        Map<UUID, int[]> subtaskCounts = cardIds.isEmpty() ? Map.of()
                 : subtaskRepository.getCountsByCardIds(cardIds);
-        java.util.Map<UUID, Integer> commentCounts = cardIds.isEmpty() ? java.util.Map.of()
+        Map<UUID, Integer> commentCounts = cardIds.isEmpty() ? Map.of()
                 : commentRepository.getCountsByCardIds(cardIds);
+        Map<UUID, List<UUID>> assigneeMap = cardIds.isEmpty() ? Map.of()
+                : cardAssigneeRepository.findByCardIdIn(cardIds).stream()
+                    .collect(Collectors.groupingBy(CardAssignee::getCardId,
+                             Collectors.mapping(CardAssignee::getUserId, Collectors.toList())));
         return ResponseEntity.ok(cards.stream().map(c -> {
             int[] sc = subtaskCounts.getOrDefault(c.getId(), new int[]{0, 0});
             int cc = commentCounts.getOrDefault(c.getId(), 0);
             List<LabelResponse> labels = c.getLabels().stream()
                     .map(l -> new LabelResponse(l.getId(), l.getName(), l.getColor())).toList();
+            List<UUID> assignees = assigneeMap.getOrDefault(c.getId(), List.of());
             return new CardResponse(c.getId(), c.getColumn().getId(), c.getTitle(), c.getDescription(),
-                    c.getPosition(), c.getAssigneeId(), c.getDueDate(), c.getPriority(),
-                    labels, sc[0], sc[1], cc, c.getCreatedAt(), c.getUpdatedAt());
+                    c.getPosition(), c.getStartDate(), c.getDueDate(), c.getPriority(),
+                    labels, assignees, sc[0], sc[1], cc, c.getCreatedAt(), c.getUpdatedAt());
         }).toList());
     }
 }

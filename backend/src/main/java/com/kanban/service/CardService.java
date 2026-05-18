@@ -9,6 +9,7 @@ import com.kanban.exception.ApiException;
 import com.kanban.model.BoardColumn;
 import com.kanban.model.Card;
 import com.kanban.model.Label;
+import com.kanban.repository.CardAssigneeRepository;
 import com.kanban.repository.CardRepository;
 import com.kanban.repository.ColumnRepository;
 import com.kanban.repository.CommentRepository;
@@ -32,6 +33,7 @@ public class CardService {
     private final LabelRepository labelRepository;
     private final SubtaskRepository subtaskRepository;
     private final CommentRepository commentRepository;
+    private final CardAssigneeRepository cardAssigneeRepository;
     private final BoardAccessPolicy accessPolicy;
     private final EventBroadcastService eventBroadcastService;
     private final ActivityLogService activityLogService;
@@ -39,14 +41,15 @@ public class CardService {
 
     public CardService(CardRepository cardRepository, ColumnRepository columnRepository,
                        LabelRepository labelRepository, SubtaskRepository subtaskRepository,
-                       CommentRepository commentRepository, BoardAccessPolicy accessPolicy,
-                       EventBroadcastService eventBroadcastService, ActivityLogService activityLogService,
-                       NotificationService notificationService) {
+                       CommentRepository commentRepository, CardAssigneeRepository cardAssigneeRepository,
+                       BoardAccessPolicy accessPolicy, EventBroadcastService eventBroadcastService,
+                       ActivityLogService activityLogService, NotificationService notificationService) {
         this.cardRepository = cardRepository;
         this.columnRepository = columnRepository;
         this.labelRepository = labelRepository;
         this.subtaskRepository = subtaskRepository;
         this.commentRepository = commentRepository;
+        this.cardAssigneeRepository = cardAssigneeRepository;
         this.accessPolicy = accessPolicy;
         this.eventBroadcastService = eventBroadcastService;
         this.activityLogService = activityLogService;
@@ -65,7 +68,6 @@ public class CardService {
         card.setTitle(request.title());
         card.setDescription(request.description());
         card.setDueDate(request.dueDate());
-        card.setAssigneeId(request.assigneeId());
         if (request.priority() != null) card.setPriority(request.priority());
         card.setPosition(maxPos + 1000.0);
         card = cardRepository.save(card);
@@ -74,7 +76,7 @@ public class CardService {
         eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("CARD_CREATED", boardId,
                 new BoardEventPayload.CardCreatedData(
                         card.getId(), columnId, card.getTitle(), card.getPosition(),
-                        card.getAssigneeId(), card.getDueDate(), card.getPriority(), List.of())));
+                        List.of(), card.getDueDate(), card.getPriority(), List.of())));
         activityLogService.record(boardId, card.getId(), requestingUserId, "CARD_CREATED",
                 "Card \"" + card.getTitle() + "\" created");
 
@@ -95,13 +97,12 @@ public class CardService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CARD_NOT_FOUND", "Card not found"));
         accessPolicy.assertMember(card.getColumn().getBoard().getId(), requestingUserId);
 
-        UUID previousAssigneeId = card.getAssigneeId();
         if (request.title() != null && !request.title().isBlank()) {
             card.setTitle(request.title());
         }
         card.setDescription(request.description());
+        card.setStartDate(request.startDate());
         card.setDueDate(request.dueDate());
-        card.setAssigneeId(request.assigneeId());
         if (request.priority() != null) card.setPriority(request.priority());
 
         if (request.labelIds() != null) {
@@ -117,15 +118,9 @@ public class CardService {
         eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("CARD_UPDATED", boardId,
                 new BoardEventPayload.CardUpdatedData(
                         card.getId(), card.getColumn().getId(), card.getTitle(), card.getDescription(),
-                        card.getAssigneeId(), card.getDueDate(), card.getPriority(), response.labels(), card.getUpdatedAt())));
+                        response.assignees(), card.getDueDate(), card.getPriority(), response.labels(), card.getUpdatedAt())));
         activityLogService.record(boardId, card.getId(), requestingUserId, "CARD_UPDATED",
                 "Card \"" + card.getTitle() + "\" updated");
-
-        UUID newAssigneeId = card.getAssigneeId();
-        if (newAssigneeId != null && !newAssigneeId.equals(previousAssigneeId)
-                && !newAssigneeId.equals(requestingUserId)) {
-            notificationService.notifyAssignment(newAssigneeId, card.getId(), boardId, card.getTitle());
-        }
 
         return response;
     }
@@ -188,9 +183,11 @@ public class CardService {
         int subtaskTotal = subtasks.size();
         int subtaskDone = (int) subtasks.stream().filter(com.kanban.model.Subtask::isCompleted).count();
         int commentCount = (int) commentRepository.findByCardIdOrderByCreatedAtAsc(card.getId()).size();
+        List<UUID> assignees = cardAssigneeRepository.findByCardId(card.getId()).stream()
+                .map(com.kanban.model.CardAssignee::getUserId).toList();
         return new CardResponse(card.getId(), card.getColumn().getId(),
                 card.getTitle(), card.getDescription(), card.getPosition(),
-                card.getAssigneeId(), card.getDueDate(), card.getPriority(), labels,
+                card.getStartDate(), card.getDueDate(), card.getPriority(), labels, assignees,
                 subtaskTotal, subtaskDone, commentCount,
                 card.getCreatedAt(), card.getUpdatedAt());
     }

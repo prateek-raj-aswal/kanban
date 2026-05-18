@@ -1,278 +1,455 @@
 {
   "stories": [
     {
-      "id": "S-01",
-      "title": "Initialize monorepo directory structure",
+      "id": "US-101",
+      "title": "Workspace migration: create workspaces table and add workspace_id to boards",
       "phase": "PHASE-001",
       "dependencies": [],
       "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-02",
-      "title": "PostgreSQL schema — users table migration",
-      "phase": "PHASE-001",
-      "dependencies": ["S-01"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-03",
-      "title": "Backend — POST /api/v1/auth/register endpoint",
-      "phase": "PHASE-001",
-      "dependencies": ["S-02"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-04",
-      "title": "Backend — POST /api/v1/auth/login endpoint with JWT issuance",
-      "phase": "PHASE-001",
-      "dependencies": ["S-03"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-05",
-      "title": "Backend — JWT authentication filter (Spring Security)",
-      "phase": "PHASE-001",
-      "dependencies": ["S-04"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-06",
-      "title": "Frontend — Register page UI and API integration",
-      "phase": "PHASE-001",
-      "dependencies": ["S-03"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-07",
-      "title": "Frontend — Login page UI, JWT storage, and auth redirect",
-      "phase": "PHASE-001",
-      "dependencies": ["S-04", "S-06"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-08",
-      "title": "PostgreSQL schema — boards and board_members tables migration",
-      "phase": "PHASE-002",
-      "dependencies": ["S-02"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-09",
-      "title": "PostgreSQL schema — columns table migration",
-      "phase": "PHASE-002",
-      "dependencies": ["S-08"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-10",
-      "title": "Backend — Board CRUD endpoints (POST, GET, DELETE)",
-      "phase": "PHASE-002",
-      "dependencies": ["S-05", "S-08"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-11",
-      "title": "Backend — Column CRUD endpoints (POST, PATCH name, DELETE, reorder)",
-      "phase": "PHASE-002",
-      "dependencies": ["S-10", "S-09"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-12",
-      "title": "Frontend — Boards list page (/boards)",
-      "phase": "PHASE-002",
-      "dependencies": ["S-10", "S-07"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-13",
-      "title": "Frontend — Board detail page with column layout (/boards/[boardId])",
-      "phase": "PHASE-002",
-      "dependencies": ["S-11", "S-12"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-14",
-      "title": "PostgreSQL schema — cards and labels tables migration",
-      "phase": "PHASE-003",
-      "dependencies": ["S-09"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-15",
-      "title": "Backend — Card CRUD endpoints (POST, GET, PATCH, DELETE)",
-      "phase": "PHASE-003",
-      "dependencies": ["S-11", "S-14"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-16",
-      "title": "Backend — Label CRUD endpoints for a board",
-      "phase": "PHASE-003",
-      "dependencies": ["S-15"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-17",
-      "title": "Frontend — Card creation inline form inside a column",
-      "phase": "PHASE-003",
-      "dependencies": ["S-15", "S-13"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-18",
-      "title": "Frontend — Card detail drawer (view and edit all fields)",
-      "phase": "PHASE-003",
-      "dependencies": ["S-16", "S-17"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "S-19",
-      "title": "Backend — PATCH /api/v1/cards/{cardId}/move endpoint",
-      "phase": "PHASE-004",
-      "dependencies": ["S-15"],
-      "status": "done",
       "acceptance_criteria": [
-        "PATCH /api/v1/cards/{cardId}/move returns 200 with updated CardResponse",
-        "Moves card to target column with given position",
-        "Returns 404 when card not found",
-        "Returns 404 when target column not found",
-        "Returns 422 when target column is on a different board",
-        "Returns 403 when user is not a board member"
+        "workspaces table exists with id, name, owner_id, created_at columns",
+        "boards table has workspace_id foreign key column",
+        "migration runs without errors"
       ]
     },
     {
-      "id": "S-20",
-      "title": "Frontend — Drag-and-drop card reordering with dnd-kit",
-      "phase": "PHASE-004",
-      "dependencies": ["S-19", "S-13"],
+      "id": "US-102",
+      "title": "Workspace entity, repository, and service (create, read, delete)",
+      "phase": "PHASE-001",
+      "dependencies": ["US-101"],
       "status": "done",
       "acceptance_criteria": [
-        "Cards can be dragged within the same column to reorder",
-        "Cards can be dragged across columns",
-        "Drag triggers PATCH /api/v1/cards/{cardId}/move on drop",
-        "UI updates optimistically before API response",
-        "Drag is disabled while a move request is in-flight"
+        "Workspace JPA entity mapped to workspaces table",
+        "WorkspaceRepository extends JpaRepository",
+        "WorkspaceService has create, findById, delete methods",
+        "Unit tests pass for service layer"
       ]
     },
     {
-      "id": "S-21",
-      "title": "Backend — WebSocket STOMP gateway configuration",
+      "id": "US-103",
+      "title": "Workspace membership: add/remove members API",
+      "phase": "PHASE-001",
+      "dependencies": ["US-102"],
+      "status": "done",
+      "acceptance_criteria": [
+        "POST /api/v1/workspaces/{id}/members adds a member",
+        "DELETE /api/v1/workspaces/{id}/members/{userId} removes a member",
+        "Returns 404 if workspace not found",
+        "Returns 403 if caller is not workspace owner"
+      ]
+    },
+    {
+      "id": "US-104",
+      "title": "Assign board to workspace: update board creation and board response",
+      "phase": "PHASE-001",
+      "dependencies": ["US-102"],
+      "status": "done",
+      "acceptance_criteria": [
+        "Board creation accepts workspaceId in request body",
+        "BoardResponse includes workspaceId field",
+        "Boards without workspace return null workspaceId"
+      ]
+    },
+    {
+      "id": "US-201",
+      "title": "Migration: add card_assignees join table and start_date column",
+      "phase": "PHASE-002",
+      "dependencies": ["US-101"],
+      "status": "done",
+      "acceptance_criteria": [
+        "card_assignees join table created with card_id and user_id columns",
+        "cards table has start_date column of type DATE",
+        "Migration runs without errors"
+      ]
+    },
+    {
+      "id": "US-202",
+      "title": "Card model and CardResponse: replace assigneeId with assignees list and add startDate",
+      "phase": "PHASE-002",
+      "dependencies": ["US-201"],
+      "status": "done",
+      "acceptance_criteria": [
+        "Card entity has ManyToMany relationship to User via card_assignees",
+        "CardResponse replaces assigneeId with List<UserSummary> assignees",
+        "CardResponse includes startDate field",
+        "Existing card endpoints return updated response shape"
+      ]
+    },
+    {
+      "id": "US-203",
+      "title": "Add/remove assignee API endpoints on cards",
+      "phase": "PHASE-002",
+      "dependencies": ["US-202"],
+      "status": "done",
+      "acceptance_criteria": [
+        "POST /api/v1/cards/{id}/assignees adds a user as assignee",
+        "DELETE /api/v1/cards/{id}/assignees/{userId} removes assignee",
+        "Returns 404 if card or user not found",
+        "Returns 409 if user already assigned"
+      ]
+    },
+    {
+      "id": "US-204",
+      "title": "Update card startDate via PATCH card endpoint",
+      "phase": "PHASE-002",
+      "dependencies": ["US-202"],
+      "status": "done",
+      "acceptance_criteria": [
+        "PATCH /api/v1/cards/{id} accepts startDate field",
+        "startDate persisted and returned in CardResponse",
+        "startDate can be set to null to clear it"
+      ]
+    },
+    {
+      "id": "US-301",
+      "title": "Attachment migration: create attachments table",
+      "phase": "PHASE-003",
+      "dependencies": ["US-201"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "attachments table created with id, card_id, filename, url, uploaded_by, created_at columns",
+        "card_id is a foreign key to cards table",
+        "Migration runs without errors"
+      ]
+    },
+    {
+      "id": "US-302",
+      "title": "Attachment upload API: POST /api/v1/cards/{id}/attachments",
+      "phase": "PHASE-003",
+      "dependencies": ["US-301"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "POST /api/v1/cards/{id}/attachments accepts multipart/form-data",
+        "File stored and URL persisted in attachments table",
+        "Returns AttachmentResponse with id, filename, url, uploadedAt",
+        "Returns 404 if card not found"
+      ]
+    },
+    {
+      "id": "US-401",
+      "title": "Board stars migration: create board_stars table",
+      "phase": "PHASE-004",
+      "dependencies": ["US-101"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "board_stars table created with user_id and board_id columns",
+        "Composite primary key on (user_id, board_id)",
+        "Migration runs without errors"
+      ]
+    },
+    {
+      "id": "US-402",
+      "title": "Board star/unstar API and starred board list endpoint",
+      "phase": "PHASE-004",
+      "dependencies": ["US-401"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "POST /api/v1/boards/{id}/star stars the board for current user",
+        "DELETE /api/v1/boards/{id}/star unstars the board",
+        "GET /api/v1/me/starred-boards returns list of starred boards",
+        "Returns 404 if board not found"
+      ]
+    },
+    {
+      "id": "US-501",
+      "title": "Inbox API: GET /api/v1/me/inbox — cards assigned to current user across all boards",
       "phase": "PHASE-005",
-      "dependencies": ["S-05"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-203"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "GET /api/v1/me/inbox returns all cards where current user is an assignee",
+        "Response includes board name and column name for context",
+        "Results ordered by dueDate ascending, nulls last"
+      ]
     },
     {
-      "id": "S-22",
-      "title": "Backend — Broadcast board events on card and column mutations",
+      "id": "US-502",
+      "title": "Today API: GET /api/v1/me/today — cards due today across all boards",
       "phase": "PHASE-005",
-      "dependencies": ["S-21", "S-15", "S-19", "S-11"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-203"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "GET /api/v1/me/today returns cards where dueDate equals today",
+        "Only returns cards assigned to or created by current user",
+        "Response includes board and column context"
+      ]
     },
     {
-      "id": "S-23",
-      "title": "Frontend — WebSocket client subscription and board state reconciliation",
+      "id": "US-503",
+      "title": "Upcoming API: GET /api/v1/me/upcoming — cards due in next 7 days",
       "phase": "PHASE-005",
-      "dependencies": ["S-22", "S-20", "S-18"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-502"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "GET /api/v1/me/upcoming returns cards due within the next 7 days from today",
+        "Excludes cards due today (covered by Today API)",
+        "Results ordered by dueDate ascending"
+      ]
     },
     {
-      "id": "S-24",
-      "title": "PostgreSQL schema — board_invitations table migration",
+      "id": "US-601",
+      "title": "WorkspaceSwitcher component: display current workspace name with dropdown to switch",
       "phase": "PHASE-006",
-      "dependencies": ["S-08"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-104", "US-402"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "WorkspaceSwitcher renders current workspace name in sidebar header",
+        "Dropdown lists all workspaces the user belongs to",
+        "Selecting a workspace updates the active workspace context",
+        "Switching workspace reloads board list"
+      ]
     },
     {
-      "id": "S-25",
-      "title": "Backend — POST /api/v1/boards/{boardId}/invitations endpoint",
+      "id": "US-602",
+      "title": "Sidebar: starred boards section",
       "phase": "PHASE-006",
-      "dependencies": ["S-10", "S-24", "S-05"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-402", "US-601"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Sidebar shows Starred Boards section above All Boards",
+        "Lists boards starred by current user with board name links",
+        "Section hidden if no boards are starred",
+        "Clicking a board navigates to board view"
+      ]
     },
     {
-      "id": "S-26",
-      "title": "Backend — POST /api/v1/invitations/accept endpoint",
+      "id": "US-603",
+      "title": "Sidebar: smart view nav items (Inbox, Today, Upcoming) with card counts",
       "phase": "PHASE-006",
-      "dependencies": ["S-25"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-501", "US-502", "US-503", "US-602"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Sidebar shows Inbox, Today, Upcoming navigation items",
+        "Each item displays a badge with current card count",
+        "Counts update on sidebar render",
+        "Clicking navigates to corresponding view page"
+      ]
     },
     {
-      "id": "S-27",
-      "title": "Frontend — Board invite UI and /join invitation acceptance page",
+      "id": "US-604",
+      "title": "InboxView page: card list with board/column context",
       "phase": "PHASE-006",
-      "dependencies": ["S-26", "S-13"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-603"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "InboxView page renders at /inbox route",
+        "Lists all assigned cards with card title, board name, column name",
+        "Shows due date if present",
+        "Empty state shown when no cards"
+      ]
     },
     {
-      "id": "S-28",
-      "title": "Backend — GET /api/v1/boards/{boardId}/members endpoint",
+      "id": "US-605",
+      "title": "TodayView and UpcomingView pages",
       "phase": "PHASE-006",
-      "dependencies": ["S-10", "S-05"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-603"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "TodayView page renders at /today route with cards due today",
+        "UpcomingView page renders at /upcoming route with cards due in next 7 days",
+        "Both pages show card title, board, column, and due date",
+        "Empty state shown when no cards"
+      ]
     },
     {
-      "id": "S-29",
-      "title": "Docker Compose — full stack configuration with env vars",
+      "id": "US-606",
+      "title": "Sidebar: boards grouped under workspace with task count",
+      "phase": "PHASE-006",
+      "dependencies": ["US-601", "US-603"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "All Boards section groups boards under their workspace name",
+        "Each board row shows a task count badge",
+        "Workspaces without boards show no board entries",
+        "Board links navigate to board view"
+      ]
+    },
+    {
+      "id": "US-701",
+      "title": "Timeline data endpoint: GET /api/v1/boards/{id}/timeline",
       "phase": "PHASE-007",
-      "dependencies": ["S-01"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-204"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "GET /api/v1/boards/{id}/timeline returns all cards with startDate or dueDate",
+        "Response includes id, title, startDate, dueDate, columnName, assignees",
+        "Cards without both dates are excluded",
+        "Returns 404 if board not found"
+      ]
     },
     {
-      "id": "S-30",
-      "title": "Backend — /api/v1/health endpoint",
+      "id": "US-702",
+      "title": "TimelineView: horizontal date grid with month/week header",
       "phase": "PHASE-007",
-      "dependencies": ["S-21"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-701"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "TimelineView renders at /boards/{id}/timeline route",
+        "Horizontal scrollable grid shows days as columns",
+        "Header row shows month labels and week numbers",
+        "View spans at least 3 months from today"
+      ]
     },
     {
-      "id": "S-31",
-      "title": "Backend — Structured JSON logging with correlation IDs",
+      "id": "US-703",
+      "title": "Timeline task bars: render colored bars per card spanning startDate to dueDate",
       "phase": "PHASE-007",
-      "dependencies": ["S-05"],
-      "status": "done",
-      "acceptance_criteria": []
+      "dependencies": ["US-702"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Each card renders as a colored horizontal bar",
+        "Bar spans from startDate column to dueDate column",
+        "Bar is positioned in the row corresponding to the card",
+        "Hovering bar shows card title tooltip"
+      ]
     },
     {
-      "id": "S-32",
-      "title": "CI — GitHub Actions pipeline for backend and frontend",
-      "phase": "PHASE-007",
-      "dependencies": ["S-29"],
-      "status": "done",
-      "acceptance_criteria": []
+      "id": "US-801",
+      "title": "CalendarView: monthly grid with cards on due-date cells",
+      "phase": "PHASE-008",
+      "dependencies": ["US-104"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "CalendarView renders at /boards/{id}/calendar route",
+        "Monthly grid shows 7-column week layout",
+        "Cards appear on the cell matching their dueDate",
+        "Card chips show card title, truncated if needed"
+      ]
+    },
+    {
+      "id": "US-802",
+      "title": "CalendarView: month navigation (previous/next) and view toggle integration",
+      "phase": "PHASE-008",
+      "dependencies": ["US-801"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Previous and Next buttons navigate between months",
+        "Current month label updates on navigation",
+        "View toggle allows switching between Board, Calendar, and Timeline views",
+        "Active view is highlighted in the toggle"
+      ]
+    },
+    {
+      "id": "US-901",
+      "title": "Swimlane toggle: group cards by label within each board column",
+      "phase": "PHASE-009",
+      "dependencies": ["US-601"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Board header has a Swimlanes toggle button",
+        "When enabled, cards in each column are grouped by label",
+        "Each swimlane row shows the label name as a header",
+        "Cards without a label appear in an Unlabeled swimlane"
+      ]
+    },
+    {
+      "id": "US-1001",
+      "title": "Card detail: multi-assignee avatar stack display",
+      "phase": "PHASE-010",
+      "dependencies": ["US-203"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Card detail modal shows stacked avatars for all assignees",
+        "Avatar stack shows up to 3 avatars then +N overflow indicator",
+        "Each avatar shows user initials or profile image",
+        "Hovering an avatar shows user display name"
+      ]
+    },
+    {
+      "id": "US-1002",
+      "title": "Card detail: assignee picker to add/remove multiple assignees",
+      "phase": "PHASE-010",
+      "dependencies": ["US-1001"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Clicking the avatar stack opens an assignee picker dropdown",
+        "Picker lists workspace members with checkboxes",
+        "Checking a member calls add assignee API",
+        "Unchecking a member calls remove assignee API"
+      ]
+    },
+    {
+      "id": "US-1003",
+      "title": "Card detail: attachment upload UI (file picker and attachment list)",
+      "phase": "PHASE-010",
+      "dependencies": ["US-302", "US-1001"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Card detail modal shows an Attachments section",
+        "File picker button triggers file upload to POST /cards/{id}/attachments",
+        "Uploaded attachments listed with filename and download link",
+        "Upload progress indicator shown during upload"
+      ]
+    },
+    {
+      "id": "US-1004",
+      "title": "Card detail: copy-link button copies shareable card URL to clipboard",
+      "phase": "PHASE-010",
+      "dependencies": ["US-1001"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Card detail modal has a Copy Link button",
+        "Clicking copies the full card URL to clipboard",
+        "Button shows a checkmark confirmation for 2 seconds after copy",
+        "URL navigates directly to the card when opened"
+      ]
+    },
+    {
+      "id": "US-1005",
+      "title": "Board star toggle on board header and BoardCard",
+      "phase": "PHASE-010",
+      "dependencies": ["US-402", "US-602"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Board header shows a star icon button",
+        "BoardCard in boards list shows a star icon button",
+        "Clicking star calls POST /boards/{id}/star or DELETE /boards/{id}/star",
+        "Star icon reflects current starred state immediately (optimistic update)"
+      ]
+    },
+    {
+      "id": "US-1101",
+      "title": "Mobile bottom navigation bar (Board, Today, Timeline, Inbox tabs)",
+      "phase": "PHASE-011",
+      "dependencies": ["US-604", "US-605"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "Bottom nav bar visible on screens narrower than 768px",
+        "Four tabs: Board, Today, Timeline, Inbox",
+        "Active tab is highlighted",
+        "Tapping a tab navigates to the corresponding view"
+      ]
+    },
+    {
+      "id": "US-1102",
+      "title": "Mobile board view: horizontal scrollable column tabs replacing desktop column layout",
+      "phase": "PHASE-011",
+      "dependencies": ["US-1101"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "On mobile, board columns are shown as tabs at the top",
+        "Active column tab shows that column's cards below",
+        "Tabs are horizontally scrollable if they overflow",
+        "Desktop layout unchanged at 768px and above"
+      ]
+    },
+    {
+      "id": "US-1103",
+      "title": "Mobile card layout: responsive CardItem and CardModal",
+      "phase": "PHASE-011",
+      "dependencies": ["US-1102", "US-1003"],
+      "status": "todo",
+      "acceptance_criteria": [
+        "CardItem is full-width on mobile with touch-friendly tap target",
+        "CardModal opens as a bottom sheet on mobile",
+        "All card detail fields are accessible in the bottom sheet",
+        "Desktop card modal behavior unchanged at 768px and above"
+      ]
     }
   ],
   "summary": {
-    "todo": 0,
+    "todo": 27,
     "in_progress": 0,
-    "done": 32
+    "done": 8
   }
 }

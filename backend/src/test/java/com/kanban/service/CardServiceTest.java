@@ -8,9 +8,12 @@ import com.kanban.model.Board;
 import com.kanban.model.BoardColumn;
 import com.kanban.model.Card;
 import com.kanban.model.Label;
+import com.kanban.repository.CardAssigneeRepository;
 import com.kanban.repository.CardRepository;
 import com.kanban.repository.ColumnRepository;
+import com.kanban.repository.CommentRepository;
 import com.kanban.repository.LabelRepository;
+import com.kanban.repository.SubtaskRepository;
 import com.kanban.security.BoardAccessPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,8 +40,13 @@ class CardServiceTest {
     @Mock CardRepository cardRepository;
     @Mock ColumnRepository columnRepository;
     @Mock LabelRepository labelRepository;
+    @Mock SubtaskRepository subtaskRepository;
+    @Mock CommentRepository commentRepository;
+    @Mock CardAssigneeRepository cardAssigneeRepository;
     @Mock BoardAccessPolicy accessPolicy;
     @Mock EventBroadcastService eventBroadcastService;
+    @Mock ActivityLogService activityLogService;
+    @Mock NotificationService notificationService;
 
     @InjectMocks CardService cardService;
 
@@ -146,7 +154,7 @@ class CardServiceTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        UpdateCardRequest req = new UpdateCardRequest("Updated title", null, null, null, null);
+        UpdateCardRequest req = new UpdateCardRequest("Updated title", null, null, null, null, null);
         CardResponse res = cardService.updateCard(cardId, req, userId);
 
         assertThat(res.title()).isEqualTo("Updated title");
@@ -158,7 +166,7 @@ class CardServiceTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null);
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null);
         cardService.updateCard(cardId, req, userId);
 
         ArgumentCaptor<Card> captor = ArgumentCaptor.forClass(Card.class);
@@ -178,7 +186,7 @@ class CardServiceTest {
         when(labelRepository.findAllById(List.of(labelId))).thenReturn(List.of(label));
         when(cardRepository.save(any())).thenReturn(card);
 
-        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, List.of(labelId));
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, List.of(labelId));
         CardResponse res = cardService.updateCard(cardId, req, userId);
 
         assertThat(res.labels()).hasSize(1);
@@ -190,10 +198,38 @@ class CardServiceTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        UpdateCardRequest req = new UpdateCardRequest("New title", null, null, null, null);
+        UpdateCardRequest req = new UpdateCardRequest("New title", null, null, null, null, null);
         cardService.updateCard(cardId, req, userId);
 
         verify(labelRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void updateCard_setsStartDateWhenProvided() {
+        when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
+        when(cardRepository.save(any())).thenReturn(card);
+
+        LocalDate start = LocalDate.of(2026, 6, 1);
+        UpdateCardRequest req = new UpdateCardRequest(null, null, start, null, null, null);
+        cardService.updateCard(cardId, req, userId);
+
+        ArgumentCaptor<Card> captor = ArgumentCaptor.forClass(Card.class);
+        verify(cardRepository).save(captor.capture());
+        assertThat(captor.getValue().getStartDate()).isEqualTo(start);
+    }
+
+    @Test
+    void updateCard_clearsStartDateWhenNull() {
+        setField(card, "startDate", LocalDate.of(2026, 1, 1));
+        when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
+        when(cardRepository.save(any())).thenReturn(card);
+
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null);
+        cardService.updateCard(cardId, req, userId);
+
+        ArgumentCaptor<Card> captor = ArgumentCaptor.forClass(Card.class);
+        verify(cardRepository).save(captor.capture());
+        assertThat(captor.getValue().getStartDate()).isNull();
     }
 
     @Test

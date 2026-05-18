@@ -15,11 +15,11 @@ public record BoardEventPayload(String eventType, UUID boardId, Instant timestam
 
     public record CardCreatedData(
             UUID id, UUID columnId, String title, double position,
-            UUID assigneeId, LocalDate dueDate, String priority, List<LabelResponse> labels) {}
+            List<UUID> assignees, LocalDate dueDate, String priority, List<LabelResponse> labels) {}
 
     public record CardUpdatedData(
             UUID id, UUID columnId, String title, String description,
-            UUID assigneeId, LocalDate dueDate, String priority, List<LabelResponse> labels, Instant updatedAt) {}
+            List<UUID> assignees, LocalDate dueDate, String priority, List<LabelResponse> labels, Instant updatedAt) {}
 
     public record CardMovedData(
             UUID id, UUID fromColumnId, UUID toColumnId, double newPosition, Instant updatedAt) {}

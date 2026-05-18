@@ -2,41 +2,46 @@
 
 ## Backend
 
-| Layer | Technology | Version | Justification |
-|-------|-----------|---------|---------------|
-| Framework | Spring Boot | 3.3.x | Requested by user, excellent for robust APIs and processing. |
-| Language | Java | 21 LTS | Standard for modern Spring Boot. |
-| Build Tool | Gradle | 8.x | Efficient dependency management. |
-| API Style | REST | — | Standard, easy to consume by frontend. |
-| Auth | Spring Security + JWT | — | Out of scope for monetization, but useful for basic admin/vendor auth. |
-| Audio Processing | FFmpeg | — | Required for automated audio watermarking. |
+| Layer | Technology | Version | Notes |
+|-------|-----------|---------|-------|
+| Framework | Spring Boot | 3.3.x | REST APIs + WebSocket |
+| Language | Java | 21 LTS | |
+| Build Tool | Gradle | 8.x | |
+| Auth | Spring Security + JWT | — | Stateless JWT auth |
+| Real-Time | WebSocket (STOMP) | — | Board collaboration |
+| API Style | REST | — | URL-versioned (`/api/v1`) |
 
 ## Frontend
 
-| Layer | Technology | Version | Justification |
-|-------|-----------|---------|---------------|
-| Framework | Next.js | 14.x | Fast, modern React framework with SSR/SSG capabilities for SEO. |
-| Language | TypeScript | 5.x | Type safety. |
-| State Mgmt | Zustand | 4.x | Lightweight state management for audio player state. |
-| Styling | Vanilla CSS | — | Complete control for premium design, avoiding Tailwind as per AI instructions. |
-| Build Tool | Next.js built-in (Webpack/Turbopack) | — | Standard Next.js pipeline. |
+| Layer | Technology | Version | Notes |
+|-------|-----------|---------|-------|
+| Framework | Next.js | 14.x | App Router |
+| Language | TypeScript | 5.x | |
+| State Mgmt | Zustand | 4.x | Board and auth state |
+| Styling | Vanilla CSS | — | No paid UI libs |
+| Testing | Vitest + RTL | — | |
 
 ## Database
 
-| Type | Technology | Version | Justification |
-|------|-----------|---------|---------------|
-| Primary DB | SQLite | 3.x | Requested by user. Ideal for initial iteration, simple file-based setup. |
-| Migrations | Flyway | 10.x | Schema management for SQLite. |
+| Type | Technology | Version | Notes |
+|------|-----------|---------|-------|
+| Primary DB | PostgreSQL | 16.x | UUID PKs, soft deletes |
+| Migrations | Flyway | 10.x | |
+| Caching | Redis | 7.x | Session / hot data |
 
-## Infrastructure & Storage
+## Infrastructure
 
-| Component | Technology | Version | Justification |
-|-----------|-----------|---------|---------------|
-| File Storage | Local FS / S3 Mock | — | Needed for storing large drum kits and beats. Can start local and move to S3. |
+| Component | Technology | Notes |
+|-----------|-----------|-------|
+| Containerization | Docker + Docker Compose | Dev and prod |
+| CI/CD | GitHub Actions | |
+| Monitoring | Prometheus + Grafana | |
+| Logging | Loki / ELK compatible | Structured JSON |
 
 ## Testing
 
-| Type | Technology | Version | Notes |
-|------|-----------|---------|-------|
-| Unit (Backend) | JUnit 5 + Mockito | — | Standard testing. |
-| Unit (Frontend) | Vitest | — | Fast UI component testing. |
+| Type | Technology | Notes |
+|------|-----------|-------|
+| Unit (Backend) | JUnit 5 + Mockito | |
+| Integration | Spring Boot Test | Real DB via Testcontainers |
+| Unit (Frontend) | Vitest + React Testing Library | |

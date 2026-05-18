@@ -104,7 +104,7 @@ public class InvitationService {
 
         return boardRepository.findActiveById(invitation.getBoardId())
                 .map(b -> new BoardResponse(b.getId(), b.getName(), b.getOwnerId(), "MEMBER",
-                        b.getCreatedAt(), null))
+                        b.getCreatedAt(), b.getWorkspaceId(), null))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"));
     }
 

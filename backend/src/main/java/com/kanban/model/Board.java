@@ -20,6 +20,9 @@ public class Board {
     @Column(name = "owner_id", nullable = false)
     private UUID ownerId;
 
+    @Column(name = "workspace_id")
+    private UUID workspaceId;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -41,6 +44,8 @@ public class Board {
     public void setName(String name) { this.name = name; }
     public UUID getOwnerId() { return ownerId; }
     public void setOwnerId(UUID ownerId) { this.ownerId = ownerId; }
+    public UUID getWorkspaceId() { return workspaceId; }
+    public void setWorkspaceId(UUID workspaceId) { this.workspaceId = workspaceId; }
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
     public Instant getCreatedAt() { return createdAt; }

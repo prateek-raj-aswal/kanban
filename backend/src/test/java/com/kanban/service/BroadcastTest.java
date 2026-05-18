@@ -7,9 +7,12 @@ import com.kanban.model.Board;
 import com.kanban.model.BoardColumn;
 import com.kanban.model.Card;
 import com.kanban.repository.BoardRepository;
+import com.kanban.repository.CardAssigneeRepository;
 import com.kanban.repository.CardRepository;
 import com.kanban.repository.ColumnRepository;
+import com.kanban.repository.CommentRepository;
 import com.kanban.repository.LabelRepository;
+import com.kanban.repository.SubtaskRepository;
 import com.kanban.security.BoardAccessPolicy;
 import com.kanban.websocket.BoardEventPayload;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,9 +36,14 @@ class BroadcastTest {
     @Mock CardRepository cardRepository;
     @Mock ColumnRepository columnRepository;
     @Mock LabelRepository labelRepository;
+    @Mock SubtaskRepository subtaskRepository;
+    @Mock CommentRepository commentRepository;
+    @Mock CardAssigneeRepository cardAssigneeRepository;
     @Mock BoardRepository boardRepository;
     @Mock BoardAccessPolicy accessPolicy;
     @Mock EventBroadcastService eventBroadcastService;
+    @Mock ActivityLogService activityLogService;
+    @Mock NotificationService notificationService;
 
     private CardService cardService;
     private ColumnService columnService;
@@ -51,7 +59,8 @@ class BroadcastTest {
     @BeforeEach
     void setUp() {
         cardService = new CardService(cardRepository, columnRepository, labelRepository,
-                accessPolicy, eventBroadcastService);
+                subtaskRepository, commentRepository, cardAssigneeRepository, accessPolicy,
+                eventBroadcastService, activityLogService, notificationService);
         columnService = new ColumnService(columnRepository, boardRepository,
                 accessPolicy, eventBroadcastService);
 
@@ -103,7 +112,7 @@ class BroadcastTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        cardService.updateCard(cardId, new UpdateCardRequest("New title", null, null, null, null), userId);
+        cardService.updateCard(cardId, new UpdateCardRequest("New title", null, null, null, null, null), userId);
 
         ArgumentCaptor<BoardEventPayload> captor = ArgumentCaptor.forClass(BoardEventPayload.class);
         verify(eventBroadcastService).broadcastBoardEvent(eq(boardId), captor.capture());

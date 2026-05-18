@@ -1,0 +1,136 @@
+test_plan:
+  story_id: US-101
+  framework: JUnit 5 + Spring Boot Test (@SpringBootTest, @ActiveProfiles("test"))
+  test_file: backend/src/test/java/com/kanban/migration/V11WorkspaceMigrationTest.java
+  run_command: "./gradlew test --tests \"com.kanban.migration.V11WorkspaceMigrationTest\""
+
+  notes:
+    - No Testcontainers dependency exists in build.gradle; tests use the application-test.yml
+      datasource (localhost:5432/kanbandb_test, user sandboxadmin).
+    - Tests will be RED until V11__create_workspaces.sql is created in
+      backend/src/main/resources/db/migration/ — this is the correct TDD red state.
+    - The Spring context starts once (shared across all tests in the class) so Flyway
+      runs exactly once before any test method executes.
+    - AC-4 assertion (workspace_id NULL on all boards) is valid because V11 only adds
+      a nullable column with no DEFAULT value and no UPDATE/backfill statement.
+
+  tests:
+    - id: TC-101-01
+      method: workspaces_id_column_exists_with_uuid_type_not_null_and_default
+      maps_to_ac: "AC-1: workspaces.id is UUID PK NOT NULL DEFAULT gen_random_uuid()"
+      type: acceptance
+      query_target: information_schema.columns
+
+    - id: TC-101-02
+      method: workspaces_name_column_is_varchar100_not_null
+      maps_to_ac: "AC-1: workspaces.name is VARCHAR(100) NOT NULL"
+      type: acceptance
+      query_target: information_schema.columns
+
+    - id: TC-101-03
+      method: workspaces_owner_id_column_is_uuid_not_null
+      maps_to_ac: "AC-1: workspaces.owner_id is UUID NOT NULL"
+      type: acceptance
+      query_target: information_schema.columns
+
+    - id: TC-101-04
+      method: workspaces_owner_id_has_fk_to_users_with_cascade_delete
+      maps_to_ac: "AC-1: workspaces.owner_id FK->users(id) ON DELETE CASCADE"
+      type: acceptance
+      query_target: information_schema.referential_constraints
+
+    - id: TC-101-05
+      method: workspaces_created_at_is_timestamptz_not_null_with_default
+      maps_to_ac: "AC-1: workspaces.created_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+      type: acceptance
+      query_target: information_schema.columns
+
+    - id: TC-101-06
+      method: workspaces_updated_at_is_timestamptz_not_null_with_default
+      maps_to_ac: "AC-1: workspaces.updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+      type: acceptance
+      query_target: information_schema.columns
+
+    - id: TC-101-07
+      method: workspace_members_workspace_id_is_uuid_not_null_fk_cascade
+      maps_to_ac: "AC-2: workspace_members.workspace_id UUID NOT NULL FK->workspaces(id) CASCADE"
+      type: acceptance
+      query_target: information_schema.columns + referential_constraints
+
+    - id: TC-101-08
+      method: workspace_members_user_id_is_uuid_not_null_fk_cascade
+      maps_to_ac: "AC-2: workspace_members.user_id UUID NOT NULL FK->users(id) CASCADE"
+      type: acceptance
+      query_target: information_schema.columns + referential_constraints
+
+    - id: TC-101-09
+      method: workspace_members_role_is_varchar20_not_null_with_default_member
+      maps_to_ac: "AC-2: workspace_members.role VARCHAR(20) NOT NULL DEFAULT 'MEMBER'"
+      type: acceptance
+      query_target: information_schema.columns
+
+    - id: TC-101-10
+      method: workspace_members_role_check_constraint_exists
+      maps_to_ac: "AC-2: workspace_members.role CHECK IN ('OWNER','ADMIN','MEMBER')"
+      type: acceptance
+      query_target: information_schema.check_constraints
+
+    - id: TC-101-11
+      method: workspace_members_joined_at_is_timestamptz_not_null_with_default
+      maps_to_ac: "AC-2: workspace_members.joined_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+      type: acceptance
+      query_target: information_schema.columns
+
+    - id: TC-101-12
+      method: workspace_members_has_composite_primary_key_on_workspace_id_and_user_id
+      maps_to_ac: "AC-2: workspace_members PRIMARY KEY (workspace_id, user_id)"
+      type: acceptance
+      query_target: information_schema.table_constraints + key_column_usage
+
+    - id: TC-101-13
+      method: boards_workspace_id_column_exists_as_nullable_uuid
+      maps_to_ac: "AC-3: boards.workspace_id is nullable UUID column"
+      type: acceptance
+      query_target: information_schema.columns
+
+    - id: TC-101-14
+      method: boards_workspace_id_fk_to_workspaces_on_delete_set_null
+      maps_to_ac: "AC-3: boards.workspace_id FK->workspaces(id) ON DELETE SET NULL"
+      type: acceptance
+      query_target: information_schema.referential_constraints
+
+    - id: TC-101-15
+      method: all_existing_boards_have_null_workspace_id_after_migration
+      maps_to_ac: "AC-4: pre-existing boards have workspace_id = NULL (no data loss)"
+      type: acceptance
+      query_target: boards table (data assertion)
+
+    - id: TC-101-16
+      method: index_idx_workspaces_owner_exists_on_workspaces_owner_id
+      maps_to_ac: "AC-5: idx_workspaces_owner on workspaces(owner_id)"
+      type: acceptance
+      query_target: pg_indexes
+
+    - id: TC-101-17
+      method: index_idx_ws_members_workspace_exists_on_workspace_members_workspace_id
+      maps_to_ac: "AC-5: idx_ws_members_workspace on workspace_members(workspace_id)"
+      type: acceptance
+      query_target: pg_indexes
+
+    - id: TC-101-18
+      method: index_idx_ws_members_user_exists_on_workspace_members_user_id
+      maps_to_ac: "AC-5: idx_ws_members_user on workspace_members(user_id)"
+      type: acceptance
+      query_target: pg_indexes
+
+    - id: TC-101-19
+      method: index_idx_boards_workspace_exists_as_partial_index_on_boards
+      maps_to_ac: "AC-5: idx_boards_workspace on boards(workspace_id)"
+      type: acceptance
+      query_target: pg_indexes
+
+    - id: TC-101-20
+      method: index_idx_boards_workspace_is_partial_with_deleted_at_predicate
+      maps_to_ac: "AC-5: idx_boards_workspace WHERE deleted_at IS NULL predicate"
+      type: edge_case
+      query_target: pg_indexes (indexdef column)

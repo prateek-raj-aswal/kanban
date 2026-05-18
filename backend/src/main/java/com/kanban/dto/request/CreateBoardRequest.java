@@ -2,7 +2,9 @@ package com.kanban.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 
 public record CreateBoardRequest(
-        @NotBlank @Size(min = 1, max = 255) String name
+        @NotBlank @Size(min = 1, max = 255) String name,
+        UUID workspaceId
 ) {}

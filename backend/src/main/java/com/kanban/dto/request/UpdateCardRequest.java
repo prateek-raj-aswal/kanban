@@ -7,8 +7,8 @@ import java.util.UUID;
 public record UpdateCardRequest(
         String title,
         String description,
+        LocalDate startDate,
         LocalDate dueDate,
-        UUID assigneeId,
         String priority,
         List<UUID> labelIds
 ) {}

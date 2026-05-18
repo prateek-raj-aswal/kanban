@@ -9,10 +9,12 @@ import com.kanban.dto.response.LabelResponse;
 import com.kanban.dto.response.MemberResponse;
 import com.kanban.exception.ApiException;
 import com.kanban.model.Board;
+import com.kanban.model.Card;
 import com.kanban.model.BoardMember;
 import com.kanban.model.User;
 import com.kanban.repository.BoardMemberRepository;
 import com.kanban.repository.BoardRepository;
+import com.kanban.repository.CardAssigneeRepository;
 import com.kanban.repository.CommentRepository;
 import com.kanban.repository.SubtaskRepository;
 import com.kanban.repository.UserRepository;
@@ -27,6 +29,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
 
 @Service
 public class BoardService {
@@ -37,19 +42,22 @@ public class BoardService {
     private final BoardAccessPolicy accessPolicy;
     private final SubtaskRepository subtaskRepository;
     private final CommentRepository commentRepository;
+    private final CardAssigneeRepository cardAssigneeRepository;
 
     public BoardService(BoardRepository boardRepository,
                         BoardMemberRepository memberRepository,
                         UserRepository userRepository,
                         BoardAccessPolicy accessPolicy,
                         SubtaskRepository subtaskRepository,
-                        CommentRepository commentRepository) {
+                        CommentRepository commentRepository,
+                        CardAssigneeRepository cardAssigneeRepository) {
         this.boardRepository = boardRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
         this.accessPolicy = accessPolicy;
         this.subtaskRepository = subtaskRepository;
         this.commentRepository = commentRepository;
+        this.cardAssigneeRepository = cardAssigneeRepository;
     }
 
     @Transactional
@@ -57,6 +65,7 @@ public class BoardService {
         Board board = new Board();
         board.setName(request.name());
         board.setOwnerId(requestingUserId);
+        board.setWorkspaceId(request.workspaceId());
         board = boardRepository.save(board);
 
         BoardMember member = new BoardMember();
@@ -140,13 +149,18 @@ public class BoardService {
             List<UUID> cardIds = board.getColumns().stream()
                     .filter(c -> c.getDeletedAt() == null)
                     .flatMap(c -> c.getCards().stream().filter(card -> card.getDeletedAt() == null))
-                    .map(card -> card.getId())
-                    .toList();
+                    .map(Card::getId)
+                    .collect(Collectors.toList());
 
             Map<UUID, int[]> subtaskCounts = cardIds.isEmpty() ? Map.of()
                     : subtaskRepository.getCountsByCardIds(cardIds);
             Map<UUID, Integer> commentCounts = cardIds.isEmpty() ? Map.of()
                     : commentRepository.getCountsByCardIds(cardIds);
+            Map<UUID, List<UUID>> assigneeMap = cardIds.isEmpty() ? Map.of()
+                    : cardAssigneeRepository.findByCardIdIn(cardIds).stream()
+                        .collect(groupingBy(
+                                com.kanban.model.CardAssignee::getCardId,
+                                mapping(com.kanban.model.CardAssignee::getUserId, toList())));
 
             columns = board.getColumns().stream()
                     .filter(c -> c.getDeletedAt() == null)
@@ -156,14 +170,16 @@ public class BoardService {
                                 .map(card -> {
                                     int[] sc = subtaskCounts.getOrDefault(card.getId(), new int[]{0, 0});
                                     int cc = commentCounts.getOrDefault(card.getId(), 0);
+                                    List<UUID> assignees = assigneeMap.getOrDefault(card.getId(), List.of());
                                     return new CardResponse(
                                             card.getId(), card.getColumn().getId(),
                                             card.getTitle(), card.getDescription(),
-                                            card.getPosition(), card.getAssigneeId(), card.getDueDate(),
+                                            card.getPosition(), card.getStartDate(), card.getDueDate(),
                                             card.getPriority(),
                                             card.getLabels().stream()
                                                     .map(l -> new LabelResponse(l.getId(), l.getName(), l.getColor()))
                                                     .toList(),
+                                            assignees,
                                             sc[0], sc[1], cc,
                                             card.getCreatedAt(), card.getUpdatedAt()
                                     );
@@ -175,6 +191,6 @@ public class BoardService {
                     .toList();
         }
         return new BoardResponse(board.getId(), board.getName(), board.getOwnerId(),
-                role, board.getCreatedAt(), columns);
+                role, board.getCreatedAt(), board.getWorkspaceId(), columns);
     }
 }

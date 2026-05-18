@@ -1,10 +1,15 @@
----
-# ============================================================
-# KANBAN BOARD APP — FULL SYSTEM ARCHITECTURE
-# Generated: 2026-05-07
-# Covers: S-01 through S-32
-# Tech Stack: Next.js 14 / Spring Boot 3.3 / PostgreSQL / Docker
-# ============================================================
+##############################################################################
+# Kanban — Full Architecture Document (COMPLETE REWRITE)
+# Produced by: architect agent session ab9546a1dffc7c551
+# Supersedes: prior S-01..S-32 architecture document
+# Amendments applied:
+#   - BS-03: 422 error when size > 100
+#   - CARD_CREATED / CARD_UPDATED: assigneeId replaced by assignees (UUID[])
+# Tech stack: Spring Boot 3.3.x / Java 21 / PostgreSQL 16 / Flyway 10 /
+#             Redis 7 / WebSocket STOMP / Next.js 14 App Router /
+#             TypeScript 5 / Zustand 4 / Vanilla CSS
+# Date: 2026-05-18
+##############################################################################
 
 # ────────────────────────────────────────────────────────────
 # SECTION 1: DIRECTORY STRUCTURE
@@ -1893,3 +1898,1316 @@ component_boundaries:
       - WS message dispatch-to-store reducer logic
       - dnd-kit sensor configuration
     interface_surface: [boardStore.ts exports (useBoardStore hook), websocket.ts (internal subscribe call)]
+
+
+##############################################################################
+# ============================================================================
+# NEW ARCHITECTURE DOCUMENT — V2 (replaces inline sections above for new work)
+# Covers the 23 new endpoints, V11-V14 migrations, multi-assignee, attachments,
+# board stars, workspaces, timeline view, and all cross-cutting concerns.
+# ============================================================================
+##############################################################################
+
+# ============================================================================
+# SECTION 1 — HIGH-LEVEL DESIGN (HLD)
+# ============================================================================
+hld:
+  overview: |
+    Multi-tenant Kanban application with workspaces, boards, cards, multi-assignees,
+    file attachments, board stars, timeline view, and real-time collaboration
+    over WebSocket (STOMP/SockJS). Persistence in PostgreSQL; JWT-based auth;
+    Redis for cache; local-disk file storage served through a guarded endpoint.
+
+  components:
+    - id: CLIENT
+      name: Next.js 14 Frontend
+      technology: "Next.js 14 App Router, TypeScript 5, Zustand 4, Vanilla CSS, SockJS+STOMP"
+      responsibilities:
+        - Render board views (kanban, list, timeline, calendar)
+        - Manage auth tokens (localStorage)
+        - Connect to WebSocket and apply real-time events to Zustand store
+        - Upload attachments via multipart POST; display via guarded file URLs
+        - Workspace switcher and board-star shortcuts in sidebar
+
+    - id: API
+      name: Spring Boot REST API
+      technology: "Spring Boot 3.3.x, Java 21, Spring Security 6, Spring WebSocket"
+      responsibilities:
+        - Stateless JWT authentication on every REST request
+        - Business logic for workspaces, boards, columns, cards, assignees,
+          attachments, stars, comments, subtasks, activity log, notifications
+        - File upload reception; storage to local disk at app.upload-dir
+        - File serving via /api/v1/files/{filename} with board-membership check
+        - Broadcast board events to /topic/boards/{boardId}
+        - Paginated list APIs
+
+    - id: DB
+      name: PostgreSQL 16
+      technology: "PostgreSQL 16, Flyway 10 migrations"
+      responsibilities:
+        - Authoritative store for all entities
+        - Soft deletes via deleted_at (boards, cards)
+        - Flyway version history V1-V14
+
+    - id: CACHE
+      name: Redis 7
+      technology: "Redis 7, Spring Data Redis"
+      responsibilities:
+        - Cache board membership sets (key board:members:{boardId}, TTL 60s)
+        - Cache starred board lists (key user:stars:{userId}, TTL 60s)
+        - Cache workspace member lists (key ws:members:{workspaceId}, TTL 60s)
+        - Evicted on write mutations via explicit DEL
+
+    - id: FS
+      name: Local Disk File Store
+      technology: "Java NIO, app.upload-dir config property"
+      responsibilities:
+        - Receive uploaded files; store as {uuid}.{ext}
+        - Serve via API endpoint with auth + board-membership guard
+        - No CDN in v1; stored filename is opaque UUID
+
+    - id: WS
+      name: WebSocket Broker (in-process STOMP)
+      technology: "Spring WebSocket STOMP, SockJS fallback"
+      responsibilities:
+        - Authenticate CONNECT frame via JWT ChannelInterceptor
+        - Relay board events to /topic/boards/{boardId}
+        - Relay workspace events to /topic/workspaces/{workspaceId}
+        - New V12 event types for assignees, attachments, stars, workspace members
+
+  data_flows:
+    - name: REST request lifecycle
+      steps:
+        - "Client HTTPS -> JwtAuthenticationFilter (validates Bearer token)"
+        - "Filter sets AuthenticatedUser in SecurityContext"
+        - "Controller receives request, calls Service"
+        - "Service checks Redis cache; on miss queries PostgreSQL"
+        - "Service mutates DB, invalidates relevant cache keys"
+        - "Service calls EventBroadcastService.broadcastBoardEvent()"
+        - "EventBroadcastService -> SimpMessagingTemplate -> /topic/boards/{boardId}"
+        - "Controller returns DTO; GlobalExceptionHandler maps errors to ErrorResponse"
+
+    - name: File upload flow
+      steps:
+        - "Client POST /api/v1/cards/{cardId}/attachments (multipart/form-data)"
+        - "AttachmentController validates size <= 10MB and allowed MIME type"
+        - "AttachmentService writes to app.upload-dir/{uuid}.{ext}"
+        - "Persists attachments row with stored_filename = {uuid}.{ext}"
+        - "Returns AttachmentResponse with url = /api/v1/files/{uuid}.{ext}"
+        - "Broadcasts ATTACHMENT_UPLOADED event on board channel"
+
+    - name: File serving flow
+      steps:
+        - "Client GET /api/v1/files/{filename} (auth required)"
+        - "FileController looks up attachment by stored_filename; 404 if missing"
+        - "Resolve card -> column -> board; assert caller is board member"
+        - "Stream file bytes with Content-Type and Content-Disposition headers"
+
+    - name: WebSocket subscription
+      steps:
+        - "Client connects to /ws with STOMP CONNECT, Authorization: Bearer {jwt}"
+        - "ChannelInterceptor validates token, sets AuthenticatedUser principal"
+        - "Client subscribes to /topic/boards/{boardId}"
+        - "Any board mutation by any user triggers broadcast to all subscribers"
+
+  cross_cutting_overview:
+    auth: "JWT HS256, 24h TTL, validated in JwtAuthenticationFilter on every request"
+    board_access: "BoardAccessPolicy.assertMember(boardId, userId) throws 403"
+    workspace_access: "WorkspaceAccessPolicy.assertMember/assertAdminOrOwner/assertOwner"
+    soft_delete: "boards.deleted_at and cards.deleted_at; queries append WHERE deleted_at IS NULL"
+    correlation_id: "CorrelationIdFilter adds X-Correlation-Id to every request/response"
+
+
+# ============================================================================
+# SECTION 2 — DATABASE SCHEMA (V11-V14 NEW TABLES + MODIFICATIONS)
+# ============================================================================
+db_schema:
+  flyway_history:
+    - version: V1
+      script: V1__create_users.sql
+    - version: V2
+      script: V2__create_boards.sql
+    - version: V3
+      script: V3__create_columns.sql
+    - version: V4
+      script: V4__create_cards_and_labels.sql
+    - version: V5
+      script: V5__create_invitations.sql
+    - version: V6
+      script: V6__add_priority_to_cards.sql
+    - version: V7
+      script: V7__create_subtasks.sql
+    - version: V8
+      script: V8__create_comments.sql
+    - version: V9
+      script: V9__create_activity_log.sql
+    - version: V10
+      script: V10__create_notifications.sql
+    - version: V11
+      script: V11__create_workspaces.sql
+      description: "workspaces table, workspace_members table, workspace_id added to boards"
+    - version: V12
+      script: V12__card_assignees_and_start_date.sql
+      description: "card_assignees table; start_date added to cards; assignee_id dropped from cards"
+    - version: V13
+      script: V13__create_attachments.sql
+      description: "attachments table"
+    - version: V14
+      script: V14__create_board_stars.sql
+      description: "board_stars table"
+
+  new_tables:
+
+    workspaces:
+      migration: V11
+      columns:
+        - {name: id,         type: UUID,         constraints: "PK NOT NULL DEFAULT gen_random_uuid()"}
+        - {name: name,       type: VARCHAR(100),  constraints: "NOT NULL"}
+        - {name: owner_id,   type: UUID,          constraints: "NOT NULL FK->users(id) ON DELETE CASCADE"}
+        - {name: created_at, type: TIMESTAMPTZ,   constraints: "NOT NULL DEFAULT now()"}
+        - {name: updated_at, type: TIMESTAMPTZ,   constraints: "NOT NULL DEFAULT now()"}
+      indexes:
+        - {name: idx_workspaces_owner, columns: [owner_id]}
+
+    workspace_members:
+      migration: V11
+      columns:
+        - {name: workspace_id, type: UUID,        constraints: "NOT NULL FK->workspaces(id) ON DELETE CASCADE"}
+        - {name: user_id,      type: UUID,        constraints: "NOT NULL FK->users(id) ON DELETE CASCADE"}
+        - {name: role,         type: VARCHAR(20), constraints: "NOT NULL DEFAULT 'MEMBER' CHECK(role IN('OWNER','ADMIN','MEMBER'))"}
+        - {name: joined_at,    type: TIMESTAMPTZ, constraints: "NOT NULL DEFAULT now()"}
+      primary_key: [workspace_id, user_id]
+      indexes:
+        - {name: idx_ws_members_workspace, columns: [workspace_id]}
+        - {name: idx_ws_members_user,      columns: [user_id]}
+
+    card_assignees:
+      migration: V12
+      columns:
+        - {name: card_id,     type: UUID,        constraints: "NOT NULL FK->cards(id) ON DELETE CASCADE"}
+        - {name: user_id,     type: UUID,        constraints: "NOT NULL FK->users(id) ON DELETE CASCADE"}
+        - {name: assigned_at, type: TIMESTAMPTZ, constraints: "NOT NULL DEFAULT now()"}
+      primary_key: [card_id, user_id]
+      indexes:
+        - {name: idx_card_assignees_card, columns: [card_id]}
+        - {name: idx_card_assignees_user, columns: [user_id]}
+
+    attachments:
+      migration: V13
+      columns:
+        - {name: id,                type: UUID,         constraints: "PK NOT NULL DEFAULT gen_random_uuid()"}
+        - {name: card_id,           type: UUID,         constraints: "NOT NULL FK->cards(id) ON DELETE CASCADE"}
+        - {name: uploader_id,       type: UUID,         constraints: "NOT NULL FK->users(id)"}
+        - {name: original_filename, type: VARCHAR(255),  constraints: "NOT NULL"}
+        - {name: stored_filename,   type: VARCHAR(255),  constraints: "NOT NULL UNIQUE  -- {uuid}.{ext} on disk"}
+        - {name: content_type,      type: VARCHAR(100),  constraints: "NOT NULL"}
+        - {name: size_bytes,        type: BIGINT,        constraints: "NOT NULL"}
+        - {name: created_at,        type: TIMESTAMPTZ,   constraints: "NOT NULL DEFAULT now()"}
+      indexes:
+        - {name: idx_attachments_card,   columns: [card_id]}
+        - {name: idx_attachments_stored, columns: [stored_filename], unique: true}
+
+    board_stars:
+      migration: V14
+      columns:
+        - {name: user_id,    type: UUID,        constraints: "NOT NULL FK->users(id) ON DELETE CASCADE"}
+        - {name: board_id,   type: UUID,        constraints: "NOT NULL FK->boards(id) ON DELETE CASCADE"}
+        - {name: starred_at, type: TIMESTAMPTZ, constraints: "NOT NULL DEFAULT now()"}
+      primary_key: [user_id, board_id]
+      indexes:
+        - {name: idx_board_stars_user, columns: [user_id, starred_at DESC]}
+
+  modified_tables:
+    boards:
+      migration: V11
+      added_columns:
+        - name: workspace_id
+          type: UUID
+          constraints: "nullable FK->workspaces(id) ON DELETE SET NULL"
+          note: "NULL = personal board not in any workspace"
+      added_indexes:
+        - {name: idx_boards_workspace, columns: [workspace_id], where: "deleted_at IS NULL"}
+
+    cards:
+      migration: V12
+      added_columns:
+        - name: start_date
+          type: DATE
+          constraints: "nullable"
+          note: "Used by timeline view; drag to set start and end"
+      dropped_columns:
+        - name: assignee_id
+          note: "Replaced by card_assignees join table; migrate existing rows in V12"
+
+  migration_sql:
+    V11__create_workspaces: |
+      CREATE TABLE workspaces (
+          id         UUID         NOT NULL DEFAULT gen_random_uuid(),
+          name       VARCHAR(100) NOT NULL,
+          owner_id   UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+          CONSTRAINT pk_workspaces PRIMARY KEY (id)
+      );
+      CREATE INDEX idx_workspaces_owner ON workspaces (owner_id);
+
+      CREATE TABLE workspace_members (
+          workspace_id UUID        NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+          user_id      UUID        NOT NULL REFERENCES users(id)      ON DELETE CASCADE,
+          role         VARCHAR(20) NOT NULL DEFAULT 'MEMBER'
+                           CHECK (role IN ('OWNER','ADMIN','MEMBER')),
+          joined_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+          CONSTRAINT pk_workspace_members PRIMARY KEY (workspace_id, user_id)
+      );
+      CREATE INDEX idx_ws_members_workspace ON workspace_members (workspace_id);
+      CREATE INDEX idx_ws_members_user      ON workspace_members (user_id);
+
+      ALTER TABLE boards
+          ADD COLUMN workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL;
+      CREATE INDEX idx_boards_workspace ON boards (workspace_id)
+          WHERE deleted_at IS NULL;
+
+    V12__card_assignees_and_start_date: |
+      CREATE TABLE card_assignees (
+          card_id     UUID        NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+          user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          CONSTRAINT pk_card_assignees PRIMARY KEY (card_id, user_id)
+      );
+      CREATE INDEX idx_card_assignees_card ON card_assignees (card_id);
+      CREATE INDEX idx_card_assignees_user ON card_assignees (user_id);
+
+      ALTER TABLE cards ADD COLUMN start_date DATE;
+
+      -- Migrate existing single assignee into join table
+      INSERT INTO card_assignees (card_id, user_id)
+      SELECT id, assignee_id FROM cards WHERE assignee_id IS NOT NULL;
+
+      ALTER TABLE cards DROP COLUMN assignee_id;
+
+    V13__create_attachments: |
+      CREATE TABLE attachments (
+          id                UUID         NOT NULL DEFAULT gen_random_uuid(),
+          card_id           UUID         NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+          uploader_id       UUID         NOT NULL REFERENCES users(id),
+          original_filename VARCHAR(255) NOT NULL,
+          stored_filename   VARCHAR(255) NOT NULL,
+          content_type      VARCHAR(100) NOT NULL,
+          size_bytes        BIGINT       NOT NULL,
+          created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+          CONSTRAINT pk_attachments PRIMARY KEY (id),
+          CONSTRAINT uq_attachments_stored UNIQUE (stored_filename)
+      );
+      CREATE INDEX idx_attachments_card   ON attachments (card_id);
+      CREATE INDEX idx_attachments_stored ON attachments (stored_filename);
+
+    V14__create_board_stars: |
+      CREATE TABLE board_stars (
+          user_id    UUID        NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+          board_id   UUID        NOT NULL REFERENCES boards(id)  ON DELETE CASCADE,
+          starred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          CONSTRAINT pk_board_stars PRIMARY KEY (user_id, board_id)
+      );
+      CREATE INDEX idx_board_stars_user ON board_stars (user_id, starred_at DESC);
+
+
+# ============================================================================
+# SECTION 3 — API CONTRACTS (23 new endpoints)
+# ============================================================================
+new_api_contracts:
+  base_url: "/api/v1"
+  auth_note: "Bearer JWT required on all endpoints"
+
+  # ----- Workspace endpoints -----
+  workspace_endpoints:
+
+    - id: WS-01
+      method: POST
+      path: /workspaces
+      summary: Create workspace; caller auto-added as OWNER
+      request_body:
+        name: {type: string, validation: "not blank, max 100"}
+      responses:
+        201: WorkspaceResponse
+        401: UNAUTHORIZED
+        422: VALIDATION_FAILED
+
+    - id: WS-02
+      method: GET
+      path: /workspaces
+      summary: List workspaces where caller is a member
+      responses:
+        200: "WorkspaceResponse[]"
+        401: UNAUTHORIZED
+
+    - id: WS-03
+      method: GET
+      path: /workspaces/{workspaceId}
+      summary: Get single workspace
+      responses:
+        200: WorkspaceResponse
+        401: UNAUTHORIZED
+        403: NOT_WORKSPACE_MEMBER
+        404: WORKSPACE_NOT_FOUND
+
+    - id: WS-04
+      method: PATCH
+      path: /workspaces/{workspaceId}
+      summary: Update workspace name (OWNER or ADMIN)
+      request_body:
+        name: {type: string, validation: "not blank, max 100"}
+      responses:
+        200: WorkspaceResponse
+        401: UNAUTHORIZED
+        403: NOT_WORKSPACE_ADMIN
+        404: WORKSPACE_NOT_FOUND
+        422: VALIDATION_FAILED
+
+    - id: WS-05
+      method: DELETE
+      path: /workspaces/{workspaceId}
+      summary: Delete workspace (OWNER only)
+      responses:
+        204: No content
+        401: UNAUTHORIZED
+        403: NOT_WORKSPACE_OWNER
+        404: WORKSPACE_NOT_FOUND
+
+    - id: WS-06
+      method: GET
+      path: /workspaces/{workspaceId}/members
+      summary: List workspace members
+      responses:
+        200: "WorkspaceMemberResponse[]"
+        401: UNAUTHORIZED
+        403: NOT_WORKSPACE_MEMBER
+        404: WORKSPACE_NOT_FOUND
+
+    - id: WS-07
+      method: DELETE
+      path: /workspaces/{workspaceId}/members/{userId}
+      summary: Remove member (OWNER/ADMIN; cannot remove OWNER)
+      responses:
+        204: No content
+        401: UNAUTHORIZED
+        403: "NOT_WORKSPACE_ADMIN or CANNOT_REMOVE_OWNER"
+        404: "WORKSPACE_NOT_FOUND or MEMBER_NOT_FOUND"
+
+  # ----- Board star endpoints -----
+  board_star_endpoints:
+
+    - id: BS-01
+      method: POST
+      path: /boards/{boardId}/star
+      summary: Star a board (idempotent)
+      responses:
+        204: Starred
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+        404: BOARD_NOT_FOUND
+
+    - id: BS-02
+      method: DELETE
+      path: /boards/{boardId}/star
+      summary: Unstar a board (idempotent)
+      responses:
+        204: Unstarred
+        401: UNAUTHORIZED
+        404: BOARD_NOT_FOUND
+
+    - id: BS-03
+      method: GET
+      path: /boards/starred
+      summary: Get current user's starred boards (paginated)
+      query_params:
+        page: {type: integer, default: 0}
+        size: {type: integer, default: 20, max: 100}
+      responses:
+        200: "PageResponse<BoardResponse> ordered by starred_at DESC"
+        401: UNAUTHORIZED
+        422: "VALIDATION_FAILED — size > 100"  # Amendment 1
+      amendment: "Reviewer amendment BS-03: return 422 when size > 100"
+
+  # ----- Card assignee endpoints -----
+  card_assignee_endpoints:
+
+    - id: CA-01
+      method: GET
+      path: /cards/{cardId}/assignees
+      summary: List assignees for a card
+      responses:
+        200: "AssigneeResponse[]"
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+        404: CARD_NOT_FOUND
+
+    - id: CA-02
+      method: POST
+      path: /cards/{cardId}/assignees
+      summary: Add an assignee (user must be board member)
+      request_body:
+        userId: {type: UUID}
+      responses:
+        201: AssigneeResponse
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+        404: "CARD_NOT_FOUND or USER_NOT_FOUND"
+      broadcasts: "ASSIGNEE_ADDED on /topic/boards/{boardId}"
+
+    - id: CA-03
+      method: DELETE
+      path: /cards/{cardId}/assignees/{userId}
+      summary: Remove an assignee from a card
+      responses:
+        204: No content
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+        404: "CARD_NOT_FOUND or ASSIGNEE_NOT_FOUND"
+      broadcasts: "ASSIGNEE_REMOVED on /topic/boards/{boardId}"
+
+    - id: CA-04
+      method: GET
+      path: /boards/{boardId}/cards/search
+      summary: "Search cards — extended for multi-assignee filter"
+      note: "Existing endpoint updated: assigneeId filter uses card_assignees join"
+      query_params:
+        q:          {type: string, description: "title ILIKE search"}
+        assigneeId: {type: UUID,   description: "filter cards having this assignee"}
+        priority:   {type: string, description: "NONE|LOW|MEDIUM|HIGH|URGENT"}
+      responses:
+        200: "CardResponse[] — with assignees:UUID[] field (no longer assigneeId)"
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+
+  # ----- Attachment endpoints -----
+  attachment_endpoints:
+
+    - id: AT-01
+      method: POST
+      path: /cards/{cardId}/attachments
+      summary: Upload a file attachment
+      content_type: "multipart/form-data"
+      request_fields:
+        file: {type: binary, validation: "max 10MB; allowed MIME: image/*, application/pdf, text/plain, application/zip"}
+      responses:
+        201: AttachmentResponse
+        400: "FILE_TOO_LARGE or UNSUPPORTED_FILE_TYPE"
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+        404: CARD_NOT_FOUND
+      broadcasts: "ATTACHMENT_UPLOADED on /topic/boards/{boardId}"
+
+    - id: AT-02
+      method: GET
+      path: /cards/{cardId}/attachments
+      summary: List attachments for a card
+      responses:
+        200: "AttachmentResponse[]"
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+        404: CARD_NOT_FOUND
+
+    - id: AT-03
+      method: DELETE
+      path: /attachments/{attachmentId}
+      summary: Delete an attachment (uploader or board admin only)
+      responses:
+        204: "No content; file deleted from disk"
+        401: UNAUTHORIZED
+        403: NOT_UPLOADER_OR_ADMIN
+        404: ATTACHMENT_NOT_FOUND
+      broadcasts: "ATTACHMENT_DELETED on /topic/boards/{boardId}"
+
+    - id: AT-04
+      method: GET
+      path: /files/{filename}
+      summary: Serve a stored file (guarded by board membership)
+      responses:
+        200:
+          body: binary
+          headers:
+            Content-Type: "derived from attachment.content_type"
+            Content-Disposition: "inline; filename=\"{originalFilename}\""
+            Cache-Control: "private, max-age=3600"
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+        404: FILE_NOT_FOUND
+
+  # ----- Timeline endpoints -----
+  timeline_endpoints:
+
+    - id: TL-01
+      method: GET
+      path: /boards/{boardId}/cards/timeline
+      summary: Get cards with date ranges for timeline view
+      query_params:
+        from: {type: "date ISO-8601", default: "3 months ago"}
+        to:   {type: "date ISO-8601", default: "3 months ahead"}
+      responses:
+        200: "TimelineCardResponse[]"
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+        404: BOARD_NOT_FOUND
+
+    - id: TL-02
+      method: PATCH
+      path: /cards/{cardId}/dates
+      summary: Update start_date and/or due_date (used by timeline drag)
+      request_body:
+        startDate: {type: "date ISO-8601", nullable: true}
+        dueDate:   {type: "date ISO-8601", nullable: true}
+      responses:
+        200: CardResponse
+        401: UNAUTHORIZED
+        403: NOT_BOARD_MEMBER
+        404: CARD_NOT_FOUND
+        422: "VALIDATION_FAILED — startDate after dueDate"
+      broadcasts: "CARD_UPDATED on /topic/boards/{boardId}"
+
+  # ----- Workspace board endpoints -----
+  workspace_board_endpoints:
+
+    - id: WB-01
+      method: GET
+      path: /workspaces/{workspaceId}/boards
+      summary: List boards in a workspace
+      responses:
+        200: "BoardResponse[] ordered by name"
+        401: UNAUTHORIZED
+        403: NOT_WORKSPACE_MEMBER
+        404: WORKSPACE_NOT_FOUND
+
+    - id: WB-02
+      method: POST
+      path: /workspaces/{workspaceId}/boards
+      summary: Create a board inside a workspace
+      request_body:
+        name: {type: string, validation: "not blank, max 255"}
+      responses:
+        201: BoardResponse
+        401: UNAUTHORIZED
+        403: NOT_WORKSPACE_MEMBER
+        404: WORKSPACE_NOT_FOUND
+        422: VALIDATION_FAILED
+
+    - id: WB-03
+      method: PATCH
+      path: /boards/{boardId}/workspace
+      summary: Move board into or out of a workspace
+      request_body:
+        workspaceId: {type: "UUID|null", description: "null to detach from workspace"}
+      responses:
+        200: BoardResponse
+        401: UNAUTHORIZED
+        403: "NOT_BOARD_OWNER or NOT_WORKSPACE_MEMBER"
+        404: "BOARD_NOT_FOUND or WORKSPACE_NOT_FOUND"
+
+  dto_schemas:
+    WorkspaceResponse:
+      id: UUID
+      name: string
+      ownerId: UUID
+      role: "string (OWNER|ADMIN|MEMBER) — caller's role"
+      createdAt: Instant
+      updatedAt: Instant
+
+    WorkspaceMemberResponse:
+      userId: UUID
+      email: string
+      displayName: "string|null"
+      role: "string (OWNER|ADMIN|MEMBER)"
+      joinedAt: Instant
+
+    BoardResponse:
+      id: UUID
+      name: string
+      ownerId: UUID
+      workspaceId: "UUID|null  (V11)"
+      starred: "boolean — whether current user has starred this board  (V14)"
+      columns: "ColumnResponse[]"
+      createdAt: Instant
+      updatedAt: Instant
+
+    CardResponse:
+      id: UUID
+      columnId: UUID
+      title: string
+      description: "string|null"
+      position: double
+      startDate: "date|null  (V12)"
+      dueDate: "date|null"
+      priority: string
+      labels: "LabelResponse[]"
+      assignees: "UUID[]  (V12 — replaces single assigneeId)"
+      subtaskTotal: integer
+      subtaskDone: integer
+      commentCount: integer
+      createdAt: Instant
+      updatedAt: Instant
+
+    AssigneeResponse:
+      userId: UUID
+      email: string
+      displayName: "string|null"
+      assignedAt: Instant
+
+    AttachmentResponse:
+      id: UUID
+      cardId: UUID
+      uploaderId: UUID
+      originalFilename: string
+      url: "string — /api/v1/files/{storedFilename}"
+      contentType: string
+      sizeBytes: long
+      createdAt: Instant
+
+    TimelineCardResponse:
+      id: UUID
+      title: string
+      columnId: UUID
+      columnName: string
+      startDate: "date|null"
+      dueDate: "date|null"
+      priority: string
+      assignees: "UUID[]"
+
+    PageResponse:
+      content: "T[]"
+      page: integer
+      size: integer
+      totalElements: long
+      totalPages: integer
+
+  error_envelope:
+    schema:
+      error: "string — human-readable message"
+      code:  "string — machine-readable constant (SCREAMING_SNAKE_CASE)"
+      fields: "array|null — field-level errors for 422 only"
+    http_status_mapping:
+      400: "BAD_REQUEST — file too large, unsupported type, malformed body"
+      401: "UNAUTHORIZED — missing/invalid JWT"
+      403: "FORBIDDEN — authenticated but not permitted"
+      404: "NOT_FOUND — entity does not exist or soft-deleted"
+      409: "CONFLICT — already a member, already assigned"
+      422: "UNPROCESSABLE_ENTITY — bean validation, business rule (size>100)"
+      500: "INTERNAL_SERVER_ERROR"
+
+
+# ============================================================================
+# SECTION 4 — EVENT SCHEMA
+# ============================================================================
+new_event_schema:
+  transport: "STOMP over SockJS"
+  board_channel:     "/topic/boards/{boardId}"
+  workspace_channel: "/topic/workspaces/{workspaceId}"
+  envelope:
+    eventType: string
+    boardId:   UUID
+    timestamp: "Instant (ISO-8601)"
+    data:      object
+
+  events:
+
+    # --- Existing events modified for V12 ---
+
+    - type: CARD_CREATED
+      channel: board
+      amendment: "V12: assigneeId removed, assignees (UUID[]) added"
+      data:
+        id:         UUID
+        columnId:   UUID
+        title:      string
+        position:   double
+        startDate:  "date|null"
+        dueDate:    "date|null"
+        priority:   string
+        labels:     "LabelResponse[]"
+        assignees:  "UUID[]  (V12 replacement for assigneeId)"
+
+    - type: CARD_UPDATED
+      channel: board
+      amendment: "V12: assigneeId removed, assignees (UUID[]) added"
+      data:
+        id:          UUID
+        columnId:    UUID
+        title:       string
+        description: "string|null"
+        startDate:   "date|null"
+        dueDate:     "date|null"
+        priority:    string
+        labels:      "LabelResponse[]"
+        assignees:   "UUID[]  (V12 replacement for assigneeId)"
+        updatedAt:   Instant
+
+    - type: CARD_MOVED
+      channel: board
+      data:
+        id:           UUID
+        fromColumnId: UUID
+        toColumnId:   UUID
+        newPosition:  double
+        updatedAt:    Instant
+
+    - type: CARD_DELETED
+      channel: board
+      data:
+        id:       UUID
+        columnId: UUID
+
+    - type: COLUMN_CREATED
+      channel: board
+      data:
+        id:       UUID
+        name:     string
+        position: double
+
+    - type: COLUMN_UPDATED
+      channel: board
+      data:
+        id:   UUID
+        name: string
+
+    - type: COLUMN_REORDERED
+      channel: board
+      data:
+        columns: [{id: UUID, position: double}]
+
+    - type: COLUMN_DELETED
+      channel: board
+      data:
+        id: UUID
+
+    # --- New V12 events ---
+
+    - type: ASSIGNEE_ADDED
+      channel: board
+      data:
+        cardId:      UUID
+        userId:      UUID
+        email:       string
+        displayName: "string|null"
+        assignedAt:  Instant
+
+    - type: ASSIGNEE_REMOVED
+      channel: board
+      data:
+        cardId: UUID
+        userId: UUID
+
+    - type: ATTACHMENT_UPLOADED
+      channel: board
+      data:
+        attachmentId:     UUID
+        cardId:           UUID
+        uploaderId:       UUID
+        originalFilename: string
+        url:              string
+        sizeBytes:        long
+        contentType:      string
+        createdAt:        Instant
+
+    - type: ATTACHMENT_DELETED
+      channel: board
+      data:
+        attachmentId: UUID
+        cardId:       UUID
+
+    - type: BOARD_STARRED
+      channel: board
+      data:
+        boardId:   UUID
+        userId:    UUID
+        starredAt: Instant
+
+    - type: BOARD_UNSTARRED
+      channel: board
+      data:
+        boardId: UUID
+        userId:  UUID
+
+    - type: WORKSPACE_MEMBER_ADDED
+      channel: workspace
+      envelope_field: workspaceId
+      data:
+        workspaceId: UUID
+        userId:      UUID
+        email:       string
+        displayName: "string|null"
+        role:        string
+        joinedAt:    Instant
+
+    - type: WORKSPACE_MEMBER_REMOVED
+      channel: workspace
+      envelope_field: workspaceId
+      data:
+        workspaceId: UUID
+        userId:      UUID
+
+
+# ============================================================================
+# SECTION 5 — LOW-LEVEL DESIGN (LLD)
+# ============================================================================
+new_lld:
+
+  # ---------- BACKEND ----------
+  backend:
+    package_root: "com.kanban"
+
+    new_model_classes:
+      - name: Workspace
+        table: workspaces
+        fields: [id (UUID), name (String), ownerId (UUID), createdAt (Instant), updatedAt (Instant)]
+        relations: ["@OneToMany members -> WorkspaceMember", "@OneToMany boards -> Board"]
+      - name: WorkspaceMember
+        table: workspace_members
+        pk: "[workspaceId, userId]"
+        fields: [workspaceId (UUID), userId (UUID), role (String), joinedAt (Instant)]
+      - name: CardAssignee
+        table: card_assignees
+        pk: "[cardId, userId]"
+        fields: [cardId (UUID), userId (UUID), assignedAt (Instant)]
+      - name: Attachment
+        table: attachments
+        fields: [id, cardId, uploaderId, originalFilename, storedFilename, contentType, sizeBytes, createdAt]
+      - name: BoardStar
+        table: board_stars
+        pk: "[userId, boardId]"
+        fields: [userId (UUID), boardId (UUID), starredAt (Instant)]
+
+    modified_model_classes:
+      - name: Board
+        changes:
+          - "Add field: UUID workspaceId (nullable)"
+      - name: Card
+        changes:
+          - "Add field: LocalDate startDate"
+          - "Remove field: UUID assigneeId"
+          - "Add relation: @OneToMany assignees -> CardAssignee"
+          - "Add relation: @OneToMany attachments -> Attachment"
+
+    new_repositories:
+      - name: WorkspaceRepository
+        methods:
+          - "List<Workspace> findAllByMemberUserId(UUID userId)"
+      - name: WorkspaceMemberRepository
+        methods:
+          - "List<WorkspaceMember> findByWorkspaceId(UUID workspaceId)"
+          - "boolean existsByWorkspaceIdAndUserId(UUID ws, UUID user)"
+          - "Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID ws, UUID user)"
+      - name: CardAssigneeRepository
+        methods:
+          - "List<CardAssignee> findByCardId(UUID cardId)"
+          - "void deleteByCardIdAndUserId(UUID cardId, UUID userId)"
+          - "boolean existsByCardIdAndUserId(UUID cardId, UUID userId)"
+      - name: AttachmentRepository
+        methods:
+          - "List<Attachment> findByCardId(UUID cardId)"
+          - "Optional<Attachment> findByStoredFilename(String fn)"
+      - name: BoardStarRepository
+        methods:
+          - "Page<BoardStar> findByUserIdOrderByStarredAtDesc(UUID userId, Pageable p)"
+          - "boolean existsByUserIdAndBoardId(UUID userId, UUID boardId)"
+          - "void deleteByUserIdAndBoardId(UUID userId, UUID boardId)"
+
+    new_services:
+      - name: WorkspaceService
+        dependencies: [WorkspaceRepository, WorkspaceMemberRepository, EventBroadcastService, RedisTemplate]
+        methods:
+          - "WorkspaceResponse createWorkspace(CreateWorkspaceRequest req, UUID actorId)"
+          - "List<WorkspaceResponse> listWorkspaces(UUID userId)"
+          - "WorkspaceResponse getWorkspace(UUID workspaceId, UUID userId)"
+          - "WorkspaceResponse updateWorkspace(UUID id, UpdateWorkspaceRequest req, UUID actorId)"
+          - "void deleteWorkspace(UUID id, UUID actorId)"
+          - "List<WorkspaceMemberResponse> listMembers(UUID id, UUID actorId)"
+          - "void removeMember(UUID id, UUID targetUserId, UUID actorId)"
+
+      - name: BoardStarService
+        dependencies: [BoardStarRepository, BoardRepository, BoardAccessPolicy, EventBroadcastService, RedisTemplate]
+        methods:
+          - "void starBoard(UUID boardId, UUID userId)"
+          - "void unstarBoard(UUID boardId, UUID userId)"
+          - "Page<BoardResponse> getStarredBoards(UUID userId, int page, int size)"
+          - "private void invalidateStarCache(UUID userId)"
+        cache_key: "user:stars:{userId}"
+
+      - name: CardAssigneeService
+        dependencies: [CardAssigneeRepository, CardRepository, BoardMemberRepository, UserRepository, EventBroadcastService, BoardAccessPolicy]
+        methods:
+          - "List<AssigneeResponse> listAssignees(UUID cardId, UUID actorId)"
+          - "AssigneeResponse addAssignee(UUID cardId, UUID targetUserId, UUID actorId)"
+          - "void removeAssignee(UUID cardId, UUID targetUserId, UUID actorId)"
+          - "List<UUID> getAssigneeIds(UUID cardId)"
+
+      - name: AttachmentService
+        dependencies: [AttachmentRepository, CardRepository, BoardAccessPolicy, EventBroadcastService]
+        config_fields:
+          - "String uploadDir  -- injected from @Value(${app.upload-dir})"
+          - "long maxFileSizeBytes = 10485760"
+          - "Set<String> allowedContentTypes"
+        methods:
+          - "AttachmentResponse upload(UUID cardId, MultipartFile file, UUID actorId)"
+          - "List<AttachmentResponse> listAttachments(UUID cardId, UUID actorId)"
+          - "void deleteAttachment(UUID attachmentId, UUID actorId)"
+          - "Resource serveFile(String storedFilename, UUID actorId)"
+          - "private String generateStoredFilename(String originalFilename)"
+
+      - name: TimelineService
+        dependencies: [CardRepository, CardAssigneeRepository, ColumnRepository, BoardAccessPolicy]
+        methods:
+          - "List<TimelineCardResponse> getTimelineCards(UUID boardId, LocalDate from, LocalDate to, UUID actorId)"
+          - "CardResponse updateCardDates(UUID cardId, LocalDate startDate, LocalDate dueDate, UUID actorId)"
+
+    modified_services:
+      - name: BoardService
+        added_methods:
+          - "List<BoardResponse> getBoardsForWorkspace(UUID workspaceId, UUID userId)"
+          - "BoardResponse createBoardInWorkspace(UUID workspaceId, CreateBoardRequest req, UUID userId)"
+          - "BoardResponse moveBoardToWorkspace(UUID boardId, UUID workspaceId, UUID actorId)"
+          - "private boolean isStarred(UUID boardId, UUID userId)"
+        note: "BoardResponse now includes workspaceId and starred fields"
+
+      - name: EventBroadcastService
+        added_methods:
+          - "void broadcastWorkspaceEvent(UUID workspaceId, Object event)"
+        note: "Workspace channel: /topic/workspaces/{workspaceId}"
+
+      - name: CardService
+        changes:
+          - "Remove assigneeId from Card entity writes; use CardAssigneeService instead"
+          - "CARD_CREATED and CARD_UPDATED events now include assignees:List<UUID>"
+
+    new_controllers:
+      - name: WorkspaceController
+        base_path: /api/v1/workspaces
+        endpoints: [WS-01, WS-02, WS-03, WS-04, WS-05, WS-06, WS-07, WB-01, WB-02]
+
+      - name: BoardStarController
+        base_path: /api/v1/boards
+        endpoints: [BS-01, BS-02, BS-03]
+
+      - name: CardAssigneeController
+        base_path: /api/v1/cards
+        endpoints: [CA-01, CA-02, CA-03]
+
+      - name: AttachmentController
+        base_path: /api/v1
+        endpoints: [AT-01, AT-02, AT-03]
+
+      - name: FileController
+        base_path: /api/v1/files
+        endpoints: [AT-04]
+        note: "Must be added to SecurityConfig permitList carefully -- still requires JWT"
+
+      - name: TimelineController
+        base_path: /api/v1
+        endpoints: [TL-01, TL-02]
+
+    modified_controllers:
+      - name: BoardController
+        added_endpoint: "PATCH /boards/{boardId}/workspace [WB-03]"
+
+    new_security_classes:
+      - name: WorkspaceAccessPolicy
+        methods:
+          - "void assertMember(UUID workspaceId, UUID userId)  -- throws 403 NOT_WORKSPACE_MEMBER"
+          - "void assertAdminOrOwner(UUID workspaceId, UUID userId)  -- throws 403 NOT_WORKSPACE_ADMIN"
+          - "void assertOwner(UUID workspaceId, UUID userId)  -- throws 403 NOT_WORKSPACE_OWNER"
+
+    new_config_classes:
+      - name: FileStorageConfig
+        note: "Binds @Value(${app.upload-dir}) into a Path bean; creates directory on startup"
+      - name: RedisConfig
+        note: "Configures RedisTemplate<String,String> with StringRedisSerializer"
+
+    new_dto_request_classes:
+      - CreateWorkspaceRequest:   "{name: String @NotBlank @Size(max=100)}"
+      - UpdateWorkspaceRequest:   "{name: String @NotBlank @Size(max=100)}"
+      - AddAssigneeRequest:       "{userId: UUID @NotNull}"
+      - UpdateCardDatesRequest:   "{startDate: LocalDate nullable, dueDate: LocalDate nullable}"
+      - MoveBoardToWorkspaceRequest: "{workspaceId: UUID nullable}"
+
+    new_dto_response_classes:
+      - WorkspaceResponse:        "id, name, ownerId, role, createdAt, updatedAt"
+      - WorkspaceMemberResponse:  "userId, email, displayName, role, joinedAt"
+      - AssigneeResponse:         "userId, email, displayName, assignedAt"
+      - AttachmentResponse:       "id, cardId, uploaderId, originalFilename, url, contentType, sizeBytes, createdAt"
+      - TimelineCardResponse:     "id, title, columnId, columnName, startDate, dueDate, priority, assignees"
+      - PageResponse:             "content, page, size, totalElements, totalPages"
+
+    modified_dto_response_classes:
+      - CardResponse:
+          add_fields: ["startDate: LocalDate|null", "assignees: List<UUID>"]
+          remove_fields: ["assigneeId: UUID"]
+      - BoardResponse:
+          add_fields: ["workspaceId: UUID|null", "starred: boolean"]
+
+    updated_websocket_records:
+      class: BoardEventPayload
+      updated_records:
+        - CardCreatedData:
+            remove: assigneeId
+            add: ["startDate (LocalDate)", "assignees (List<UUID>)"]
+        - CardUpdatedData:
+            remove: assigneeId
+            add: ["startDate (LocalDate)", "assignees (List<UUID>)"]
+      new_records:
+        - AssigneeAddedData:      "[cardId, userId, email, displayName, assignedAt]"
+        - AssigneeRemovedData:    "[cardId, userId]"
+        - AttachmentUploadedData: "[attachmentId, cardId, uploaderId, originalFilename, url, sizeBytes, contentType, createdAt]"
+        - AttachmentDeletedData:  "[attachmentId, cardId]"
+        - BoardStarredData:       "[boardId, userId, starredAt]"
+        - BoardUnstarredData:     "[boardId, userId]"
+      new_class:
+        name: WorkspaceEventPayload
+        fields: [eventType, workspaceId, timestamp, data]
+        records:
+          - WorkspaceMemberAddedData:   "[workspaceId, userId, email, displayName, role, joinedAt]"
+          - WorkspaceMemberRemovedData: "[workspaceId, userId]"
+
+  # ---------- FRONTEND ----------
+  frontend:
+    framework: "Next.js 14 App Router"
+    root: "frontend/src"
+
+    new_pages:
+      - path: "app/(protected)/workspaces/page.tsx"
+        role: "Workspace list page; renders WorkspaceList component"
+      - path: "app/(protected)/workspaces/[workspaceId]/page.tsx"
+        role: "Workspace detail; board list + member management"
+
+    new_components:
+
+      - path: "components/board/TimelineView.tsx"
+        props: "{boardId: string, columns: ColumnResponse[]}"
+        state: "[cards: TimelineCardResponse[], dateFrom: Date, dateTo: Date, dragging: string|null]"
+        description: |
+          CSS Grid timeline. 28px/day column width. 200px sticky left panel.
+          Header row shows month spans and day numbers.
+          Each card renders a bar from startDate to dueDate colored by priority.
+          Drag left/right edges to resize dates; on mouseup calls PATCH /api/v1/cards/{id}/dates.
+          Optimistic local update; revert on API error.
+        css:
+          grid_template: "200px repeat(N, 28px)  where N = date range in days"
+          sticky_panel: "position: sticky; left: 0; width: 200px; z-index: 2"
+          breakpoint: "@media (max-width: 767px) -- horizontal scroll wrapper"
+
+      - path: "components/board/AssigneePicker.tsx"
+        props: "{cardId: string, boardId: string, currentAssignees: string[], boardMembers: MemberResponse[], onChange: (ids: string[]) => void}"
+        state: "[open: boolean, loading: boolean]"
+        description: "Dropdown; clicking a member avatar calls POST or DELETE /api/v1/cards/{id}/assignees/{userId}"
+
+      - path: "components/board/AttachmentPanel.tsx"
+        props: "{cardId: string, boardId: string}"
+        state: "[attachments: AttachmentResponse[], uploading: boolean, dragOver: boolean]"
+        description: "Drag-and-drop upload zone; lists attachments with download link and delete button"
+
+      - path: "components/board/StarButton.tsx"
+        props: "{boardId: string, starred: boolean, onChange: (starred: boolean) => void}"
+        state: "[loading: boolean]"
+        description: "Calls POST /DELETE /api/v1/boards/{boardId}/star; updates starStore"
+
+      - path: "components/workspaces/WorkspaceList.tsx"
+        props: "none"
+        state: "[workspaces: WorkspaceResponse[], showCreate: boolean, error: string|null]"
+        description: "List all workspaces; create workspace modal trigger"
+
+      - path: "components/workspaces/WorkspaceDetail.tsx"
+        props: "{workspaceId: string}"
+        state: "[workspace, boards, members, error, showAddBoard]"
+        description: "Board list within workspace; member management (list + remove)"
+
+      - path: "components/workspaces/CreateWorkspaceModal.tsx"
+        props: "{onClose: () => void, onCreate: (name: string) => void}"
+        state: "[name: string, loading: boolean]"
+
+      - path: "components/workspaces/WorkspaceMemberList.tsx"
+        props: "{workspaceId: string, role: string}"
+        state: "[members: WorkspaceMemberResponse[], loading: boolean]"
+        description: "Member list with remove button for ADMIN/OWNER"
+
+    modified_components:
+
+      - path: "components/board/CardModal.tsx"
+        changes:
+          - "Replace single assigneeId display with AssigneePicker component"
+          - "Add startDate date picker field"
+          - "Add AttachmentPanel section below comments"
+          - "State additions: assignees (string[]), boardMembers (MemberResponse[])"
+          - "handleSave: no longer sends assigneeId; sends label changes only"
+
+      - path: "components/boards/BoardCard.tsx"
+        changes:
+          - "Add StarButton in top-right corner"
+          - "Show workspaceId badge if board belongs to a workspace"
+
+      - path: "components/board/Sidebar.tsx"
+        changes:
+          - "Add starred boards section (fetches GET /api/v1/boards/starred)"
+          - "Add workspace switcher section"
+
+      - path: "components/board/BoardView.tsx"
+        changes:
+          - "Wire TimelineView for timeline tab"
+          - "Pass members to filter bar (multi-assignee filter uses card_assignees)"
+
+    new_stores:
+      - path: "store/workspaceStore.ts"
+        state_shape:
+          workspaces: "WorkspaceResponse[]"
+          currentWorkspace: "WorkspaceResponse|null"
+        actions: [setWorkspaces, setCurrentWorkspace, addWorkspace, removeWorkspace]
+
+      - path: "store/starStore.ts"
+        state_shape:
+          starredBoardIds: "Set<string>"
+        actions: [setStar, clearStar, toggleStar]
+
+    modified_stores:
+      - path: "store/boardStore.ts"
+        changes:
+          - "applyEvent handles new event types: ASSIGNEE_ADDED, ASSIGNEE_REMOVED, ATTACHMENT_UPLOADED, ATTACHMENT_DELETED"
+          - "CARD_CREATED / CARD_UPDATED: parse assignees array (not assigneeId)"
+
+    modified_types:
+      - path: "types/api.ts"
+        changes:
+          - "CardResponse: remove assigneeId field; add startDate and assignees (string[])"
+          - "BoardResponse: add workspaceId (string|null) and starred (boolean)"
+          - "Add: WorkspaceResponse, WorkspaceMemberResponse, AssigneeResponse, AttachmentResponse, TimelineCardResponse, PageResponse"
+
+    modified_lib:
+      - path: "lib/websocket.ts"
+        changes:
+          - "Add subscribeToWorkspace(workspaceId, token, callback) function"
+
+
+# ============================================================================
+# SECTION 6 — CROSS-CUTTING CONCERNS
+# ============================================================================
+new_cross_cutting:
+
+  cache_invalidation:
+    strategy: "Write-around: mutate DB first, then DEL cache key. Next read populates from DB."
+    keys:
+      - key: "board:members:{boardId}"
+        type: "Set<UUID>"
+        ttl: "60s"
+        invalidated_on: ["BoardService.addMember", "BoardService.removeMember", "InvitationService.acceptInvitation"]
+
+      - key: "user:stars:{userId}"
+        type: "List<UUID> ordered by starred_at DESC"
+        ttl: "60s"
+        invalidated_on: ["BoardStarService.starBoard", "BoardStarService.unstarBoard"]
+
+      - key: "ws:members:{workspaceId}"
+        type: "Set<UUID>"
+        ttl: "60s"
+        invalidated_on: ["WorkspaceService.removeMember", "WorkspaceService.addMember"]
+
+  file_serving_security:
+    rules:
+      - "Caller must be authenticated (JWT required)."
+      - "Look up attachment row by stored_filename; 404 if not found."
+      - "Resolve attachment -> card -> column -> board; assert caller is board member."
+      - "403 NOT_BOARD_MEMBER if caller is not a board member."
+      - "Stream file bytes with correct Content-Type header."
+      - "Set Content-Disposition: inline; filename=... so browsers render inline."
+      - "Set Cache-Control: private, max-age=3600 for per-session browser caching."
+      - "Stored filename is {uuid}.{ext}; path traversal is impossible by construction."
+    upload_validation:
+      max_size_bytes: 10485760
+      allowed_content_types:
+        - image/jpeg
+        - image/png
+        - image/gif
+        - image/webp
+        - application/pdf
+        - text/plain
+        - application/zip
+      on_violation: "Return 400 (FILE_TOO_LARGE or UNSUPPORTED_FILE_TYPE) before writing to disk."
+
+  pagination_contract:
+    request_params:
+      page: {type: integer, default: 0, description: "Zero-based page index"}
+      size: {type: integer, default: 20, max: 100, description: "Page size; 422 when > 100"}
+    response_shape:
+      content: "T[] -- items on this page"
+      page: "integer"
+      size: "integer"
+      totalElements: "long"
+      totalPages: "integer (ceil(totalElements/size))"
+    backend_impl: "Use Spring Data Pageable; wrap Page<T> in PageResponse<T> DTO"
+    paginated_endpoints:
+      - "GET /api/v1/boards/starred (BS-03)"
+    future_candidates:
+      - "GET /api/v1/boards/{boardId}/cards/timeline"
+      - "GET /api/v1/cards/{cardId}/activity"
+
+  error_envelope:
+    description: "All API error responses use this shape"
+    java_class: "com.kanban.dto.response.ErrorResponse"
+    fields:
+      error: "string — human-readable message"
+      code:  "string — SCREAMING_SNAKE_CASE machine-readable constant"
+      fields: "array|null — field errors; only present for 422"
+    field_error_fields:
+      field:   string
+      message: string
+    handler: "com.kanban.exception.GlobalExceptionHandler (@RestControllerAdvice)"
+    exception_classes:
+      - ApiException: "carries HttpStatus + code + message; handled by GlobalExceptionHandler"
+      - MethodArgumentNotValidException: "mapped to 422 with fields array"
+
+  websocket_auth:
+    mechanism: "STOMP CONNECT frame; client sends native header Authorization: Bearer {jwt}"
+    interceptor: "com.kanban.websocket.WebSocketConfig ChannelInterceptor.preSend()"
+    flow:
+      - "Intercept StompCommand.CONNECT; extract Authorization native header"
+      - "Parse JWT with JwtTokenProvider.parseToken()"
+      - "Build AuthenticatedUser(userId, email) from claims"
+      - "Set UsernamePasswordAuthenticationToken on StompHeaderAccessor"
+      - "On failure: throw AccessDeniedException -- STOMP CONNECT rejected"
+    subscribe_authorization:
+      current: "Open -- any authenticated user can subscribe to any channel"
+      recommendation: "Add board-membership check in SUBSCRIBE intercept in a future iteration"
+    channels:
+      - "/topic/boards/{boardId}   -- card, column, assignee, attachment, star events"
+      - "/topic/workspaces/{workspaceId}   -- workspace member events"
+    client:
+      file: "frontend/src/lib/websocket.ts"
+      uses: "SockJS + @stomp/stompjs; auto-reconnect on disconnect"
+
+  timeline_rendering:
+    css_grid:
+      template_columns: "200px repeat(N, 28px)  where N = (dateTo - dateFrom + 1) days"
+      left_panel:
+        width: "200px"
+        position: sticky
+        left: "0"
+        z_index: 2
+        background: "T.canvas"
+        content: "Card title, column name, priority badge"
+      day_column_width: "28px"
+      header_row_height: "36px"
+      card_row_height: "40px"
+      bar:
+        left: "calc(200px + (dayOffset * 28px))"
+        width: "calc((durationDays + 1) * 28px)"
+        background: "priority color at 40% opacity"
+        border_radius: "6px"
+        resize_handle: "8px edges trigger ew-resize cursor"
+    interaction:
+      drag_resize:
+        start: "mousedown on left or right 8px edge of card bar"
+        update: "mousemove adjusts local state optimistically"
+        end: "mouseup fires PATCH /api/v1/cards/{cardId}/dates"
+        revert: "on API error, restore previous dates from server response"
+    breakpoint: "@media (max-width: 767px) -- wrap in horizontal scroll container"
+
+  mobile:
+    breakpoint: "@media (max-width: 767px)"
+    rules:
+      - "BoardView: hide Sidebar; show hamburger overlay"
+      - "ColumnList: horizontal scroll"
+      - "TimelineView: horizontal scroll wrapper"
+      - "CardModal: full-screen overlay"

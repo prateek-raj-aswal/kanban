@@ -30,6 +30,7 @@
     "@types/sockjs-client": "^1.5.4",
     "@vitejs/plugin-react": "^4.3.0",
     "jsdom": "^29.1.1",
+    "playwright": "^1.60.0",
     "typescript": "^5.0.0",
     "vitest": "^1.6.0"
   }
