@@ -10,6 +10,24 @@ import Icon from '@/components/ui/Icon'
 import { useConfigStore } from '@/store/configStore'
 import { useBoardStore } from '@/store/boardStore'
 
+function relativeLuminance(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const lin = (c: number) => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+function headerTextColors(hex: string | undefined) {
+  if (!hex) return { text: T.text, faint: T.textFaint, muted: T.textMuted }
+  const light = relativeLuminance(hex) > 0.179
+  return {
+    text:  light ? 'rgba(0,0,0,0.85)'  : '#ffffff',
+    faint: light ? 'rgba(0,0,0,0.50)'  : 'rgba(255,255,255,0.65)',
+    muted: light ? 'rgba(0,0,0,0.45)'  : 'rgba(255,255,255,0.55)',
+  }
+}
+
 function ColorPalette({
   tokens,
   colorHexMap,
@@ -130,7 +148,7 @@ function ColorSwatchButton({
   )
 }
 
-function ColumnMenu({ onDelete, onRename }: { onDelete: () => void; onRename: () => void }) {
+function ColumnMenu({ onDelete, onRename, iconColor }: { onDelete: () => void; onRename: () => void; iconColor?: string }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -164,7 +182,7 @@ function ColumnMenu({ onDelete, onRename }: { onDelete: () => void; onRename: ()
         onClick={() => setOpen(o => !o)}
         style={{
           background: 'none', border: 'none', padding: 2,
-          cursor: 'pointer', color: T.textMuted,
+          cursor: 'pointer', color: iconColor ?? T.textMuted,
           display: 'flex', alignItems: 'center', borderRadius: 4,
         }}
       >
@@ -207,6 +225,8 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
 
   const colorHexMap = useConfigStore(s => s.columnColorMap)
   const colorTokens = useConfigStore(s => s.columnColors)
+  const activeHex = column.headerColor && colorHexMap[column.headerColor] ? colorHexMap[column.headerColor] : undefined
+  const hc = headerTextColors(activeHex)
   const board = useBoardStore(s => s.board)
   const updateColumnColor = useBoardStore(s => s.updateColumnColor)
   const canEdit = board?.role !== 'VIEWER'
@@ -318,7 +338,7 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
           {...listeners}
           style={{
             cursor: isDragging ? 'grabbing' : 'grab',
-            color: T.textFaint,
+            color: hc.faint,
             display: 'flex', alignItems: 'center', flexShrink: 0,
             padding: '2px 1px',
             borderRadius: 3,
@@ -348,10 +368,10 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
           <>
             <span style={{
               fontSize: 12, fontWeight: 600,
-              color: T.text, letterSpacing: '-.005em',
+              color: hc.text, letterSpacing: '-.005em',
             }}>{column.name}</span>
             <span style={{
-              fontSize: 11, color: T.textFaint,
+              fontSize: 11, color: hc.faint,
               fontVariantNumeric: 'tabular-nums', fontWeight: 500,
             }}>{cards.length}</span>
           </>
@@ -378,11 +398,11 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
         {!renaming && (
           <Icon
             name="plus" size={13} sw={2}
-            style={{ color: T.textMuted, cursor: 'pointer' }}
+            style={{ color: hc.muted, cursor: 'pointer' }}
             onClick={() => setShowAdd(true)}
           />
         )}
-        <ColumnMenu onDelete={handleDelete} onRename={() => setRenaming(true)} />
+        <ColumnMenu onDelete={handleDelete} onRename={() => setRenaming(true)} iconColor={hc.muted} />
       </div>
 
       {/* Cards */}
