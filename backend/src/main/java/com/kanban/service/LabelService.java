@@ -8,6 +8,7 @@ import com.kanban.model.Label;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.LabelRepository;
 import com.kanban.security.BoardAccessPolicy;
+import com.kanban.security.BoardAction;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +34,7 @@ public class LabelService {
     public LabelResponse createLabel(UUID boardId, CreateLabelRequest request, UUID requestingUserId) {
         boardRepository.findActiveById(boardId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"));
-        accessPolicy.assertMember(boardId, requestingUserId);
+        accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE);
 
         Label label = new Label();
         label.setBoardId(boardId);
@@ -55,7 +56,7 @@ public class LabelService {
     public LabelResponse updateLabel(UUID labelId, UpdateLabelRequest request, UUID requestingUserId) {
         Label label = labelRepository.findById(labelId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "LABEL_NOT_FOUND", "Label not found"));
-        accessPolicy.assertMember(label.getBoardId(), requestingUserId);
+        accessPolicy.assertAccess(label.getBoardId(), requestingUserId, BoardAction.WRITE);
 
         if (request.name() != null && !request.name().isBlank()) label.setName(request.name());
         if (request.color() != null) label.setColor(request.color());
@@ -67,7 +68,7 @@ public class LabelService {
     public void deleteLabel(UUID labelId, UUID requestingUserId) {
         Label label = labelRepository.findById(labelId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "LABEL_NOT_FOUND", "Label not found"));
-        accessPolicy.assertMember(label.getBoardId(), requestingUserId);
+        accessPolicy.assertAccess(label.getBoardId(), requestingUserId, BoardAction.WRITE);
         labelRepository.delete(label);
     }
 

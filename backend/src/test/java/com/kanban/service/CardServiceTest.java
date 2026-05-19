@@ -15,6 +15,7 @@ import com.kanban.repository.CommentRepository;
 import com.kanban.repository.LabelRepository;
 import com.kanban.repository.SubtaskRepository;
 import com.kanban.security.BoardAccessPolicy;
+import com.kanban.security.BoardAction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -337,7 +338,7 @@ class CardServiceTest {
 
         cardService.moveCard(cardId, columnId, 1000.0, userId);
 
-        verify(accessPolicy).assertMember(boardId, userId);
+        verify(accessPolicy).assertAccess(boardId, userId, BoardAction.WRITE);
     }
 
     // Helper: set private fields on models that lack setters for them

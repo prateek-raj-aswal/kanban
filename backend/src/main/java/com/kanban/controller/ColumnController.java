@@ -2,6 +2,7 @@ package com.kanban.controller;
 
 import com.kanban.dto.request.CreateColumnRequest;
 import com.kanban.dto.request.ReorderColumnsRequest;
+import com.kanban.dto.request.UpdateColumnRequest;
 import com.kanban.dto.response.ColumnResponse;
 import com.kanban.security.AuthenticatedUser;
 import com.kanban.service.ColumnService;
@@ -33,11 +34,11 @@ public class ColumnController {
     }
 
     @PatchMapping("/api/v1/columns/{columnId}")
-    public ResponseEntity<ColumnResponse> rename(
+    public ResponseEntity<ColumnResponse> update(
             @PathVariable UUID columnId,
-            @Valid @RequestBody CreateColumnRequest request,
+            @Valid @RequestBody UpdateColumnRequest request,
             @AuthenticationPrincipal AuthenticatedUser user) {
-        return ResponseEntity.ok(columnService.renameColumn(columnId, request.name(), user.id()));
+        return ResponseEntity.ok(columnService.updateColumn(columnId, request, user.id()));
     }
 
     @DeleteMapping("/api/v1/columns/{columnId}")

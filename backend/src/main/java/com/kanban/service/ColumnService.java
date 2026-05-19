@@ -1,6 +1,7 @@
 package com.kanban.service;
 
 import com.kanban.dto.request.CreateColumnRequest;
+import com.kanban.dto.request.UpdateColumnRequest;
 import com.kanban.dto.response.ColumnResponse;
 import com.kanban.exception.ApiException;
 import com.kanban.model.Board;
@@ -8,6 +9,7 @@ import com.kanban.model.BoardColumn;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.ColumnRepository;
 import com.kanban.security.BoardAccessPolicy;
+import com.kanban.security.BoardAction;
 import com.kanban.websocket.BoardEventPayload;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -37,7 +40,7 @@ public class ColumnService {
     public ColumnResponse createColumn(UUID boardId, CreateColumnRequest request, UUID requestingUserId) {
         Board board = boardRepository.findActiveById(boardId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"));
-        accessPolicy.assertMember(boardId, requestingUserId);
+        accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE);
 
         double maxPos = columnRepository.findMaxPositionByBoardId(boardId).orElse(0.0);
         BoardColumn col = new BoardColumn();
@@ -53,16 +56,30 @@ public class ColumnService {
     }
 
     @Transactional
-    public ColumnResponse renameColumn(UUID columnId, String name, UUID requestingUserId) {
+    public ColumnResponse updateColumn(UUID columnId, UpdateColumnRequest request, UUID requestingUserId) {
         BoardColumn col = columnRepository.findActiveById(columnId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "COLUMN_NOT_FOUND", "Column not found"));
-        accessPolicy.assertMember(col.getBoard().getId(), requestingUserId);
-        col.setName(name);
+        UUID boardId = col.getBoard().getId();
+        accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE);
+
+        String oldColor = col.getHeaderColor();
+        boolean nameChanged = request.name() != null;
+
+        if (nameChanged) {
+            col.setName(request.name());
+        }
+        col.setHeaderColor(request.headerColor());
         col = columnRepository.save(col);
 
-        UUID boardId = col.getBoard().getId();
-        eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("COLUMN_UPDATED", boardId,
-                new BoardEventPayload.ColumnUpdatedData(col.getId(), col.getName())));
+        if (nameChanged) {
+            eventBroadcastService.broadcastBoardEvent(boardId, BoardEventPayload.of("COLUMN_UPDATED", boardId,
+                    new BoardEventPayload.ColumnUpdatedData(col.getId(), col.getName())));
+        }
+        if (!Objects.equals(oldColor, request.headerColor())) {
+            eventBroadcastService.broadcastBoardEvent(boardId,
+                BoardEventPayload.of("COLUMN_COLOR_UPDATED", boardId,
+                    new BoardEventPayload.ColumnColorUpdatedData(col.getId(), col.getHeaderColor())));
+        }
 
         return toResponse(col);
     }
@@ -71,7 +88,7 @@ public class ColumnService {
     public void deleteColumn(UUID columnId, UUID requestingUserId) {
         BoardColumn col = columnRepository.findActiveById(columnId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "COLUMN_NOT_FOUND", "Column not found"));
-        accessPolicy.assertMember(col.getBoard().getId(), requestingUserId);
+        accessPolicy.assertAccess(col.getBoard().getId(), requestingUserId, BoardAction.WRITE);
 
         UUID boardId = col.getBoard().getId();
         UUID deletedId = col.getId();
@@ -87,7 +104,7 @@ public class ColumnService {
     public List<ColumnResponse> reorderColumns(UUID boardId, List<UUID> orderedColumnIds, UUID requestingUserId) {
         boardRepository.findActiveById(boardId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"));
-        accessPolicy.assertMember(boardId, requestingUserId);
+        accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE);
 
         List<BoardColumn> cols = columnRepository.findActiveByBoardId(boardId);
         if (cols.size() != orderedColumnIds.size()) {
@@ -119,6 +136,6 @@ public class ColumnService {
 
     private ColumnResponse toResponse(BoardColumn col) {
         return new ColumnResponse(col.getId(), col.getBoard().getId(), col.getName(),
-                col.getPosition(), col.getCreatedAt(), null);
+                col.getPosition(), col.getCreatedAt(), null, col.getHeaderColor());
     }
 }

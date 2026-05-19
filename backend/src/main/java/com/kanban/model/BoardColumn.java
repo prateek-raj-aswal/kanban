@@ -33,6 +33,9 @@ public class BoardColumn {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Column(name = "header_color", length = 20)
+    private String headerColor;
+
     @OneToMany(mappedBy = "column", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @OrderBy("position ASC")
     private List<Card> cards = new ArrayList<>();
@@ -52,4 +55,6 @@ public class BoardColumn {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public List<Card> getCards() { return cards; }
+    public String getHeaderColor() { return headerColor; }
+    public void setHeaderColor(String headerColor) { this.headerColor = headerColor; }
 }

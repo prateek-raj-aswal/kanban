@@ -34,6 +34,8 @@ public record BoardEventPayload(String eventType, UUID boardId, Instant timestam
 
     public record ColumnDeletedData(UUID id) {}
 
+    public record ColumnColorUpdatedData(UUID id, String headerColor) {}
+
     public record ColumnPosition(UUID id, double position) {}
 
     public record BoardStarredData(UUID boardId, UUID userId, java.time.Instant starredAt) {}

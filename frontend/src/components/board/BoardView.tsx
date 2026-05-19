@@ -6,6 +6,7 @@ import { useIsMobile } from '@/lib/useIsMobile'
 import { getToken } from '@/lib/auth'
 import { subscribeToBoard } from '@/lib/websocket'
 import { useBoardStore } from '@/store/boardStore'
+import { useConfigStore } from '@/store/configStore'
 import type { ColumnResponse, CardResponse, Priority, MemberResponse } from '@/types/api'
 import { T } from '@/lib/theme'
 import Icon from '@/components/ui/Icon'
@@ -56,6 +57,12 @@ export default function BoardView({ boardId }: Props) {
       .catch(() => {})
     api.get<import('@/types/api').BoardResponse[]>('/api/v1/me/starred-boards')
       .then(boards => setStarred(boards.some(b => b.id === boardId)))
+      .catch(() => {})
+    api.get<{ tokens: string[]; colorMap: Record<string, string> }>('/api/v1/column-colors')
+      .then(data => {
+        useConfigStore.getState().setColumnColors(data.tokens)
+        useConfigStore.getState().setColumnColorMap(data.colorMap)
+      })
       .catch(() => {})
   }, [boardId])
 

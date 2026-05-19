@@ -199,7 +199,7 @@ public class BoardService {
                                 })
                                 .toList();
                         return new ColumnResponse(c.getId(), c.getBoard().getId(), c.getName(),
-                                c.getPosition(), c.getCreatedAt(), cards);
+                                c.getPosition(), c.getCreatedAt(), cards, c.getHeaderColor());
                     })
                     .toList();
         }

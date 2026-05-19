@@ -9,6 +9,7 @@ import com.kanban.model.Label;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.LabelRepository;
 import com.kanban.security.BoardAccessPolicy;
+import com.kanban.security.BoardAction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -72,7 +73,7 @@ class LabelServiceTest {
 
         assertThat(res.name()).isEqualTo("Feature");
         assertThat(res.color()).isEqualTo("#16a34a");
-        verify(accessPolicy).assertMember(boardId, userId);
+        verify(accessPolicy).assertAccess(boardId, userId, BoardAction.WRITE);
     }
 
     @Test
@@ -117,7 +118,7 @@ class LabelServiceTest {
 
         assertThat(res.name()).isEqualTo("Hotfix");
         assertThat(res.color()).isEqualTo("#7c3aed");
-        verify(accessPolicy).assertMember(boardId, userId);
+        verify(accessPolicy).assertAccess(boardId, userId, BoardAction.WRITE);
     }
 
     @Test
@@ -150,7 +151,7 @@ class LabelServiceTest {
         labelService.deleteLabel(labelId, userId);
 
         verify(labelRepository).delete(label);
-        verify(accessPolicy).assertMember(boardId, userId);
+        verify(accessPolicy).assertAccess(boardId, userId, BoardAction.WRITE);
     }
 
     @Test

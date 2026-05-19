@@ -12,6 +12,7 @@ interface BoardStore {
   deleteCard: (cardId: string) => void
   addColumn: (col: ColumnResponse) => void
   deleteColumn: (columnId: string) => void
+  updateColumnColor: (columnId: string, headerColor: string | null) => void
   applyEvent: (event: BoardEvent) => void
 }
 
@@ -80,6 +81,20 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       columns: (board.columns ?? []).filter(c => c.id !== columnId),
     },
   } : {}),
+
+  updateColumnColor: (columnId, headerColor) =>
+    set(({ board }) =>
+      board
+        ? {
+            board: {
+              ...board,
+              columns: (board.columns ?? []).map((col) =>
+                col.id === columnId ? { ...col, headerColor } : col
+              ),
+            },
+          }
+        : {}
+    ),
 
   applyEvent: (event) => {
     const { board } = get()
@@ -160,6 +175,11 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       case 'COLUMN_DELETED': {
         const d = event.data as { id: string }
         get().deleteColumn(d.id)
+        break
+      }
+      case 'COLUMN_COLOR_UPDATED': {
+        const d = event.data as { id: string; headerColor: string | null }
+        get().updateColumnColor(d.id, d.headerColor)
         break
       }
     }

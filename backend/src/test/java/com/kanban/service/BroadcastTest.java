@@ -3,6 +3,7 @@ package com.kanban.service;
 import com.kanban.dto.request.CreateCardRequest;
 import com.kanban.dto.request.CreateColumnRequest;
 import com.kanban.dto.request.UpdateCardRequest;
+import com.kanban.dto.request.UpdateColumnRequest;
 import com.kanban.model.Board;
 import com.kanban.model.BoardColumn;
 import com.kanban.model.Card;
@@ -180,11 +181,11 @@ class BroadcastTest {
     }
 
     @Test
-    void renameColumn_broadcastsColumnUpdated() {
+    void updateColumn_broadcastsColumnUpdated() {
         when(columnRepository.findActiveById(columnId)).thenReturn(Optional.of(column));
         when(columnRepository.save(any())).thenReturn(column);
 
-        columnService.renameColumn(columnId, "Renamed", userId);
+        columnService.updateColumn(columnId, new UpdateColumnRequest("Renamed", null), userId);
 
         ArgumentCaptor<BoardEventPayload> captor = ArgumentCaptor.forClass(BoardEventPayload.class);
         verify(eventBroadcastService).broadcastBoardEvent(eq(boardId), captor.capture());
@@ -192,6 +193,49 @@ class BroadcastTest {
         var data = (BoardEventPayload.ColumnUpdatedData) captor.getValue().data();
         assertThat(data.id()).isEqualTo(columnId);
         assertThat(data.name()).isEqualTo("Renamed");
+    }
+
+    @Test
+    void updateColumn_colorChanged_broadcastsColumnColorUpdated() {
+        when(columnRepository.findActiveById(columnId)).thenReturn(Optional.of(column));
+        when(columnRepository.save(any())).thenReturn(column);
+
+        columnService.updateColumn(columnId, new UpdateColumnRequest(null, "blue"), userId);
+
+        ArgumentCaptor<BoardEventPayload> captor = ArgumentCaptor.forClass(BoardEventPayload.class);
+        verify(eventBroadcastService).broadcastBoardEvent(eq(boardId), captor.capture());
+        assertThat(captor.getValue().eventType()).isEqualTo("COLUMN_COLOR_UPDATED");
+        var data = (BoardEventPayload.ColumnColorUpdatedData) captor.getValue().data();
+        assertThat(data.id()).isEqualTo(columnId);
+        assertThat(data.headerColor()).isEqualTo("blue");
+    }
+
+    @Test
+    void updateColumn_colorUnchanged_doesNotBroadcastColorEvent() {
+        setField(column, "headerColor", "blue");
+        when(columnRepository.findActiveById(columnId)).thenReturn(Optional.of(column));
+        when(columnRepository.save(any())).thenReturn(column);
+
+        columnService.updateColumn(columnId, new UpdateColumnRequest(null, "blue"), userId);
+
+        verify(eventBroadcastService, never()).broadcastBoardEvent(any(), any());
+    }
+
+    @Test
+    void updateColumn_nameAndColorChanged_broadcastsBothEventsInOrder() {
+        when(columnRepository.findActiveById(columnId)).thenReturn(Optional.of(column));
+        when(columnRepository.save(any())).thenReturn(column);
+
+        columnService.updateColumn(columnId, new UpdateColumnRequest("Renamed", "blue"), userId);
+
+        ArgumentCaptor<BoardEventPayload> captor = ArgumentCaptor.forClass(BoardEventPayload.class);
+        verify(eventBroadcastService, times(2)).broadcastBoardEvent(eq(boardId), captor.capture());
+        List<BoardEventPayload> events = captor.getAllValues();
+        assertThat(events.get(0).eventType()).isEqualTo("COLUMN_UPDATED");
+        assertThat(events.get(1).eventType()).isEqualTo("COLUMN_COLOR_UPDATED");
+        var colorData = (BoardEventPayload.ColumnColorUpdatedData) events.get(1).data();
+        assertThat(colorData.id()).isEqualTo(columnId);
+        assertThat(colorData.headerColor()).isEqualTo("blue");
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.kanban.model.BoardMember;
 import com.kanban.repository.BoardMemberRepository;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.CardAssigneeRepository;
+import com.kanban.repository.CardRepository;
 import com.kanban.repository.CommentRepository;
 import com.kanban.repository.SubtaskRepository;
 import com.kanban.repository.UserRepository;
@@ -36,6 +37,7 @@ class BoardWorkspaceTest {
     @Mock SubtaskRepository subtaskRepository;
     @Mock CommentRepository commentRepository;
     @Mock CardAssigneeRepository cardAssigneeRepository;
+    @Mock CardRepository cardRepository;
 
     private BoardService boardService;
 
@@ -48,7 +50,7 @@ class BoardWorkspaceTest {
     @BeforeEach
     void setUp() {
         boardService = new BoardService(boardRepository, memberRepository, userRepository,
-                accessPolicy, subtaskRepository, commentRepository, cardAssigneeRepository);
+                accessPolicy, subtaskRepository, commentRepository, cardAssigneeRepository, cardRepository);
 
         userId      = UUID.randomUUID();
         boardId     = UUID.randomUUID();

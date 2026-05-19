@@ -7,6 +7,128 @@ import { T } from '@/lib/theme'
 import type { ColumnResponse, CardResponse } from '@/types/api'
 import CardItem from './CardItem'
 import Icon from '@/components/ui/Icon'
+import { useConfigStore } from '@/store/configStore'
+import { useBoardStore } from '@/store/boardStore'
+
+function ColorPalette({
+  tokens,
+  colorHexMap,
+  currentColor,
+  onSelect,
+  onClose,
+}: {
+  tokens: string[]
+  colorHexMap: Record<string, string>
+  currentColor: string | null | undefined
+  onSelect: (token: string | null) => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [onClose])
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        zIndex: 60,
+        background: T.card,
+        border: `1px solid ${T.cardBorder}`,
+        borderRadius: 8,
+        boxShadow: '0 4px 12px rgba(0,0,0,.14)',
+        padding: 10,
+        marginTop: 4,
+        minWidth: 160,
+      }}
+    >
+      <div style={{ fontSize: 10.5, fontWeight: 600, color: T.textFaint, marginBottom: 8, letterSpacing: '.05em', textTransform: 'uppercase' }}>
+        Header color
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+        {tokens.map((token) => {
+          const hex = colorHexMap[token]
+          const isActive = token === currentColor
+          return (
+            <button
+              key={token}
+              title={token}
+              onClick={() => onSelect(token)}
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                background: hex ?? '#ccc',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+                outline: isActive ? `2px solid ${T.accent}` : '2px solid transparent',
+                outlineOffset: 2,
+                flexShrink: 0,
+              }}
+            />
+          )
+        })}
+      </div>
+      <button
+        onClick={() => onSelect(null)}
+        style={{
+          width: '100%',
+          padding: '5px 8px',
+          background: 'none',
+          border: `1px dashed ${T.cardBorder}`,
+          borderRadius: 5,
+          fontSize: 11,
+          color: T.textMuted,
+          cursor: 'pointer',
+          textAlign: 'center',
+          fontFamily: 'inherit',
+        }}
+      >
+        None (clear)
+      </button>
+    </div>
+  )
+}
+
+function ColorSwatchButton({
+  color,
+  colorHexMap,
+  onClick,
+}: {
+  color: string | null | undefined
+  colorHexMap: Record<string, string>
+  onClick: () => void
+}) {
+  const hex = color && colorHexMap[color] ? colorHexMap[color] : null
+  return (
+    <button
+      onClick={onClick}
+      title="Set header color"
+      style={{
+        width: 16,
+        height: 16,
+        borderRadius: '50%',
+        background: hex ?? 'transparent',
+        border: hex ? 'none' : `1.5px dashed ${T.textFaint}`,
+        cursor: 'pointer',
+        padding: 0,
+        flexShrink: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    />
+  )
+}
 
 function ColumnMenu({ onDelete, onRename }: { onDelete: () => void; onRename: () => void }) {
   const [open, setOpen] = useState(false)
@@ -79,8 +201,26 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
   const [submitting, setSubmitting] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [renameVal, setRenameVal] = useState(column.name)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const renameRef = useRef<HTMLInputElement>(null)
+
+  const colorHexMap = useConfigStore(s => s.columnColorMap)
+  const colorTokens = useConfigStore(s => s.columnColors)
+  const board = useBoardStore(s => s.board)
+  const updateColumnColor = useBoardStore(s => s.updateColumnColor)
+  const canEdit = board?.role !== 'VIEWER'
+
+  async function handleColorSelect(newColor: string | null) {
+    const prevColor = column.headerColor ?? null
+    setPaletteOpen(false)
+    updateColumnColor(column.id, newColor)
+    try {
+      await api.patch(`/api/v1/columns/${column.id}`, { headerColor: newColor })
+    } catch {
+      updateColumnColor(column.id, prevColor)
+    }
+  }
 
   const {
     attributes,
@@ -165,6 +305,11 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
         padding: '10px 12px 8px',
         display: 'flex', alignItems: 'center', gap: 8,
         flexShrink: 0,
+        borderRadius: '8px 8px 0 0',
+        backgroundColor: column.headerColor && colorHexMap[column.headerColor]
+          ? colorHexMap[column.headerColor]
+          : undefined,
+        position: 'relative',
       }}>
         {/* Drag handle */}
         <div
@@ -212,6 +357,24 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
           </>
         )}
         <span style={{ flex: 1 }} />
+        {!renaming && canEdit && (
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <ColorSwatchButton
+              color={column.headerColor}
+              colorHexMap={colorHexMap}
+              onClick={() => setPaletteOpen(o => !o)}
+            />
+            {paletteOpen && colorTokens.length > 0 && (
+              <ColorPalette
+                tokens={colorTokens}
+                colorHexMap={colorHexMap}
+                currentColor={column.headerColor}
+                onSelect={handleColorSelect}
+                onClose={() => setPaletteOpen(false)}
+              />
+            )}
+          </div>
+        )}
         {!renaming && (
           <Icon
             name="plus" size={13} sw={2}

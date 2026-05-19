@@ -10,5 +10,6 @@ public record ColumnResponse(
         String name,
         double position,
         Instant createdAt,
-        List<CardResponse> cards
+        List<CardResponse> cards,
+        String headerColor
 ) {}

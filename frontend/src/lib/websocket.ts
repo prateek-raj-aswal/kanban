@@ -5,6 +5,7 @@ export interface BoardEvent {
   eventType:
     | 'CARD_CREATED' | 'CARD_UPDATED' | 'CARD_MOVED' | 'CARD_DELETED'
     | 'COLUMN_CREATED' | 'COLUMN_UPDATED' | 'COLUMN_REORDERED' | 'COLUMN_DELETED'
+    | 'COLUMN_COLOR_UPDATED'
   boardId: string
   timestamp: string
   data: unknown

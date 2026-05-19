@@ -1,6 +1,7 @@
 # Build stage
 FROM node:20-alpine AS build
 WORKDIR /app
+RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .

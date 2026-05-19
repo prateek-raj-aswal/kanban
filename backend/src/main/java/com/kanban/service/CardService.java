@@ -16,6 +16,7 @@ import com.kanban.repository.CommentRepository;
 import com.kanban.repository.LabelRepository;
 import com.kanban.repository.SubtaskRepository;
 import com.kanban.security.BoardAccessPolicy;
+import com.kanban.security.BoardAction;
 import com.kanban.websocket.BoardEventPayload;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -60,7 +61,7 @@ public class CardService {
     public CardResponse createCard(UUID columnId, CreateCardRequest request, UUID requestingUserId) {
         BoardColumn column = columnRepository.findActiveById(columnId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "COLUMN_NOT_FOUND", "Column not found"));
-        accessPolicy.assertMember(column.getBoard().getId(), requestingUserId);
+        accessPolicy.assertAccess(column.getBoard().getId(), requestingUserId, BoardAction.WRITE);
 
         double maxPos = cardRepository.findMaxPositionByColumnId(columnId).orElse(0.0);
         Card card = new Card();
@@ -95,7 +96,7 @@ public class CardService {
     public CardResponse updateCard(UUID cardId, UpdateCardRequest request, UUID requestingUserId) {
         Card card = cardRepository.findActiveById(cardId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CARD_NOT_FOUND", "Card not found"));
-        accessPolicy.assertMember(card.getColumn().getBoard().getId(), requestingUserId);
+        accessPolicy.assertAccess(card.getColumn().getBoard().getId(), requestingUserId, BoardAction.WRITE);
 
         if (request.title() != null && !request.title().isBlank()) {
             card.setTitle(request.title());
@@ -138,7 +139,7 @@ public class CardService {
                     "Target column belongs to a different board");
         }
 
-        accessPolicy.assertMember(card.getColumn().getBoard().getId(), requestingUserId);
+        accessPolicy.assertAccess(card.getColumn().getBoard().getId(), requestingUserId, BoardAction.WRITE);
 
         UUID fromColumnId = card.getColumn().getId();
         UUID boardId = card.getColumn().getBoard().getId();
@@ -160,7 +161,7 @@ public class CardService {
     public void deleteCard(UUID cardId, UUID requestingUserId) {
         Card card = cardRepository.findActiveById(cardId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CARD_NOT_FOUND", "Card not found"));
-        accessPolicy.assertMember(card.getColumn().getBoard().getId(), requestingUserId);
+        accessPolicy.assertAccess(card.getColumn().getBoard().getId(), requestingUserId, BoardAction.WRITE);
 
         UUID boardId = card.getColumn().getBoard().getId();
         UUID columnId = card.getColumn().getId();

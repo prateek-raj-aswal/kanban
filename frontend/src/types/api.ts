@@ -57,6 +57,7 @@ export interface ColumnResponse {
   boardId: string
   name: string
   position: number
+  headerColor?: string | null
   createdAt?: string
   cards?: CardResponse[]
 }
