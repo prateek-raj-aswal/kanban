@@ -20,9 +20,14 @@ async function request<T>(path: string, init?: RequestInit, skipContentType = fa
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
   if (!res.ok) {
     if (res.status === 401) {
-      clearToken()
-      window.location.href = '/login'
-      throw new ApiError(401, 'UNAUTHORIZED', 'Session expired')
+      // Auth endpoints return 401 for wrong credentials — don't treat as expired session
+      if (!path.startsWith('/api/v1/auth/')) {
+        clearToken()
+        window.dispatchEvent(new CustomEvent('kanban:unauthorized'))
+      }
+      const body = await res.json().catch(() => ({}))
+      const msg = body.error ?? (path.startsWith('/api/v1/auth/') ? 'Invalid email or password' : 'Session expired')
+      throw new ApiError(401, 'UNAUTHORIZED', msg)
     }
     const body = await res.json().catch(() => ({}))
     throw new ApiError(res.status, body.code ?? 'UNKNOWN', body.error ?? 'Request failed', body.fields)

@@ -11,9 +11,18 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace('/login')
-    } else {
-      setReady(true)
+      return
     }
+    setReady(true)
+  }, [router])
+
+  // Listen for session expiry events dispatched by api.ts
+  useEffect(() => {
+    function handleUnauthorized() {
+      router.replace('/login')
+    }
+    window.addEventListener('kanban:unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('kanban:unauthorized', handleUnauthorized)
   }, [router])
 
   if (!ready) return null
