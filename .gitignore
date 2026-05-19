@@ -39,6 +39,7 @@ pnpm-debug.log*
 
 # ---- Docker ----
 .docker/
+data/postgres/
 
 # ---- IDE: IntelliJ IDEA ----
 .idea/

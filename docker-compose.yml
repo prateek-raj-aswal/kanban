@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-kanban}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kanban} -d ${POSTGRES_DB:-kanban}"]
       interval: 10s
@@ -53,6 +53,3 @@ services:
       HOSTNAME: "0.0.0.0"
     ports:
       - "3000:3000"
-
-volumes:
-  postgres_data:
