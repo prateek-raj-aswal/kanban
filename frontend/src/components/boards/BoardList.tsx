@@ -9,13 +9,18 @@ import CreateBoardModal from './CreateBoardModal'
 
 export default function BoardList() {
   const [boards, setBoards] = useState<BoardResponse[]>([])
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set())
   const [showModal, setShowModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function load() {
     try {
-      const data = await api.get<BoardResponse[]>('/api/v1/boards')
+      const [data, starred] = await Promise.all([
+        api.get<BoardResponse[]>('/api/v1/boards'),
+        api.get<BoardResponse[]>('/api/v1/me/starred-boards').catch(() => [] as BoardResponse[]),
+      ])
       setBoards(data)
+      setStarredIds(new Set(starred.map(b => b.id)))
     } catch (err) {
       if (err instanceof ApiError) setError(err.message)
     }
@@ -137,7 +142,7 @@ export default function BoardList() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {boards.map(board => (
-              <BoardCard key={board.id} board={board} onDelete={handleDelete} />
+              <BoardCard key={board.id} board={board} onDelete={handleDelete} isStarred={starredIds.has(board.id)} />
             ))}
           </div>
         )}

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isAuthenticated } from '@/lib/auth'
+import BottomNav from '@/components/ui/BottomNav'
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -16,5 +17,10 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }, [router])
 
   if (!ready) return null
-  return <>{children}</>
+  return (
+    <>
+      {children}
+      <BottomNav />
+    </>
+  )
 }

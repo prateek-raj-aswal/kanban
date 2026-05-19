@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { useDroppable } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { api, ApiError } from '@/lib/api'
 import { T } from '@/lib/theme'
 import type { ColumnResponse, CardResponse } from '@/types/api'
@@ -69,9 +69,10 @@ interface Props {
   onRenameColumn?: (id: string, name: string) => void
   onSelectCard?: (card: CardResponse) => void
   onAddCard?: (columnId: string, card: CardResponse) => void
+  swimlanes?: boolean
 }
 
-export default function Column({ column, onDeleteColumn, onRenameColumn, onSelectCard, onAddCard }: Props) {
+export default function Column({ column, onDeleteColumn, onRenameColumn, onSelectCard, onAddCard, swimlanes }: Props) {
   const cards = column.cards ?? []
   const [showAdd, setShowAdd] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -81,7 +82,15 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const renameRef = useRef<HTMLInputElement>(null)
 
-  const { setNodeRef } = useDroppable({ id: column.id })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: column.id, data: { type: 'column' } })
 
   useEffect(() => {
     if (showAdd) textareaRef.current?.focus()
@@ -137,19 +146,41 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
   }
 
   return (
-    <div style={{
-      width: 268, flexShrink: 0,
-      background: T.column,
-      borderRadius: 8,
-      display: 'flex', flexDirection: 'column',
-      maxHeight: '100%',
-    }}>
+    <div
+      ref={setNodeRef}
+      style={{
+        width: 268, flexShrink: 0,
+        background: T.column,
+        borderRadius: 8,
+        display: 'flex', flexDirection: 'column',
+        maxHeight: '100%',
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        touchAction: 'none',
+      }}
+    >
       {/* Header */}
       <div style={{
         padding: '10px 12px 8px',
         display: 'flex', alignItems: 'center', gap: 8,
         flexShrink: 0,
       }}>
+        {/* Drag handle */}
+        <div
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          style={{
+            cursor: isDragging ? 'grabbing' : 'grab',
+            color: T.textFaint,
+            display: 'flex', alignItems: 'center', flexShrink: 0,
+            padding: '2px 1px',
+            borderRadius: 3,
+          }}
+        >
+          <Icon name="grip" size={12} sw={2.5} />
+        </div>
         {renaming ? (
           <input
             ref={renameRef}
@@ -194,11 +225,10 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
       {/* Cards */}
       <SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
         <div
-          ref={setNodeRef}
           style={{
             padding: '0 10px 10px',
             display: 'flex', flexDirection: 'column',
-            gap: 8,
+            gap: swimlanes ? 0 : 8,
             overflowY: 'auto',
             flex: 1,
             minHeight: 40,
@@ -211,7 +241,36 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
               textAlign: 'center',
             }}>No cards</div>
           )}
-          {cards.map(card => (
+          {swimlanes ? (() => {
+            const groups = new Map<string, CardResponse[]>()
+            for (const card of cards) {
+              const label = card.labels?.[0]?.name ?? 'Unlabeled'
+              const g = groups.get(label)
+              if (g) g.push(card)
+              else groups.set(label, [card])
+            }
+            if (!groups.has('Unlabeled') && cards.some(c => !c.labels?.length)) {
+              groups.set('Unlabeled', cards.filter(c => !c.labels?.length))
+            }
+            return Array.from(groups.entries()).map(([label, groupCards]) => (
+              <div key={label}>
+                <div style={{
+                  fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em',
+                  textTransform: 'uppercase', color: T.textFaint,
+                  padding: '8px 2px 4px',
+                  borderBottom: `1px solid ${T.cardBorder}`, marginBottom: 6,
+                }}>
+                  {label}
+                  <span style={{ fontWeight: 500, marginLeft: 5 }}>{groupCards.length}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                  {groupCards.map(card => (
+                    <CardItem key={card.id} card={card} onClick={() => onSelectCard?.(card)} />
+                  ))}
+                </div>
+              </div>
+            ))
+          })() : cards.map(card => (
             <CardItem
               key={card.id}
               card={card}

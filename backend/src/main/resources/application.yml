@@ -1,7 +1,14 @@
 server:
-  port: 8081
+  port: 8080
+
+app:
+  upload-dir: ${APP_UPLOAD_DIR:./uploads}
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}

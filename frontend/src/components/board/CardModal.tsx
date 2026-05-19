@@ -1,8 +1,9 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, ApiError } from '@/lib/api'
 import { T, darkenHex } from '@/lib/theme'
-import type { CardResponse, LabelResponse, Priority, SubtaskResponse, CommentResponse, ActivityLogResponse } from '@/types/api'
+import { useIsMobile } from '@/lib/useIsMobile'
+import type { CardResponse, LabelResponse, Priority, SubtaskResponse, CommentResponse, ActivityLogResponse, MemberResponse, AttachmentResponse } from '@/types/api'
 import Icon from '@/components/ui/Icon'
 
 const PRIORITIES: Priority[] = ['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT']
@@ -70,6 +71,7 @@ function PropRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 export default function CardModal({ card, columnName, boardId, onClose, onUpdate, onDelete }: Props) {
+  const isMobile = useIsMobile()
   const shortId = card.id.slice(0, 8).toUpperCase()
 
   const [title, setTitle] = useState(card.title)
@@ -93,6 +95,14 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
   const [editingCommentBody, setEditingCommentBody] = useState('')
   const [activityLog, setActivityLog] = useState<ActivityLogResponse[]>([])
   const [leftTab, setLeftTab] = useState<'details' | 'activity'>('details')
+  const [members, setMembers] = useState<MemberResponse[]>([])
+  const [assignees, setAssignees] = useState<string[]>(card.assignees ?? [])
+  const [assigneePickerOpen, setAssigneePickerOpen] = useState(false)
+  const assigneePickerRef = useRef<HTMLDivElement>(null)
+  const [attachments, setAttachments] = useState<AttachmentResponse[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [copyDone, setCopyDone] = useState(false)
 
   const isOverdue = dueDate ? new Date(dueDate) < new Date() : false
 
@@ -109,7 +119,68 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
     api.get<ActivityLogResponse[]>(`/api/v1/cards/${card.id}/activity`)
       .then(setActivityLog)
       .catch(() => {})
+    api.get<MemberResponse[]>(`/api/v1/boards/${boardId}/members`)
+      .then(setMembers)
+      .catch(() => {})
+    api.get<AttachmentResponse[]>(`/api/v1/cards/${card.id}/attachments`)
+      .then(setAttachments)
+      .catch(() => {})
   }, [boardId, card.id])
+
+  useEffect(() => {
+    if (!assigneePickerOpen) return
+    function handleClick(e: MouseEvent) {
+      if (assigneePickerRef.current && !assigneePickerRef.current.contains(e.target as Node)) {
+        setAssigneePickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [assigneePickerOpen])
+
+  async function toggleAssignee(userId: string) {
+    const isAssigned = assignees.includes(userId)
+    try {
+      if (isAssigned) {
+        await api.delete(`/api/v1/cards/${card.id}/assignees/${userId}`)
+        setAssignees(prev => prev.filter(id => id !== userId))
+      } else {
+        await api.post(`/api/v1/cards/${card.id}/assignees`, { userId })
+        setAssignees(prev => [...prev, userId])
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const att = await api.postForm<AttachmentResponse>(`/api/v1/cards/${card.id}/attachments`, form)
+      setAttachments(prev => [...prev, att])
+    } catch (err) {
+      if (err instanceof ApiError) alert(err.message)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function deleteAttachment(id: string) {
+    try {
+      await api.delete(`/api/v1/attachments/${id}`)
+      setAttachments(prev => prev.filter(a => a.id !== id))
+    } catch { /* ignore */ }
+  }
+
+  function copyLink() {
+    const url = `${window.location.origin}/boards/${boardId}?card=${card.id}`
+    navigator.clipboard.writeText(url).catch(() => {})
+    setCopyDone(true)
+    setTimeout(() => setCopyDone(false), 2000)
+  }
 
   function toggleLabel(labelId: string) {
     setSelectedLabelIds(prev => {
@@ -189,7 +260,6 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
         title: title.trim(),
         description: description || null,
         dueDate: dueDate || null,
-        assigneeId: card.assigneeId,
         priority,
         labelIds: Array.from(selectedLabelIds),
       })
@@ -225,7 +295,17 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
       }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div style={{
+      <div style={isMobile ? {
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        maxHeight: '90vh',
+        background: T.card, color: T.text,
+        borderRadius: '16px 16px 0 0',
+        boxShadow: '0 -8px 32px rgba(0,0,0,.18)',
+        border: `1px solid ${T.cardBorder}`,
+        overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        fontSize: 13,
+      } : {
         width: 720,
         maxHeight: '88vh',
         background: T.card,
@@ -284,6 +364,21 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
               >{saving ? 'Saving…' : 'Save'}</button>
             )}
             <button
+              onClick={copyLink}
+              title="Copy link"
+              style={{
+                height: 28, padding: '0 9px',
+                background: copyDone ? T.accentSoft : 'transparent',
+                color: copyDone ? T.accent : T.textMuted,
+                border: `1px solid ${T.cardBorder}`, borderRadius: 6,
+                fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              <Icon name={copyDone ? 'check' : 'link'} size={12} sw={1.6} />
+              {copyDone ? 'Copied!' : 'Copy link'}
+            </button>
+            <button
               onClick={handleDelete}
               disabled={deleting}
               title="Delete card"
@@ -310,7 +405,7 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
         </div>
 
         {/* Body */}
-        <div style={{ display: 'flex', minHeight: 0, flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', minHeight: 0, flex: 1, overflow: 'hidden', flexDirection: isMobile ? 'column-reverse' : 'row' }}>
           {/* Left: tabbed content */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             {/* Tabs */}
@@ -440,6 +535,60 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
                 </div>
               </div>
             )}
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <SectionLabel>Attachments {attachments.length > 0 ? `(${attachments.length})` : ''}</SectionLabel>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
+              />
+              {attachments.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                  {attachments.map(att => (
+                    <div key={att.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '6px 8px', borderRadius: 5,
+                      background: T.canvas, border: `1px solid ${T.cardBorder}`,
+                      fontSize: 12,
+                    }}>
+                      <Icon name="flag" size={12} sw={1.5} style={{ color: T.textMuted, flexShrink: 0 }} />
+                      <a
+                        href={att.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ flex: 1, color: T.accent, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >{att.filename}</a>
+                      <span style={{ fontSize: 10.5, color: T.textFaint, flexShrink: 0 }}>
+                        {(att.sizeBytes / 1024).toFixed(0)}KB
+                      </span>
+                      <button
+                        onClick={() => deleteAttachment(att.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.danger, padding: 2 }}
+                      ><Icon name="trash" size={11} sw={1.5} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                style={{
+                  height: 28, padding: '0 10px',
+                  background: T.chipBg, color: T.textMuted,
+                  border: `1px solid ${T.cardBorder}`, borderRadius: 5,
+                  fontSize: 12, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  fontFamily: 'inherit',
+                }}
+              >
+                <Icon name="plus" size={11} sw={2} />
+                {uploading ? 'Uploading…' : 'Attach file'}
+              </button>
+            </div>
 
             <div>
               <SectionLabel>Comments {comments.length > 0 ? `(${comments.length})` : ''}</SectionLabel>
@@ -586,7 +735,14 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
           </div>
 
           {/* Right: properties */}
-          <div style={{
+          <div style={isMobile ? {
+            flexShrink: 0,
+            padding: '10px 16px',
+            background: T.canvas,
+            borderBottom: `1px solid ${T.cardBorder}`,
+            display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 12,
+            fontSize: 12, overflowX: 'auto',
+          } : {
             width: 220, flexShrink: 0,
             padding: 18,
             background: T.canvas,
@@ -652,23 +808,102 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
               />
             </PropRow>
 
-            {card.assigneeId && (
-              <PropRow label="Assignee">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                  <span style={{
-                    width: 20, height: 20, borderRadius: '50%',
-                    background: T.accentSoft, color: T.accent,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
+            <PropRow label="Assignees">
+              <div ref={assigneePickerRef} style={{ position: 'relative' }}>
+                {/* Avatar stack */}
+                <div
+                  onClick={() => setAssigneePickerOpen(o => !o)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    cursor: 'pointer', flexWrap: 'wrap',
+                  }}
+                >
+                  {assignees.length === 0 ? (
+                    <span style={{
+                      fontSize: 11.5, color: T.textFaint,
+                      padding: '3px 7px', borderRadius: 4,
+                      border: `1px dashed ${T.cardBorder}`,
+                    }}>Add assignee</span>
+                  ) : (() => {
+                    const shown = assignees.slice(0, 3)
+                    const overflow = assignees.length - 3
+                    const memberMap = new Map(members.map(m => [m.userId, m]))
+                    return (
+                      <>
+                        {shown.map(uid => {
+                          const m = memberMap.get(uid)
+                          const initials = m ? m.displayName.slice(0, 2).toUpperCase() : uid.slice(0, 2).toUpperCase()
+                          return (
+                            <span
+                              key={uid}
+                              title={m?.displayName ?? uid}
+                              style={{
+                                width: 24, height: 24, borderRadius: '50%',
+                                background: T.accentSoft, color: T.accent,
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 10, fontWeight: 700, flexShrink: 0,
+                                border: `2px solid ${T.card}`,
+                                marginLeft: -4,
+                              }}
+                            >{initials}</span>
+                          )
+                        })}
+                        {overflow > 0 && (
+                          <span style={{
+                            width: 24, height: 24, borderRadius: '50%',
+                            background: T.chipBg, color: T.textMuted,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 9, fontWeight: 700,
+                            border: `2px solid ${T.card}`,
+                            marginLeft: -4,
+                          }}>+{overflow}</span>
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
+
+                {/* Picker dropdown */}
+                {assigneePickerOpen && members.length > 0 && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, zIndex: 100,
+                    background: T.card, border: `1px solid ${T.cardBorder}`,
+                    borderRadius: 7, boxShadow: '0 4px 12px rgba(0,0,0,.14)',
+                    minWidth: 180, padding: '4px 0', marginTop: 4,
+                    maxHeight: 200, overflowY: 'auto',
                   }}>
-                    <Icon name="user" size={10} sw={1.5} />
-                  </span>
-                  <span style={{ color: T.text, fontSize: 12 }}>
-                    {card.assigneeId.slice(0, 8)}…
-                  </span>
-                </span>
-              </PropRow>
-            )}
+                    {members.map(m => {
+                      const checked = assignees.includes(m.userId)
+                      return (
+                        <div
+                          key={m.userId}
+                          onClick={() => toggleAssignee(m.userId)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '6px 10px', cursor: 'pointer',
+                            background: checked ? T.selectedBg : 'transparent',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            readOnly
+                            style={{ width: 13, height: 13, accentColor: T.accent }}
+                          />
+                          <span style={{
+                            width: 22, height: 22, borderRadius: '50%',
+                            background: T.accentSoft, color: T.accent,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 10, fontWeight: 700, flexShrink: 0,
+                          }}>{m.displayName.slice(0, 2).toUpperCase()}</span>
+                          <span style={{ fontSize: 12, color: T.text }}>{m.displayName || m.email}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </PropRow>
 
             {selectedLabelIds.size > 0 && (
               <PropRow label="Labels">

@@ -17,7 +17,39 @@ export interface BoardResponse {
   ownerId: string
   role?: string
   createdAt: string
+  workspaceId?: string | null
+  taskCount?: number
   columns?: ColumnResponse[]
+}
+
+export interface WorkspaceResponse {
+  id: string
+  name: string
+  ownerId: string
+  role: string
+  createdAt: string
+}
+
+export interface SmartCardResponse {
+  id: string
+  title: string
+  boardId: string
+  boardName: string
+  columnId: string
+  columnName: string
+  dueDate: string | null
+  startDate: string | null
+  priority: string
+}
+
+export interface TimelineCardResponse {
+  id: string
+  title: string
+  columnName: string
+  startDate: string | null
+  dueDate: string | null
+  priority: string
+  assignees: string[]
 }
 
 export interface ColumnResponse {
@@ -37,15 +69,27 @@ export interface CardResponse {
   title: string
   description: string | null
   position: number
-  assigneeId: string | null
+  startDate: string | null
   dueDate: string | null
   priority: Priority
   labels: LabelResponse[]
+  assignees: string[]
   subtaskTotal?: number
   subtaskDone?: number
   commentCount?: number
   createdAt?: string
   updatedAt?: string
+}
+
+export interface AttachmentResponse {
+  id: string
+  cardId: string
+  filename: string
+  url: string
+  contentType: string
+  sizeBytes: number
+  uploadedBy: string
+  uploadedAt: string
 }
 
 export interface LabelResponse {

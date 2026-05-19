@@ -43,7 +43,8 @@ export default function CardItem({ card, onClick }: Props) {
   const subtaskTotal = card.subtaskTotal ?? 0
   const subtaskDone = card.subtaskDone ?? 0
   const commentCount = card.commentCount ?? 0
-  const hasMeta = card.dueDate || card.assigneeId || priority !== 'NONE' || subtaskTotal > 0 || commentCount > 0
+  const assigneeCount = card.assignees?.length ?? 0
+  const hasMeta = card.dueDate || assigneeCount > 0 || priority !== 'NONE' || subtaskTotal > 0 || commentCount > 0
 
   return (
     <div
@@ -131,14 +132,15 @@ export default function CardItem({ card, onClick }: Props) {
               {commentCount}
             </span>
           )}
-          {card.assigneeId && (
+          {assigneeCount > 0 && (
             <span style={{
-              width: 20, height: 20, borderRadius: '50%',
+              display: 'inline-flex', alignItems: 'center',
+              height: 20, padding: '0 5px', borderRadius: 10,
               background: T.accentSoft, color: T.accent,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
+              fontSize: 10, fontWeight: 600, flexShrink: 0, gap: 3,
             }}>
-              <Icon name="user" size={10} sw={1.5} />
+              <Icon name="user" size={9} sw={1.5} />
+              {assigneeCount > 1 ? assigneeCount : ''}
             </span>
           )}
         </div>

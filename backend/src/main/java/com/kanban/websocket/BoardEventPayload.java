@@ -35,4 +35,15 @@ public record BoardEventPayload(String eventType, UUID boardId, Instant timestam
     public record ColumnDeletedData(UUID id) {}
 
     public record ColumnPosition(UUID id, double position) {}
+
+    public record BoardStarredData(UUID boardId, UUID userId, java.time.Instant starredAt) {}
+
+    public record BoardUnstarredData(UUID boardId, UUID userId) {}
+
+    public record AttachmentUploadedData(
+            UUID attachmentId, UUID cardId, UUID uploaderId,
+            String originalFilename, String url,
+            long sizeBytes, String contentType, Instant createdAt) {}
+
+    public record AttachmentDeletedData(UUID attachmentId, UUID cardId) {}
 }

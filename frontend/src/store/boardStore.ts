@@ -89,11 +89,11 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       case 'CARD_CREATED': {
         const d = event.data as {
           id: string; columnId: string; title: string; position: number
-          assigneeId: string | null; dueDate: string | null; priority: Priority; labels: LabelResponse[]
+          assignees: string[]; dueDate: string | null; priority: Priority; labels: LabelResponse[]
         }
         get().addCard(d.columnId, {
           id: d.id, columnId: d.columnId, title: d.title, description: null,
-          position: d.position, assigneeId: d.assigneeId, dueDate: d.dueDate,
+          position: d.position, startDate: null, assignees: d.assignees ?? [], dueDate: d.dueDate,
           priority: d.priority ?? 'NONE', labels: d.labels ?? [],
         })
         break
@@ -101,13 +101,13 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       case 'CARD_UPDATED': {
         const d = event.data as {
           id: string; columnId: string; title: string; description: string | null
-          assigneeId: string | null; dueDate: string | null; priority: Priority; labels: LabelResponse[]
+          assignees: string[]; dueDate: string | null; priority: Priority; labels: LabelResponse[]
           updatedAt: string
         }
         get().updateCard({
           id: d.id, columnId: d.columnId, title: d.title, description: d.description,
           position: (board.columns ?? []).flatMap(c => c.cards ?? []).find(c => c.id === d.id)?.position ?? 0,
-          assigneeId: d.assigneeId, dueDate: d.dueDate, priority: d.priority ?? 'NONE',
+          startDate: null, assignees: d.assignees ?? [], dueDate: d.dueDate, priority: d.priority ?? 'NONE',
           labels: d.labels ?? [], updatedAt: d.updatedAt,
         })
         break

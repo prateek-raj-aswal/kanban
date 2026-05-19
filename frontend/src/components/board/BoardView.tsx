@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api, ApiError } from '@/lib/api'
+import { useIsMobile } from '@/lib/useIsMobile'
 import { getToken } from '@/lib/auth'
 import { subscribeToBoard } from '@/lib/websocket'
 import { useBoardStore } from '@/store/boardStore'
@@ -24,6 +26,8 @@ const VIEW_TABS = [
 ] as const
 
 export default function BoardView({ boardId }: Props) {
+  const router = useRouter()
+  const isMobile = useIsMobile()
   const { board, setBoard, addCard, updateCard, moveCard, deleteCard, addColumn, deleteColumn, applyEvent } = useBoardStore()
   const [newColName, setNewColName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +38,9 @@ export default function BoardView({ boardId }: Props) {
   const [filterAssigneeId, setFilterAssigneeId] = useState('')
   const [members, setMembers] = useState<MemberResponse[]>([])
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
+  const [swimlanes, setSwimlanes] = useState(false)
+  const [activeColIdx, setActiveColIdx] = useState(0)
+  const [starred, setStarred] = useState(false)
   const [editingBoardName, setEditingBoardName] = useState(false)
   const [boardNameVal, setBoardNameVal] = useState('')
   const boardNameRef = useRef<HTMLInputElement>(null)
@@ -47,6 +54,9 @@ export default function BoardView({ boardId }: Props) {
     api.get<MemberResponse[]>(`/api/v1/boards/${boardId}/members`)
       .then(setMembers)
       .catch(() => {})
+    api.get<import('@/types/api').BoardResponse[]>('/api/v1/me/starred-boards')
+      .then(boards => setStarred(boards.some(b => b.id === boardId)))
+      .catch(() => {})
   }, [boardId])
 
   // WebSocket subscription — reconnects when boardId changes
@@ -55,6 +65,17 @@ export default function BoardView({ boardId }: Props) {
     if (!token) return
     return subscribeToBoard(boardId, token, applyEvent)
   }, [boardId])
+
+  async function toggleStar() {
+    const next = !starred
+    setStarred(next)
+    try {
+      if (next) await api.post(`/api/v1/boards/${boardId}/star`, {})
+      else await api.delete(`/api/v1/boards/${boardId}/star`)
+    } catch {
+      setStarred(!next)
+    }
+  }
 
   async function handleBoardRename() {
     const name = boardNameVal.trim()
@@ -111,7 +132,7 @@ export default function BoardView({ boardId }: Props) {
       cards = cards.filter(c => c.priority === filterPriority)
     }
     if (filterAssigneeId) {
-      cards = cards.filter(c => c.assigneeId === filterAssigneeId)
+      cards = cards.filter(c => (c.assignees ?? []).includes(filterAssigneeId))
     }
     return { ...col, cards }
   })
@@ -142,6 +163,18 @@ export default function BoardView({ boardId }: Props) {
             <span style={{ color: T.text, fontWeight: 600 }}>{board?.name ?? '…'}</span>
           </div>
           <span style={{ flex: 1 }} />
+          <button
+            onClick={toggleStar}
+            title={starred ? 'Unstar board' : 'Star board'}
+            style={{
+              height: 28, padding: '0 8px',
+              background: 'transparent', color: starred ? '#f59e0b' : T.textMuted,
+              border: `1px solid ${T.cardBorder}`, borderRadius: 6,
+              fontSize: 12, fontWeight: 500, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+            }}>
+            <Icon name="star" size={13} sw={starred ? 0 : 1.7} fill={starred ? '#f59e0b' : 'none'} />
+          </button>
           <button
             onClick={() => setInviteOpen(true)}
             style={{
@@ -222,7 +255,8 @@ export default function BoardView({ boardId }: Props) {
             </form>
           </div>
 
-          {/* View tabs */}
+          {/* View tabs + swimlanes toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 2,
             padding: 2, background: T.chipBg, borderRadius: 7,
@@ -237,6 +271,8 @@ export default function BoardView({ boardId }: Props) {
                   onClick={() => {
                     if (tab.id === 'board') setViewMode('board')
                     else if (tab.id === 'list') setViewMode('list')
+                    else if (tab.id === 'timeline') router.push(`/boards/${boardId}/timeline`)
+                    else if (tab.id === 'cal') router.push(`/boards/${boardId}/calendar`)
                   }}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -253,6 +289,24 @@ export default function BoardView({ boardId }: Props) {
                 </div>
               )
             })}
+          </div>
+          {viewMode === 'board' && (
+            <button
+              onClick={() => setSwimlanes(s => !s)}
+              style={{
+                height: 32, padding: '0 10px',
+                background: swimlanes ? T.accentSoft : T.card,
+                color: swimlanes ? T.accent : T.textMuted,
+                border: `1px solid ${swimlanes ? T.accent : T.cardBorder}`,
+                borderRadius: 6, fontSize: 12, fontWeight: 500,
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
+                fontFamily: 'inherit',
+              }}
+            >
+              <Icon name="list" size={12} sw={1.7} />
+              Swimlanes
+            </button>
+          )}
           </div>
         </div>
 
@@ -345,9 +399,60 @@ export default function BoardView({ boardId }: Props) {
         </div>
 
         {/* Board area */}
-        <div style={{ flex: 1, overflow: 'hidden' }}>
+        <div style={{ flex: 1, overflow: 'hidden', paddingBottom: isMobile ? 56 : 0 }}>
           {!board ? (
             <div style={{ padding: 24, color: T.textMuted, fontSize: 13 }}>Loading…</div>
+          ) : isMobile ? (
+            /* Mobile: column tabs + single column */
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div style={{
+                display: 'flex', overflowX: 'auto', flexShrink: 0,
+                borderBottom: `1px solid ${T.cardBorder}`,
+                background: T.sidebar,
+                scrollbarWidth: 'none',
+              }}>
+                {columns.map((col, i) => (
+                  <button key={col.id} onClick={() => setActiveColIdx(i)} style={{
+                    padding: '8px 14px', border: 'none', cursor: 'pointer',
+                    background: 'transparent', whiteSpace: 'nowrap',
+                    fontSize: 13, fontWeight: activeColIdx === i ? 600 : 400,
+                    color: activeColIdx === i ? T.text : T.textMuted,
+                    borderBottom: activeColIdx === i ? `2px solid ${T.accent}` : '2px solid transparent',
+                    fontFamily: 'inherit',
+                  }}>
+                    {col.name}
+                    <span style={{ fontSize: 11, color: T.textFaint, marginLeft: 5 }}>
+                      {col.cards?.length ?? 0}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px' }}>
+                {columns[activeColIdx] && (columns[activeColIdx].cards ?? []).map(card => (
+                  <div
+                    key={card.id}
+                    onClick={() => handleSelectCard(card)}
+                    style={{
+                      padding: '12px 14px', marginBottom: 8,
+                      background: T.card, border: `1px solid ${T.cardBorder}`,
+                      borderRadius: 8, cursor: 'pointer', width: '100%', boxSizing: 'border-box',
+                    }}
+                  >
+                    <div style={{ fontSize: 14, fontWeight: 500, color: T.text }}>{card.title}</div>
+                    {card.dueDate && (
+                      <div style={{ fontSize: 12, color: T.textFaint, marginTop: 4 }}>
+                        <Icon name="clock" size={10} sw={1.5} /> {card.dueDate}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {(columns[activeColIdx]?.cards ?? []).length === 0 && (
+                  <div style={{ fontSize: 13, color: T.textFaint, textAlign: 'center', paddingTop: 40 }}>
+                    No cards in this column
+                  </div>
+                )}
+              </div>
+            </div>
           ) : viewMode === 'list' ? (
             <div style={{ overflowY: 'auto', height: '100%', padding: '14px 18px' }}>
               {columns.map(col => (
@@ -402,11 +507,13 @@ export default function BoardView({ boardId }: Props) {
             </div>
           ) : (
             <ColumnList
+              boardId={boardId}
               columns={columns}
               onDeleteColumn={deleteColumnHandler}
               onSelectCard={handleSelectCard}
               onAddCard={addCard}
               onCardMoved={moveCard}
+              swimlanes={swimlanes}
             />
           )}
         </div>

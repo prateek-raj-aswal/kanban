@@ -15,6 +15,7 @@ import com.kanban.model.User;
 import com.kanban.repository.BoardMemberRepository;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.CardAssigneeRepository;
+import com.kanban.repository.CardRepository;
 import com.kanban.repository.CommentRepository;
 import com.kanban.repository.SubtaskRepository;
 import com.kanban.repository.UserRepository;
@@ -43,6 +44,7 @@ public class BoardService {
     private final SubtaskRepository subtaskRepository;
     private final CommentRepository commentRepository;
     private final CardAssigneeRepository cardAssigneeRepository;
+    private final CardRepository cardRepository;
 
     public BoardService(BoardRepository boardRepository,
                         BoardMemberRepository memberRepository,
@@ -50,7 +52,8 @@ public class BoardService {
                         BoardAccessPolicy accessPolicy,
                         SubtaskRepository subtaskRepository,
                         CommentRepository commentRepository,
-                        CardAssigneeRepository cardAssigneeRepository) {
+                        CardAssigneeRepository cardAssigneeRepository,
+                        CardRepository cardRepository) {
         this.boardRepository = boardRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
@@ -58,6 +61,7 @@ public class BoardService {
         this.subtaskRepository = subtaskRepository;
         this.commentRepository = commentRepository;
         this.cardAssigneeRepository = cardAssigneeRepository;
+        this.cardRepository = cardRepository;
     }
 
     @Transactional
@@ -74,16 +78,21 @@ public class BoardService {
         member.setRole("OWNER");
         memberRepository.save(member);
 
-        return toBoardResponse(board, "OWNER", false);
+        return toBoardResponse(board, "OWNER", 0, false);
     }
 
     @Transactional(readOnly = true)
     public List<BoardResponse> getBoardsForUser(UUID userId) {
-        return boardRepository.findAllActiveByMember(userId).stream()
+        List<Board> boards = boardRepository.findAllActiveByMember(userId);
+        List<UUID> boardIds = boards.stream().map(Board::getId).toList();
+        Map<UUID, Integer> taskCounts = boardIds.isEmpty() ? Map.of()
+                : cardRepository.countActiveCardsByBoardIds(boardIds).stream()
+                    .collect(Collectors.toMap(row -> (UUID) row[0], row -> ((Long) row[1]).intValue()));
+        return boards.stream()
                 .map(b -> {
                     String role = memberRepository.findByBoardIdAndUserId(b.getId(), userId)
                             .map(BoardMember::getRole).orElse("MEMBER");
-                    return toBoardResponse(b, role, false);
+                    return toBoardResponse(b, role, taskCounts.getOrDefault(b.getId(), 0), false);
                 })
                 .toList();
     }
@@ -95,7 +104,7 @@ public class BoardService {
         accessPolicy.assertMember(boardId, requestingUserId);
         String role = memberRepository.findByBoardIdAndUserId(boardId, requestingUserId)
                 .map(BoardMember::getRole).orElse("MEMBER");
-        return toBoardResponse(board, role, true);
+        return toBoardResponse(board, role, 0, true);
     }
 
     @Transactional
@@ -107,7 +116,7 @@ public class BoardService {
         board = boardRepository.save(board);
         String role = memberRepository.findByBoardIdAndUserId(boardId, requestingUserId)
                 .map(BoardMember::getRole).orElse("MEMBER");
-        return toBoardResponse(board, role, false);
+        return toBoardResponse(board, role, 0, false);
     }
 
     @Transactional
@@ -143,7 +152,11 @@ public class BoardService {
                 .toList();
     }
 
-    private BoardResponse toBoardResponse(Board board, String role, boolean includeColumns) {
+    public BoardResponse toBoardResponse(Board board, String role, boolean includeColumns) {
+        return toBoardResponse(board, role, 0, includeColumns);
+    }
+
+    public BoardResponse toBoardResponse(Board board, String role, int taskCount, boolean includeColumns) {
         List<ColumnResponse> columns = null;
         if (includeColumns) {
             List<UUID> cardIds = board.getColumns().stream()
@@ -191,6 +204,6 @@ public class BoardService {
                     .toList();
         }
         return new BoardResponse(board.getId(), board.getName(), board.getOwnerId(),
-                role, board.getCreatedAt(), board.getWorkspaceId(), columns);
+                role, board.getCreatedAt(), board.getWorkspaceId(), taskCount, columns);
     }
 }

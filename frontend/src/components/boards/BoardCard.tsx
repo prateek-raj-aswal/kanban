@@ -1,11 +1,14 @@
 'use client'
+import { useState } from 'react'
 import type { BoardResponse } from '@/types/api'
+import { api } from '@/lib/api'
 import { T } from '@/lib/theme'
 import Icon from '@/components/ui/Icon'
 
 interface Props {
   board: BoardResponse
   onDelete: (id: string) => void
+  isStarred?: boolean
 }
 
 const BOARD_COLORS = ['#6366f1', '#0ea5e9', '#f59e0b', '#ec4899', '#16a34a', '#dc2626', '#8b5cf6', '#0d9488']
@@ -16,9 +19,22 @@ function pickColor(id: string) {
   return BOARD_COLORS[Math.abs(h) % BOARD_COLORS.length]
 }
 
-export default function BoardCard({ board, onDelete }: Props) {
+export default function BoardCard({ board, onDelete, isStarred: initialStarred = false }: Props) {
+  const [starred, setStarred] = useState(initialStarred)
   const color = pickColor(board.id)
   const initial = board.name.charAt(0).toUpperCase()
+
+  async function toggleStar(e: React.MouseEvent) {
+    e.preventDefault()
+    const next = !starred
+    setStarred(next)
+    try {
+      if (next) await api.post(`/api/v1/boards/${board.id}/star`, {})
+      else await api.delete(`/api/v1/boards/${board.id}/star`)
+    } catch {
+      setStarred(!next)
+    }
+  }
 
   return (
     <a
@@ -48,6 +64,17 @@ export default function BoardCard({ board, onDelete }: Props) {
         </div>
       </div>
 
+      <button
+        onClick={toggleStar}
+        title={starred ? 'Unstar board' : 'Star board'}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: starred ? '#f59e0b' : T.textFaint, padding: '4px',
+          display: 'inline-flex', alignItems: 'center', borderRadius: 4,
+        }}
+      >
+        <Icon name="star" size={14} sw={starred ? 0 : 1.8} fill={starred ? '#f59e0b' : 'none'} />
+      </button>
       {board.role === 'OWNER' && (
         <button
           onClick={e => { e.preventDefault(); onDelete(board.id) }}

@@ -11,5 +11,6 @@ public record BoardResponse(
         String role,
         Instant createdAt,
         UUID workspaceId,
+        int taskCount,
         List<ColumnResponse> columns
 ) {}
