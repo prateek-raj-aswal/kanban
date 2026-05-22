@@ -19,6 +19,7 @@ import com.kanban.repository.CardRepository;
 import com.kanban.repository.CommentRepository;
 import com.kanban.repository.SubtaskRepository;
 import com.kanban.repository.UserRepository;
+import com.kanban.repository.WorkspaceMemberRepository;
 import com.kanban.security.BoardAccessPolicy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ public class BoardService {
     private final CommentRepository commentRepository;
     private final CardAssigneeRepository cardAssigneeRepository;
     private final CardRepository cardRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
 
     public BoardService(BoardRepository boardRepository,
                         BoardMemberRepository memberRepository,
@@ -53,7 +55,8 @@ public class BoardService {
                         SubtaskRepository subtaskRepository,
                         CommentRepository commentRepository,
                         CardAssigneeRepository cardAssigneeRepository,
-                        CardRepository cardRepository) {
+                        CardRepository cardRepository,
+                        WorkspaceMemberRepository workspaceMemberRepository) {
         this.boardRepository = boardRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
@@ -62,10 +65,15 @@ public class BoardService {
         this.commentRepository = commentRepository;
         this.cardAssigneeRepository = cardAssigneeRepository;
         this.cardRepository = cardRepository;
+        this.workspaceMemberRepository = workspaceMemberRepository;
     }
 
     @Transactional
     public BoardResponse createBoard(CreateBoardRequest request, UUID requestingUserId) {
+        if (request.workspaceId() != null &&
+                !workspaceMemberRepository.existsByWorkspaceIdAndUserId(request.workspaceId(), requestingUserId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Not a member of the specified workspace");
+        }
         Board board = new Board();
         board.setName(request.name());
         board.setOwnerId(requestingUserId);

@@ -109,7 +109,23 @@
       "Bash(python3 *)",
       "Bash(node *)",
       "Bash(./gradlew compileTestJava)",
-      "Bash(xargs grep -l \"failed\")"
+      "Bash(xargs grep -l \"failed\")",
+      "Bash(Test-Path *)",
+      "Bash(docker info *)",
+      "Bash(docker compose *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\" -Recurse -Depth 3)",
+      "Bash(Select-Object FullName)",
+      "Bash(Head -30)",
+      "Bash(xargs grep -l \"WebSocket\\\\|@EnableWebSocket\")",
+      "Bash(pip install *)",
+      "Bash(docker build *)",
+      "Bash(dir D:workspaceClaude-workspaceKanabanfrontend *)",
+      "Bash(pip show *)",
+      "Bash(GROQ_API_KEY=test-groq-key python *)",
+      "Bash(./gradlew :backend:compileJava -x test --no-daemon)",
+      "Bash(./gradlew compileJava -x test --no-daemon)",
+      "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kanban\" -Recurse -Directory)",
+      "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\frontend\" -Recurse -Force)"
     ]
   }
 }

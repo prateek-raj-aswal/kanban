@@ -1,65 +1,185 @@
 {
   "stories": [
     {
-      "id": "US-001",
-      "title": "Add headerColor column to columns table",
-      "phase": "database",
+      "id": "AGT-001",
+      "title": "Scaffold FastAPI agent service with Docker",
+      "phase": "PHASE-001",
       "dependencies": [],
       "status": "done",
       "acceptance_criteria": []
     },
     {
-      "id": "US-002",
-      "title": "Expose headerColor in entity and ColumnResponse",
-      "phase": "backend",
-      "dependencies": ["US-001"],
+      "id": "AGT-002",
+      "title": "Define POST /chat request and response contracts",
+      "phase": "PHASE-001",
+      "dependencies": ["AGT-001"],
       "status": "done",
       "acceptance_criteria": []
     },
     {
-      "id": "US-003",
-      "title": "Accept headerColor in PATCH /api/v1/columns/{id}",
-      "phase": "backend",
-      "dependencies": ["US-002"],
+      "id": "AGT-003",
+      "title": "Implement JWT forwarding and backend connectivity check",
+      "phase": "PHASE-001",
+      "dependencies": ["AGT-002"],
       "status": "done",
       "acceptance_criteria": []
     },
     {
-      "id": "US-003b",
-      "title": "Extend BoardAction.WRITE to CardService + LabelService mutating ops",
-      "phase": "backend",
-      "dependencies": ["US-003"],
+      "id": "AGT-004",
+      "title": "Implement raw Groq tool-calling loop skeleton",
+      "phase": "PHASE-001",
+      "dependencies": ["AGT-003"],
       "status": "done",
       "acceptance_criteria": []
     },
     {
-      "id": "US-004",
-      "title": "Add color swatch and palette popover to column header",
-      "phase": "frontend",
-      "dependencies": ["US-003"],
+      "id": "AGT-005",
+      "title": "Implement get_boards and get_board tools",
+      "phase": "PHASE-002",
+      "dependencies": ["AGT-004"],
       "status": "done",
       "acceptance_criteria": []
     },
     {
-      "id": "US-005",
-      "title": "Broadcast COLUMN_COLOR_UPDATED websocket event",
-      "phase": "backend",
-      "dependencies": ["US-003"],
+      "id": "AGT-006",
+      "title": "Implement create_board tool",
+      "phase": "PHASE-002",
+      "dependencies": ["AGT-005"],
       "status": "done",
       "acceptance_criteria": []
     },
     {
-      "id": "US-006",
-      "title": "Expose GET /api/v1/column-colors; ColumnColor enum; token sync test",
-      "phase": "backend",
+      "id": "AGT-007",
+      "title": "Implement get_cards_in_column tool",
+      "phase": "PHASE-002",
+      "dependencies": ["AGT-005"],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-008",
+      "title": "Implement search_cards tool",
+      "phase": "PHASE-002",
+      "dependencies": ["AGT-005"],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-009",
+      "title": "Implement create_card tool",
+      "phase": "PHASE-002",
+      "dependencies": ["AGT-005"],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-010",
+      "title": "Implement move_card tool",
+      "phase": "PHASE-002",
+      "dependencies": ["AGT-005"],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-011",
+      "title": "Implement update_card tool",
+      "phase": "PHASE-002",
+      "dependencies": ["AGT-005"],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-012",
+      "title": "Implement delete_card tool",
+      "phase": "PHASE-002",
+      "dependencies": ["AGT-005"],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-013",
+      "title": "Register all 9 tools in the Groq tools definition list",
+      "phase": "PHASE-002",
+      "dependencies": ["AGT-005", "AGT-006", "AGT-007", "AGT-008", "AGT-009", "AGT-010", "AGT-011", "AGT-012"],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-014",
+      "title": "Create agentStore Zustand store for chat state",
+      "phase": "PHASE-003",
       "dependencies": [],
       "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-015",
+      "title": "Build ChatSidebar component with message list and input",
+      "phase": "PHASE-003",
+      "dependencies": ["AGT-014"],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-016",
+      "title": "Create agent API client function in frontend lib",
+      "phase": "PHASE-003",
+      "dependencies": ["AGT-014"],
+      "status": "done",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-017",
+      "title": "Wire send handler in ChatSidebar to agent API and store",
+      "phase": "PHASE-003",
+      "dependencies": ["AGT-015", "AGT-016"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-018",
+      "title": "Add AI chat toggle button to existing board layout",
+      "phase": "PHASE-003",
+      "dependencies": ["AGT-015", "AGT-017"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-019",
+      "title": "Style ChatSidebar with vanilla CSS matching app theme",
+      "phase": "PHASE-003",
+      "dependencies": ["AGT-018"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-020",
+      "title": "Add agent service to docker-compose.yml",
+      "phase": "PHASE-004",
+      "dependencies": ["AGT-013", "AGT-019"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-021",
+      "title": "Update .env and frontend build arg for agent service URL",
+      "phase": "PHASE-004",
+      "dependencies": ["AGT-020"],
+      "status": "todo",
+      "acceptance_criteria": []
+    },
+    {
+      "id": "AGT-022",
+      "title": "Add agent/requirements.txt and Python dependency manifest",
+      "phase": "PHASE-004",
+      "dependencies": ["AGT-001"],
+      "status": "todo",
       "acceptance_criteria": []
     }
   ],
   "summary": {
-    "todo": 0,
+    "todo": 5,
     "in_progress": 0,
-    "done": 7
+    "done": 16
   }
 }

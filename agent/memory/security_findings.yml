@@ -1,0 +1,391 @@
+# Security Findings Log
+# Generated: 2026-05-22
+# Scope: agent/tools.py — create_card (AGT-009), move_card (AGT-010), update_card (AGT-011)
+
+findings:
+  - id: SEC-001
+    severity: High
+    status: open
+    story: AGT-009
+    finding: >
+      Stored prompt injection via card title and description. Both fields are
+      written to the database without any sanitization. When the LLM later
+      reads boards or cards back, the stored content is injected directly
+      into the LLM context window and can carry attacker-authored instructions.
+    location: "agent/tools.py:160 (write); tools.py:130, tools.py:189 (read-back)"
+    recommendation: >
+      At the read path, wrap all string fields returned to the LLM in a
+      delimiter that signals untrusted content. At the write path, enforce
+      a strict character allowlist or maximum complexity limit on title and
+      description before forwarding.
+
+  - id: SEC-002
+    severity: Medium
+    status: open
+    story: AGT-009
+    finding: >
+      No length limit on `description`. All other string inputs in tools.py
+      are bounded (title: 255, name: 255, q: 256). `description` is unbounded
+      (tools.py:140, forwarded at tools.py:160). Backend DTO also has no
+      @Size constraint. Memory exhaustion and bandwidth abuse vector.
+    location: "agent/tools.py:140,160; backend/src/main/java/com/kanban/dto/request/CreateCardRequest.java:8"
+    recommendation: >
+      Add length guard for description (e.g., max 10000 chars) in create_card
+      and add @Size(max=10000) to CreateCardRequest.description.
+
+  - id: SEC-003
+    severity: Medium
+    status: open
+    story: AGT-009
+    finding: >
+      Backend response from create_card returned verbatim to LLM with no
+      size guard and no field projection (tools.py:167). Other operations
+      apply 1 MB guard or field allowlist. Oversized or internal-field-leaking
+      backend responses can flood LLM context.
+    location: "agent/tools.py:167"
+    recommendation: >
+      Apply 1 MB content-length guard before calling response.json().
+      Apply field projection allowlist for CardResponse fields.
+
+  - id: SEC-004
+    severity: Medium
+    status: open
+    story: AGT-009
+    finding: >
+      `due_date` passed as raw unvalidated string to backend (tools.py:160).
+      No pre-flight ISO-8601 format check in agent. Allows prompt-injection
+      LLM to probe backend input handling via error responses.
+    location: "agent/tools.py:160"
+    recommendation: >
+      Validate due_date with datetime.date.fromisoformat() before forwarding.
+
+  - id: SEC-005
+    severity: Low
+    status: open
+    story: AGT-009
+    finding: >
+      JWT header injection guard checks only \r and \n (tools.py:13-14).
+      Other non-printable characters (null byte, tab) not rejected.
+      Incomplete guard.
+    location: "agent/tools.py:13-14"
+    recommendation: >
+      Use a regex fullmatch on the JWT string to allow only base64url chars
+      and dots, rejecting all other characters.
+
+  - id: SEC-006
+    severity: Low
+    status: open
+    story: AGT-009
+    finding: >
+      No structured audit logging in create_card or any tool in tools.py.
+      No agent-side forensic record of tool invocations.
+    location: "agent/tools.py (entire module)"
+    recommendation: >
+      Add structured log entry at start of each mutating tool: timestamp,
+      JWT subject (for logging only), tool name, non-sensitive parameter
+      summary. Do not log full description or JWT value.
+
+  # ---- AGT-010 / AGT-011 findings ----
+
+  - id: SEC-007
+    severity: High
+    status: open
+    story: AGT-010
+    finding: >
+      move_card (tools.py:194) calls response.json() with no content-length
+      guard. Every other mutating tool in the module (create_card line 169,
+      update_card line 239, search_cards line 98) applies a 1 MB check before
+      deserialising. A compromised or misbehaving backend can return an
+      arbitrarily large body that is loaded entirely into agent memory and
+      then returned verbatim to the LLM context window.
+    location: "agent/tools.py:194"
+    recommendation: >
+      Add the same guard present in update_card before calling response.json():
+        if len(response.content) > 1_048_576:
+            return json.dumps({"error": "Backend response too large"})
+
+  - id: SEC-008
+    severity: High
+    status: open
+    story: AGT-010 AGT-011
+    finding: >
+      Stored prompt injection surface is extended to move_card and update_card.
+      move_card reflects the full CardResponse (including title and description
+      as stored in the DB) back to the LLM without any field projection
+      (tools.py:194). update_card does the same (tools.py:241). An attacker
+      who stored malicious instructions in a card title or description via any
+      write path will have those instructions re-injected into the LLM context
+      on every move or update response. This compounds SEC-001 (AGT-009).
+    location: "agent/tools.py:194 (move_card); agent/tools.py:241 (update_card)"
+    recommendation: >
+      Apply the same field-projection allowlist recommended for SEC-001 and
+      SEC-003 to the move_card and update_card response paths. Return only
+      {id, columnId, position} from move_card and {id, columnId, title,
+      priority, dueDate} from update_card.
+
+  - id: SEC-009
+    severity: Medium
+    status: open
+    story: AGT-011
+    finding: >
+      due_date is forwarded as a raw, unvalidated string in update_card
+      (tools.py:225). The backend UpdateCardRequest DTO maps dueDate to
+      LocalDate via Jackson; an invalid string causes a 400 that leaks
+      backend deserialization error details back through the agent to the LLM.
+      More importantly, this is the same class of finding as SEC-004 (AGT-009)
+      now reproduced in a second tool — the pattern is systemic.
+    location: "agent/tools.py:225"
+    recommendation: >
+      Add the same ISO-8601 pre-flight check recommended in SEC-004:
+        datetime.date.fromisoformat(due_date)
+      before forwarding. Reject with a structured error on ValueError.
+
+  - id: SEC-010
+    severity: Medium
+    status: open
+    story: AGT-010
+    finding: >
+      MoveCardRequest.position is annotated @NotNull Double at the backend
+      (MoveCardRequest.java:9). move_card sends position=None as JSON null
+      (tools.py:187). The backend will return 400 with a validation error
+      message that may expose internal field names and constraint metadata.
+      TC-004 in the test suite explicitly asserts that null is sent —
+      confirming this is a designed-in path that will always fail at the
+      backend, creating a reliable error-oracle for the LLM.
+    location: "agent/tools.py:187; backend MoveCardRequest.java:9"
+    recommendation: >
+      Either (a) make position required in move_card (remove `| None`, require
+      caller to supply a value), or (b) remove @NotNull from
+      MoveCardRequest.position and handle null gracefully in CardService.moveCard,
+      or (c) supply a sensible default (e.g. append to end of column) when
+      position is None rather than forwarding null.
+
+  - id: SEC-011
+    severity: Low
+    status: open
+    story: AGT-011
+    finding: >
+      update_card allows sending an empty body ({}) to the backend when no
+      fields are provided (TC-014 confirms this path). CardController.updateCard
+      has no @Valid annotation (CardController.java:41), so no bean validation
+      fires. The service will still do a no-op save and broadcast a CARD_UPDATED
+      WebSocket event. An LLM-driven agent can be prompted to trigger spurious
+      update events with zero cost, creating event noise.
+    location: "agent/tools.py (update_card, no guard); backend/CardController.java:41"
+    recommendation: >
+      In update_card, short-circuit before the HTTP call if body is empty:
+        if not body:
+            return json.dumps({"error": "No fields provided to update"})
+      Separately, add @Valid to the updateCard controller method.
+
+  # ---- AGT-012 findings ----
+
+  - id: SEC-012
+    severity: High
+    status: open
+    story: AGT-012
+    finding: >
+      No per-session or per-user rate limit on delete_card. The tool loop
+      permits up to 10 DELETE calls per /chat request, and each independent
+      request resets the counter. A prompt-injection payload that first calls
+      search_cards or get_cards_in_column to enumerate card IDs, then calls
+      delete_card for each returned ID, can wipe an entire board in a single
+      crafted conversation turn. The operation is irreversible (soft-delete
+      sets deletedAt; no undelete endpoint exists). Currently non-exploitable
+      because tools=[] at main.py:99 means delete_card is not callable by the
+      LLM, but this is a pre-wiring blocker.
+    location: "agent/main.py:48-87,99; agent/tools.py:246-263"
+    recommendation: >
+      Before wiring delete_card into the tool loop, add a per-session deletion
+      counter capped at 1 delete per conversation turn, or require an explicit
+      user confirmation step before the agent calls delete_card. Additionally,
+      implement a backend-side alert for >3 card deletions attributed to the
+      same JWT within a 60-second window.
+
+  - id: SEC-013
+    severity: Medium
+    status: open
+    story: AGT-012
+    finding: >
+      delete_card has no agent-side audit log entry. If a prompt-injection
+      attack triggers a deletion via the agent, there is no agent-layer forensic
+      record tying the LLM invocation (session ID, originating user message) to
+      the DELETE request. The backend activity log records actorId and cardTitle
+      but the agent-layer context is lost. Extends and elevates SEC-006 for the
+      irreversible path.
+    location: "agent/tools.py:246-263; agent/main.py (no structured logging)"
+    recommendation: >
+      Before the httpx.delete call, emit a structured log line at WARNING level:
+      timestamp, JWT subject (decoded without verification, for logging only),
+      card_id, and a truncated hash of the originating user message. Do not log
+      the JWT value itself.
+
+  # ---- AGT-013 findings ----
+
+  - id: SEC-014
+    severity: Critical
+    status: open
+    story: AGT-013
+    finding: >
+      Unhandled json.JSONDecodeError in _run_tool_loop. At main.py:268,
+      json.loads(tc.function.arguments) is called bare with no exception
+      handler. A Groq response with malformed tool-call arguments (possible
+      under adversarial prompt injection or model instability) propagates an
+      uncaught exception through _run_tool_loop to FastAPI's default handler.
+      In DEBUG mode this leaks a Python traceback in the HTTP response body.
+      In production mode it returns an unstructured 500. The tool loop is
+      also terminated, preventing recovery within the same turn.
+    location: "agent/main.py:268"
+    recommendation: >
+      Wrap json.loads in try/except json.JSONDecodeError and return a
+      structured tool error result to the LLM:
+        try:
+            args = json.loads(tc.function.arguments)
+        except json.JSONDecodeError as exc:
+            result = json.dumps({"error": f"Malformed tool arguments: {exc}"})
+      Continue the loop with the error result as the tool response.
+
+  - id: SEC-015
+    severity: Critical
+    status: open
+    story: AGT-013
+    finding: >
+      SEC-012 pre-wiring blocker is now active. delete_card is wired in
+      _TOOL_DEFINITIONS and dispatched by _dispatch_tool (main.py:208-209).
+      The 10-round loop cap allows up to 9 delete_card calls per single /chat
+      request after a single enumeration round. An attacker who places a
+      prompt-injection payload in any card field (SEC-001 vector) can cause
+      the LLM to enumerate card IDs then delete them all in one turn.
+      Deletion is irreversible. Each /chat request resets the counter,
+      allowing repeated mass-deletion across requests.
+    location: "agent/main.py:208-209; agent/main.py:235 (_MAX_TOOL_ROUNDS)"
+    recommendation: >
+      Add a per-conversation-turn deletion counter in _run_tool_loop capped
+      at 1. When the counter would exceed 1, return a structured error
+      result instead of dispatching delete_card. Also implement backend-side
+      alerting for >3 card deletions from the same JWT within 60 seconds.
+
+  - id: SEC-016
+    severity: Medium
+    status: open
+    story: AGT-013
+    finding: >
+      _dispatch_tool accesses required args via direct dict key lookup
+      (e.g., args["board_id"] at main.py:183). If the LLM emits a valid JSON
+      object that omits a required key, KeyError propagates uncaught through
+      _dispatch_tool and _run_tool_loop to FastAPI as an unhandled 500.
+      Low probability under normal Groq schema enforcement but possible under
+      adversarial prompt injection or model instability.
+    location: "agent/main.py:183,187,193,196,199,202,209"
+    recommendation: >
+      Wrap the body of _dispatch_tool in try/except (KeyError, TypeError) and
+      return json.dumps({"error": "Missing required argument"}) rather than
+      propagating. Alternatively, validate presence of required keys before
+      calling each tool function.
+
+  # ---- AGT-015 / AGT-016 findings ----
+
+  - id: SEC-017
+    severity: High
+    status: open
+    story: AGT-016
+    finding: >
+      JWT transmitted in JSON request body instead of Authorization header.
+      agentApi.ts:13 places jwt as a top-level field in POST body via
+      JSON.stringify({ messages, jwt }). All other API calls in this codebase
+      use the Authorization: Bearer header (api.ts:18). Body content is
+      routinely captured by proxy access logs, middleware request loggers,
+      and browser devtools network captures. SEC-005 confirms the agent layer
+      has inadequate JWT sanitization, making body-logged JWTs a lateral-movement
+      vector.
+    location: "frontend/src/lib/agentApi.ts:13"
+    recommendation: >
+      Remove jwt from the request body. Pass the token as
+      headers: { Authorization: `Bearer ${jwt}` } and update the agent service
+      to read from the Authorization header, consistent with the Spring backend.
+
+  - id: SEC-018
+    severity: High
+    status: open
+    story: AGT-016
+    finding: >
+      No 401 handling in agentApi.ts. api.ts explicitly handles 401 by calling
+      clearToken() and dispatching kanban:unauthorized to redirect to login
+      (api.ts:22-30). agentApi.ts throws a generic Error on any non-ok response
+      including 401. If the JWT is rejected by the agent service, the user is
+      left on the board page with a stale token and no redirect.
+    location: "frontend/src/lib/agentApi.ts:15-18"
+    recommendation: >
+      Mirror the 401 handling from api.ts: check response.status === 401,
+      call clearToken(), dispatch kanban:unauthorized, and throw a typed error.
+
+  - id: SEC-019
+    severity: High
+    status: open
+    story: AGT-015 AGT-016
+    finding: >
+      Unbounded message history and input size forwarded to agent service.
+      agentStore imposes no message cap (agentStore.ts:21-23). ChatSidebar
+      has no maxLength on the input field (ChatSidebar.tsx:52). sendChatMessage
+      forwards the full messages array plus new input in a single POST body
+      (agentApi.ts:11-13). This compounds SEC-001/SEC-008: stored injection
+      content from card reads accumulates in the store and is re-sent on every
+      subsequent turn.
+    location: >
+      frontend/src/lib/agentApi.ts:11-13;
+      frontend/src/store/agentStore.ts:21-23;
+      frontend/src/components/board/ChatSidebar.tsx:52
+    recommendation: >
+      Add maxLength="4000" to the input element. Cap messages sent to agent
+      to last 20 entries in sendChatMessage. Enforce body size limit on the
+      agent service.
+
+  - id: SEC-020
+    severity: Medium
+    status: open
+    story: AGT-015 AGT-016
+    finding: >
+      AgentMessage role field permits 'system' with no store-level or API-layer
+      guard (agentStore.ts:4). addMessage has no role restriction. Messages with
+      role 'system' are forwarded verbatim in the messages array, allowing
+      system-prompt override via a crafted store state or a reflected assistant
+      message containing a synthetic system entry.
+    location: "frontend/src/store/agentStore.ts:4,21; frontend/src/lib/agentApi.ts:11"
+    recommendation: >
+      In sendChatMessage, filter messages to exclude role === 'system' before
+      sending. The system prompt must be injected exclusively by the agent
+      backend.
+
+  - id: SEC-021
+    severity: Medium
+    status: open
+    story: AGT-016
+    finding: >
+      NEXT_PUBLIC_AGENT_URL is absent from docker-compose.yml build args and
+      .env.local.example. Fallback is hardcoded http://localhost:8000
+      (agentApi.ts:3). In container deployments this resolves to the frontend
+      container's own loopback causing silent failure. The NEXT_PUBLIC_ prefix
+      also bakes the internal agent service address into the browser bundle.
+    location: >
+      frontend/src/lib/agentApi.ts:3;
+      D:/workspace/Claude-workspace/Kanaban/docker-compose.yml:46-47;
+      frontend/.env.local.example
+    recommendation: >
+      Add NEXT_PUBLIC_AGENT_URL to docker-compose.yml frontend build args and
+      .env.local.example. Consider proxying agent requests through a Next.js
+      API route to avoid exposing the agent address in the bundle.
+
+  - id: SEC-022
+    severity: Low
+    status: open
+    story: AGT-015
+    finding: >
+      No frontend audit trail for chat submissions. ChatSidebar fires onSend
+      with no timestamp, session ID, or correlation ID. Combined with SEC-006
+      and SEC-013 (no agent-side structured logging), there is zero forensic
+      visibility into agent conversations end-to-end.
+    location: "frontend/src/components/board/ChatSidebar.tsx:29-33"
+    recommendation: >
+      Attach a client-generated correlation ID (crypto.randomUUID()) to each
+      sendChatMessage call. The agent service should echo this ID in structured
+      logs.
