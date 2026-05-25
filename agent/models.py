@@ -10,7 +10,6 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: Annotated[list[Message], Field(min_length=1, max_length=100)]
-    jwt: Annotated[str, Field(min_length=1, max_length=4096)]
 
 
 class ChatResponse(BaseModel):

@@ -1,0 +1,103 @@
+.sidebar {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--sidebar);
+  border-left: 1px solid var(--card-border);
+}
+
+.header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--card-border);
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.bubbleUser {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+}
+
+.bubbleAssistant {
+  align-self: flex-start;
+  background: var(--card);
+  color: var(--text);
+}
+
+.thinking {
+  align-self: flex-start;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.form {
+  padding: 12px;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.sendBtn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.sendBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.sendBtn:not(:disabled):hover {
+  opacity: 0.88;
+}

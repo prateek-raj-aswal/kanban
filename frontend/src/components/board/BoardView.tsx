@@ -14,6 +14,7 @@ import Sidebar from './Sidebar'
 import ColumnList from './ColumnList'
 import CardModal from './CardModal'
 import InviteModal from './InviteModal'
+import ChatSidebar from './ChatSidebar'
 
 interface Props {
   boardId: string
@@ -44,6 +45,7 @@ export default function BoardView({ boardId }: Props) {
   const [starred, setStarred] = useState(false)
   const [editingBoardName, setEditingBoardName] = useState(false)
   const [boardNameVal, setBoardNameVal] = useState('')
+  const [chatOpen, setChatOpen] = useState(false)
   const boardNameRef = useRef<HTMLInputElement>(null)
 
   // Load board data and members
@@ -193,6 +195,22 @@ export default function BoardView({ boardId }: Props) {
             }}>
             <Icon name="user" size={13} sw={1.7} />
             Share
+          </button>
+          <button
+            onClick={() => setChatOpen(o => !o)}
+            aria-pressed={chatOpen}
+            aria-label="AI chat"
+            title="AI Assistant"
+            style={{
+              height: 28, padding: '0 10px',
+              background: chatOpen ? T.accentSoft : 'transparent',
+              color: chatOpen ? T.accent : T.textMuted,
+              border: `1px solid ${chatOpen ? T.accent : T.cardBorder}`, borderRadius: 6,
+              fontSize: 12, fontWeight: 500, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+            }}>
+            <Icon name="msg" size={13} sw={1.7} />
+            AI
           </button>
         </div>
 
@@ -525,6 +543,8 @@ export default function BoardView({ boardId }: Props) {
           )}
         </div>
       </div>
+
+      {chatOpen && <ChatSidebar isOpen={chatOpen} />}
 
       {inviteOpen && (
         <InviteModal boardId={boardId} onClose={() => setInviteOpen(false)} />

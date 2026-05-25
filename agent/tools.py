@@ -6,7 +6,7 @@ import httpx
 
 _backend_url = os.getenv("BACKEND_URL", "http://localhost:8080")
 _UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE)
-_VALID_PRIORITIES = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+_VALID_PRIORITIES = {"NONE", "LOW", "MEDIUM", "HIGH", "URGENT"}
 
 
 def _auth_headers(jwt: str) -> dict:

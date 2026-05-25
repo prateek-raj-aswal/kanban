@@ -135,7 +135,7 @@ def test_update_card_invalid_card_id():
 def test_update_card_invalid_priority():
     """TC-009: priority not in allowed set rejected before HTTP call."""
     with patch("tools.httpx.patch") as mock_patch:
-        result = update_card(JWT, CARD_ID, priority="URGENT")
+        result = update_card(JWT, CARD_ID, priority="CRITICAL")
 
     mock_patch.assert_not_called()
     parsed = json.loads(result)

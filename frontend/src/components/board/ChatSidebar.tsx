@@ -1,15 +1,16 @@
 'use client'
 import { useRef, useEffect, useState } from 'react'
 import { useAgentStore } from '@/store/agentStore'
-import { T } from '@/lib/theme'
+import { sendChatMessage } from '@/lib/agentApi'
+import { getToken } from '@/lib/auth'
+import styles from './ChatSidebar.module.css'
 
 interface Props {
   isOpen: boolean
-  onSend?: (message: string) => void
 }
 
-export default function ChatSidebar({ isOpen, onSend }: Props) {
-  const { messages, isLoading } = useAgentStore()
+export default function ChatSidebar({ isOpen }: Props) {
+  const { messages, isLoading, addMessage, setLoading } = useAgentStore()
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -20,100 +21,59 @@ export default function ChatSidebar({ isOpen, onSend }: Props) {
 
   if (!isOpen) return null
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = input.trim()
     if (!trimmed || isLoading) return
-    onSend?.(trimmed)
+    const jwt = getToken()
+    if (!jwt) {
+      addMessage({ role: 'assistant', content: 'Error: Not authenticated. Please log in again.' })
+      return
+    }
     setInput('')
+    const outgoing = [...useAgentStore.getState().messages, { role: 'user' as const, content: trimmed }]
+    addMessage({ role: 'user', content: trimmed })
+    setLoading(true)
+    try {
+      const { reply } = await sendChatMessage(outgoing, jwt)
+      addMessage({ role: 'assistant', content: reply })
+    } catch {
+      addMessage({ role: 'assistant', content: 'Something went wrong. Please try again.' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div style={{
-      width: 320,
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      background: T.sidebar,
-      borderLeft: `1px solid ${T.cardBorder}`,
-    }}>
-      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.cardBorder}` }}>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: T.text }}>
-          AI Assistant
-        </h3>
+    <div className={styles.sidebar}>
+      <div className={styles.header}>
+        <h3 className={styles.title}>AI Assistant</h3>
       </div>
 
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '12px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-      }}>
+      <div className={styles.messages}>
         {messages.map((msg, i) => (
           <div
             key={i}
-            style={{
-              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '85%',
-              padding: '8px 12px',
-              borderRadius: 8,
-              background: msg.role === 'user' ? T.accent : T.card,
-              color: msg.role === 'user' ? '#fff' : T.text,
-              fontSize: 13,
-              lineHeight: 1.5,
-              wordBreak: 'break-word',
-            }}
+            className={`${styles.bubble} ${msg.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant}`}
           >
             {msg.content}
           </div>
         ))}
-        {isLoading && (
-          <div style={{ alignSelf: 'flex-start', color: T.textMuted, fontSize: 13 }}>
-            Thinking…
-          </div>
-        )}
+        {isLoading && <div className={styles.thinking}>Thinking…</div>}
         <div ref={bottomRef} />
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          padding: '12px',
-          borderTop: `1px solid ${T.cardBorder}`,
-          display: 'flex',
-          gap: 8,
-        }}
-      >
+      <form className={styles.form} onSubmit={handleSubmit}>
         <input
+          className={styles.input}
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Ask about your board…"
-          style={{
-            flex: 1,
-            padding: '8px 12px',
-            borderRadius: 6,
-            border: `1px solid ${T.cardBorder}`,
-            background: T.card,
-            color: T.text,
-            fontSize: 13,
-            outline: 'none',
-          }}
         />
         <button
+          className={styles.sendBtn}
           type="submit"
           disabled={!input.trim() || isLoading}
-          style={{
-            padding: '8px 14px',
-            borderRadius: 6,
-            border: 'none',
-            background: T.accent,
-            color: '#fff',
-            fontSize: 13,
-            cursor: !input.trim() || isLoading ? 'not-allowed' : 'pointer',
-            opacity: !input.trim() || isLoading ? 0.6 : 1,
-          }}
         >
           Send
         </button>

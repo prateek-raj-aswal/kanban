@@ -24,15 +24,9 @@ from main import app
 
 client = TestClient(app)
 
-VALID_BODY = {
-    "messages": [{"role": "user", "content": "hello"}],
-    "jwt": "valid.jwt.token",
-}
-
-INVALID_BODY = {
-    "messages": [{"role": "user", "content": "hello"}],
-    "jwt": "expired.jwt.token",
-}
+MESSAGES_BODY = {"messages": [{"role": "user", "content": "hello"}]}
+VALID_HEADERS = {"Authorization": "Bearer valid.jwt.token"}
+INVALID_HEADERS = {"Authorization": "Bearer expired.jwt.token"}
 
 
 def _mock_response(status_code: int) -> MagicMock:
@@ -53,11 +47,11 @@ def _groq_text_response(content: str = "OK") -> MagicMock:
 
 
 def test_valid_jwt_proceeds_to_handler():
-    """TC-001: valid JWT → backend returns 200 → request proceeds → /chat returns 200."""
+    """TC-001: valid JWT in Authorization header → backend returns 200 → /chat returns 200."""
     with patch("main.httpx.get", return_value=_mock_response(200)) as mock_get, \
          patch("main._groq_client.chat.completions.create",
                return_value=_groq_text_response()):
-        response = client.post("/chat", json=VALID_BODY)
+        response = client.post("/chat", json=MESSAGES_BODY, headers=VALID_HEADERS)
 
     assert response.status_code == 200
     assert "reply" in response.json()
@@ -70,7 +64,7 @@ def test_valid_jwt_proceeds_to_handler():
 def test_invalid_jwt_returns_401():
     """TC-002: backend returns 401 → /chat returns 401 with detail Unauthorized."""
     with patch("main.httpx.get", return_value=_mock_response(401)):
-        response = client.post("/chat", json=INVALID_BODY)
+        response = client.post("/chat", json=MESSAGES_BODY, headers=INVALID_HEADERS)
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Unauthorized"}
@@ -79,7 +73,7 @@ def test_invalid_jwt_returns_401():
 def test_backend_unreachable_returns_502():
     """TC-003: httpx raises ConnectError → /chat returns 502."""
     with patch("main.httpx.get", side_effect=httpx.ConnectError("unreachable")):
-        response = client.post("/chat", json=VALID_BODY)
+        response = client.post("/chat", json=MESSAGES_BODY, headers=VALID_HEADERS)
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Backend unreachable"}
@@ -88,7 +82,7 @@ def test_backend_unreachable_returns_502():
 def test_backend_timeout_returns_502():
     """TC-004: httpx raises TimeoutException → /chat returns 502."""
     with patch("main.httpx.get", side_effect=httpx.TimeoutException("timeout")):
-        response = client.post("/chat", json=VALID_BODY)
+        response = client.post("/chat", json=MESSAGES_BODY, headers=VALID_HEADERS)
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Backend unreachable"}
@@ -97,7 +91,7 @@ def test_backend_timeout_returns_502():
 def test_backend_500_returns_502():
     """TC-005: backend returns 500 → /chat returns 502 (not silent pass-through)."""
     with patch("main.httpx.get", return_value=_mock_response(500)):
-        response = client.post("/chat", json=VALID_BODY)
+        response = client.post("/chat", json=MESSAGES_BODY, headers=VALID_HEADERS)
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Backend unreachable"}
@@ -106,6 +100,6 @@ def test_backend_500_returns_502():
 def test_backend_403_returns_502():
     """TC-006: backend returns 403 → /chat returns 502 (not silent pass-through)."""
     with patch("main.httpx.get", return_value=_mock_response(403)):
-        response = client.post("/chat", json=VALID_BODY)
+        response = client.post("/chat", json=MESSAGES_BODY, headers=VALID_HEADERS)
 
     assert response.status_code == 502

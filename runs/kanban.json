@@ -133,7 +133,7 @@
       "title": "Wire send handler in ChatSidebar to agent API and store",
       "phase": "PHASE-003",
       "dependencies": ["AGT-015", "AGT-016"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -141,7 +141,7 @@
       "title": "Add AI chat toggle button to existing board layout",
       "phase": "PHASE-003",
       "dependencies": ["AGT-015", "AGT-017"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -149,7 +149,7 @@
       "title": "Style ChatSidebar with vanilla CSS matching app theme",
       "phase": "PHASE-003",
       "dependencies": ["AGT-018"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -157,7 +157,7 @@
       "title": "Add agent service to docker-compose.yml",
       "phase": "PHASE-004",
       "dependencies": ["AGT-013", "AGT-019"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -165,7 +165,7 @@
       "title": "Update .env and frontend build arg for agent service URL",
       "phase": "PHASE-004",
       "dependencies": ["AGT-020"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     },
     {
@@ -173,13 +173,13 @@
       "title": "Add agent/requirements.txt and Python dependency manifest",
       "phase": "PHASE-004",
       "dependencies": ["AGT-001"],
-      "status": "todo",
+      "status": "done",
       "acceptance_criteria": []
     }
   ],
   "summary": {
-    "todo": 5,
+    "todo": 0,
     "in_progress": 0,
-    "done": 16
+    "done": 22
   }
 }

@@ -5,9 +5,10 @@ RUN addgroup --system appgroup && \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir fastapi==0.115.12 "uvicorn[standard]==0.34.3"
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py .
+COPY main.py models.py tools.py ./
 
 RUN chown -R appuser:appgroup /app
 USER appuser

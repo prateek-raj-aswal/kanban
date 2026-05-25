@@ -214,7 +214,8 @@ def test_tool_loop_uses_actual_tool_result():
          patch("tools.httpx.get", return_value=tools_get_mock), \
          patch("main._groq_client.chat.completions.create", side_effect=_capture_create):
         response = TestClient(app).post(
-            "/chat", json={"messages": [{"role": "user", "content": "hi"}], "jwt": JWT}
+            "/chat", json={"messages": [{"role": "user", "content": "hi"}]},
+            headers={"Authorization": f"Bearer {JWT}"}
         )
 
     assert response.status_code == 200
@@ -263,7 +264,8 @@ def test_malformed_tool_arguments_returns_error_not_500():
     with patch("main.httpx.get", return_value=_ok_backend()), \
          patch("main._groq_client.chat.completions.create", side_effect=_capture):
         response = TestClient(app).post(
-            "/chat", json={"messages": [{"role": "user", "content": "hi"}], "jwt": JWT}
+            "/chat", json={"messages": [{"role": "user", "content": "hi"}]},
+            headers={"Authorization": f"Bearer {JWT}"}
         )
 
     assert response.status_code == 200
@@ -285,7 +287,8 @@ def test_llm_receives_non_empty_tools_list():
     with patch("main.httpx.get", return_value=_ok_backend()), \
          patch("main._groq_client.chat.completions.create", return_value=resp) as mock_create:
         TestClient(app).post(
-            "/chat", json={"messages": [{"role": "user", "content": "hi"}], "jwt": JWT}
+            "/chat", json={"messages": [{"role": "user", "content": "hi"}]},
+            headers={"Authorization": f"Bearer {JWT}"}
         )
 
     call_kwargs = mock_create.call_args.kwargs

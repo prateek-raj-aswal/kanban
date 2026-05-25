@@ -16,13 +16,21 @@
  *     - id: TC-011  "onSend NOT called for whitespace-only input"
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import ChatSidebar from '@/components/board/ChatSidebar'
 import { useAgentStore } from '@/store/agentStore'
+import * as agentApi from '@/lib/agentApi'
+import * as auth from '@/lib/auth'
 
 beforeEach(() => {
   useAgentStore.setState({ messages: [], isLoading: false })
+  vi.spyOn(auth, 'getToken').mockReturnValue('test-jwt')
+  vi.spyOn(agentApi, 'sendChatMessage').mockResolvedValue({ reply: 'ok' })
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 describe('ChatSidebar', () => {
@@ -80,29 +88,27 @@ describe('ChatSidebar', () => {
     expect(btn).toBeDisabled()
   })
 
-  it('TC-009: onSend called with trimmed input on form submit', () => {
-    const onSend = vi.fn()
-    render(<ChatSidebar isOpen={true} onSend={onSend} />)
+  it('TC-009: user message with trimmed content added to store on submit', () => {
+    render(<ChatSidebar isOpen={true} />)
     const input = screen.getByRole('textbox')
     fireEvent.change(input, { target: { value: '  My task  ' } })
     fireEvent.submit(input.closest('form')!)
-    expect(onSend).toHaveBeenCalledWith('My task')
+    expect(useAgentStore.getState().messages).toContainEqual({ role: 'user', content: 'My task' })
   })
 
   it('TC-010: input cleared after submit', () => {
-    render(<ChatSidebar isOpen={true} onSend={vi.fn()} />)
+    render(<ChatSidebar isOpen={true} />)
     const input = screen.getByRole('textbox')
     fireEvent.change(input, { target: { value: 'hello' } })
     fireEvent.submit(input.closest('form')!)
     expect((input as HTMLInputElement).value).toBe('')
   })
 
-  it('TC-011: onSend NOT called for whitespace-only input', () => {
-    const onSend = vi.fn()
-    render(<ChatSidebar isOpen={true} onSend={onSend} />)
+  it('TC-011: whitespace-only input does not add to store', () => {
+    render(<ChatSidebar isOpen={true} />)
     const input = screen.getByRole('textbox')
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.submit(input.closest('form')!)
-    expect(onSend).not.toHaveBeenCalled()
+    expect(useAgentStore.getState().messages).toHaveLength(0)
   })
 })

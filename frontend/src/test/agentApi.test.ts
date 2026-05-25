@@ -51,7 +51,7 @@ describe('sendChatMessage', () => {
     expect(mockFn.mock.calls[0][1].method).toBe('POST')
   })
 
-  it('TC-003: request body contains messages array and jwt', async () => {
+  it('TC-003: request body contains messages array but not jwt', async () => {
     const mockFn = mockFetch(200, { reply: 'ok' })
     vi.stubGlobal('fetch', mockFn)
 
@@ -59,10 +59,10 @@ describe('sendChatMessage', () => {
 
     const body = JSON.parse(mockFn.mock.calls[0][1].body)
     expect(body.messages).toEqual(MESSAGES)
-    expect(body.jwt).toBe(JWT)
+    expect(body.jwt).toBeUndefined()
   })
 
-  it('TC-004: Content-Type header is application/json', async () => {
+  it('TC-004: Authorization Bearer header and Content-Type header are set', async () => {
     const mockFn = mockFetch(200, { reply: 'ok' })
     vi.stubGlobal('fetch', mockFn)
 
@@ -70,6 +70,7 @@ describe('sendChatMessage', () => {
 
     const headers = mockFn.mock.calls[0][1].headers
     expect(headers['Content-Type']).toBe('application/json')
+    expect(headers['Authorization']).toBe(`Bearer ${JWT}`)
   })
 
   it('TC-005: non-200 response throws Error containing status code', async () => {

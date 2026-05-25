@@ -3,7 +3,8 @@ import os
 
 import httpx
 import openai
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 import tools
 from models import ChatRequest, ChatResponse
@@ -23,7 +24,7 @@ _groq_client = openai.OpenAI(
     base_url="https://api.groq.com/openai/v1",
 )
 
-_GROQ_MODEL = "llama-3.1-70b-versatile"
+_GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 _TOOL_DEFINITIONS = [
     {
@@ -91,7 +92,7 @@ _TOOL_DEFINITIONS = [
                     "assignee_id": {"type": "string", "description": "UUID of assignee to filter by"},
                     "priority": {
                         "type": "string",
-                        "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+                        "enum": ["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"],
                         "description": "Priority filter",
                     },
                 },
@@ -113,7 +114,7 @@ _TOOL_DEFINITIONS = [
                     "due_date": {"type": "string", "description": "Optional due date YYYY-MM-DD"},
                     "priority": {
                         "type": "string",
-                        "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+                        "enum": ["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"],
                         "description": "Optional priority",
                     },
                 },
@@ -151,7 +152,7 @@ _TOOL_DEFINITIONS = [
                     "due_date": {"type": "string", "description": "New due date YYYY-MM-DD"},
                     "priority": {
                         "type": "string",
-                        "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+                        "enum": ["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"],
                         "description": "New priority",
                     },
                 },
@@ -210,10 +211,19 @@ def _dispatch_tool(name: str, args: dict, jwt: str) -> str:
     return json.dumps({"error": f"Unknown tool: {name}"})
 
 
+_cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+
 app = FastAPI(
     docs_url="/docs" if _debug else None,
     redoc_url="/redoc" if _debug else None,
     openapi_url="/openapi.json" if _debug else None,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -288,8 +298,14 @@ def health():
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest) -> ChatResponse:
-    _validate_jwt(request.jwt)
+def chat(
+    request: ChatRequest,
+    authorization: str = Header(alias="Authorization"),
+) -> ChatResponse:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    jwt = authorization[7:]
+    _validate_jwt(jwt)
     messages = [m.model_dump() for m in request.messages]
-    reply = _run_tool_loop(messages, request.jwt)
+    reply = _run_tool_loop(messages, jwt)
     return ChatResponse(reply=reply)

@@ -25,8 +25,8 @@ client = TestClient(app)
 
 VALID_BODY = {
     "messages": [{"role": "user", "content": "hello"}],
-    "jwt": "any",
 }
+VALID_HEADERS = {"Authorization": "Bearer any"}
 
 
 def _ok_response() -> MagicMock:
@@ -47,11 +47,11 @@ def _groq_text_response(content: str = "OK") -> MagicMock:
 
 
 def test_post_chat_valid_request_returns_200():
-    """TC-001 - AC-1: valid body yields HTTP 200 with a 'reply' string."""
+    """TC-001 - AC-1: valid body + Authorization header yields HTTP 200 with a 'reply' string."""
     with patch("main.httpx.get", return_value=_ok_response()), \
          patch("main._groq_client.chat.completions.create",
                return_value=_groq_text_response()):
-        response = client.post("/chat", json=VALID_BODY)
+        response = client.post("/chat", json=VALID_BODY, headers=VALID_HEADERS)
     assert response.status_code == 200
     body = response.json()
     assert "reply" in body
@@ -60,12 +60,12 @@ def test_post_chat_valid_request_returns_200():
 
 def test_post_chat_missing_messages_returns_422():
     """TC-002 - AC-2: omitting 'messages' yields HTTP 422."""
-    response = client.post("/chat", json={"jwt": "any"})
+    response = client.post("/chat", json={}, headers=VALID_HEADERS)
     assert response.status_code == 422
 
 
-def test_post_chat_missing_jwt_returns_422():
-    """TC-003 - AC-3: omitting 'jwt' yields HTTP 422."""
+def test_post_chat_missing_authorization_returns_422():
+    """TC-003 - AC-3: omitting Authorization header yields HTTP 422."""
     response = client.post(
         "/chat",
         json={"messages": [{"role": "user", "content": "hello"}]},

@@ -147,7 +147,7 @@ def test_search_cards_invalid_assignee_id():
 def test_search_cards_invalid_priority():
     """TC-010: priority not in allowed set rejected before HTTP call."""
     with patch("tools.httpx.get") as mock_get:
-        result = search_cards(JWT, BOARD_ID, priority="URGENT")
+        result = search_cards(JWT, BOARD_ID, priority="CRITICAL")
 
     mock_get.assert_not_called()
     parsed = json.loads(result)

@@ -34,8 +34,8 @@ from main import app
 
 VALID_BODY = {
     "messages": [{"role": "user", "content": "say hello"}],
-    "jwt": "valid.token",
 }
+AUTH_HEADERS = {"Authorization": "Bearer valid.token"}
 
 
 def _ok_backend() -> MagicMock:
@@ -86,7 +86,7 @@ def test_llm_text_response_returned():
     with patch("main.httpx.get", return_value=_ok_backend()), \
          patch("main._groq_client.chat.completions.create",
                return_value=_groq_text_response("Hello there!")):
-        response = TestClient(app).post("/chat", json=VALID_BODY)
+        response = TestClient(app).post("/chat", json=VALID_BODY, headers=AUTH_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["reply"] == "Hello there!"
@@ -97,7 +97,7 @@ def test_groq_connection_error_returns_502():
     with patch("main.httpx.get", return_value=_ok_backend()), \
          patch("main._groq_client.chat.completions.create",
                side_effect=openai.APIConnectionError(request=MagicMock())):
-        response = TestClient(app).post("/chat", json=VALID_BODY)
+        response = TestClient(app).post("/chat", json=VALID_BODY, headers=AUTH_HEADERS)
 
     assert response.status_code == 502
     assert response.json() == {"detail": "LLM service unavailable"}
@@ -110,7 +110,7 @@ def test_groq_5xx_returns_502():
                side_effect=openai.APIStatusError(
                    "server error", response=MagicMock(status_code=503),
                    body=None)):
-        response = TestClient(app).post("/chat", json=VALID_BODY)
+        response = TestClient(app).post("/chat", json=VALID_BODY, headers=AUTH_HEADERS)
 
     assert response.status_code == 502
     assert response.json() == {"detail": "LLM service unavailable"}
@@ -138,7 +138,7 @@ def test_tool_call_loop_executes_and_returns_final_text():
     with patch("main.httpx.get", return_value=_ok_backend()), \
          patch("main._groq_client.chat.completions.create",
                side_effect=[tool_resp, text_resp]) as mock_create:
-        response = TestClient(app).post("/chat", json=VALID_BODY)
+        response = TestClient(app).post("/chat", json=VALID_BODY, headers=AUTH_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["reply"] == "You have 2 boards."
@@ -151,7 +151,7 @@ def test_tool_loop_cap_returns_500():
     with patch("main.httpx.get", return_value=_ok_backend()), \
          patch("main._groq_client.chat.completions.create",
                return_value=tool_resp) as mock_create:
-        response = TestClient(app).post("/chat", json=VALID_BODY)
+        response = TestClient(app).post("/chat", json=VALID_BODY, headers=AUTH_HEADERS)
 
     assert response.status_code == 500
     assert response.json() == {"detail": "Tool loop exceeded maximum iterations"}

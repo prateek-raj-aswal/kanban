@@ -147,7 +147,7 @@ def test_create_card_invalid_column_id():
 def test_create_card_invalid_priority():
     """TC-011: priority not in allowed set rejected before HTTP call."""
     with patch("tools.httpx.post") as mock_post:
-        result = create_card(JWT, COLUMN_ID, "Task", priority="URGENT")
+        result = create_card(JWT, COLUMN_ID, "Task", priority="CRITICAL")
 
     mock_post.assert_not_called()
     parsed = json.loads(result)
