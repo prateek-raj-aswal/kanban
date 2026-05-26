@@ -1,0 +1,85 @@
+# ─── Claude runtime state ────────────────────────────────────────────
+# Regenerated per project — do not commit
+.claude/memory/kanban.json
+.claude/memory/requirements.md
+.claude/memory/plan.json
+.claude/memory/delivery.md
+.claude/memory/events.jsonl
+
+# Architecture output — regenerated per project, keep dir
+.claude/memory/architecture/*
+!.claude/memory/architecture/.gitkeep
+
+# Per-story working state — regenerated per run
+.claude/memory/stories/*
+!.claude/memory/stories/.gitkeep
+
+# Security findings — regenerated per run
+.claude/memory/security/*
+!.claude/memory/security/.gitkeep
+
+# Curated knowledge IS committed — no entry here, so they're tracked:
+#   .claude/memory/decisions/
+#   .claude/memory/patterns/
+
+# Personal Claude settings (per developer)
+.claude/settings.local.json
+
+# ─── Project build / dependency output ───────────────────────────────
+node_modules/
+dist/
+build/
+out/
+.next/
+.nuxt/
+.vite/
+target/
+__pycache__/
+*.pyc
+*.pyo
+*.class
+*.jar
+*.war
+vendor/
+
+# ─── Environment & secrets ───────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.local
+secrets/
+
+# ─── IDE / editor ────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ─── OS ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Logs & test artifacts ───────────────────────────────────────────
+*.log
+logs/
+coverage/
+.nyc_output/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+junit.xml
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+
+# ─── Database ────────────────────────────────────────────────────────
+*.sqlite
+*.sqlite3
+*.db-journal
