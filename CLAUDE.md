@@ -60,6 +60,15 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Directory Access
+
+**Access to a directory implies access to all recursive contents.**
+
+- When a directory path is accessible (CWD, `additionalDirectories`, or declared in a harness `memory.reads`/`memory.writes`), treat ALL files and subdirectories within it as accessible without asking.
+- Do not prompt for permission to read, write, or execute within a subdirectory of an already-accessible parent.
+- When running Bash commands that `cd` into subdirectories or reference nested paths, execute directly — no separate permission check per subdirectory.
+- This applies to all tools: `Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep`.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

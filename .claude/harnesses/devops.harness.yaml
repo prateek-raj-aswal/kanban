@@ -1,0 +1,31 @@
+agent: devops
+purpose: |
+  Stage 5 (SHIP) — infrastructure-as-code + CI/CD. Reads context/tech-stack.html for deployment target,
+  writes Dockerfiles, deployment manifests, CI/CD pipeline files, and health checks directly to the repo.
+
+inputs: []   # operates on whatever the repo currently contains
+outputs:
+  - codebase/Dockerfile or codebase/Dockerfile.{service} (multi-stage, non-root)
+  - deployment manifests in codebase/ (K8s YAML / ECS JSON / Cloud Run YAML / Ansible — per target)
+  - CI/CD pipeline file in codebase/ (.github/workflows/, .gitlab-ci.yml, Jenkinsfile, etc.)
+  - codebase/docker-compose.yml (if Docker Compose target or for local dev parity)
+  - .claude/memory/decisions/DEC-infra-{timestamp}.html   # records non-obvious infra choices
+prerequisites:
+  - all stories in kanban.json have status "done"
+  - context/tech-stack.html exists and specifies deployment target (or ambiguous → ask user)
+error_modes:
+  - MISSING_DEPLOYMENT_TARGET: tech-stack.md does not specify a target — ask before generating
+  - ROOT_CONTAINER_DETECTED: refuse to emit a Dockerfile without a non-root USER directive
+  - HARDCODED_SECRET_DETECTED: a generated file contains literal secret values — must reference an external secret manager instead
+  - UNPINNED_IMAGE: image tag is :latest or missing — must be a specific version or digest
+
+memory:
+  reads:
+    - .claude/memory/architecture/system-design.yaml
+    - .claude/memory/decisions/
+    - .claude/memory/kanban.json
+  writes:
+    - .claude/memory/decisions/DEC-infra-{timestamp}.html
+
+tools_allowed: [Read, Write, Edit, Grep, Glob, Bash]
+can_invoke: []

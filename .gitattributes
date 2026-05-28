@@ -1,27 +1,4 @@
-# Normalize line endings across Windows / macOS / Linux
 * text=auto eol=lf
-
-# Windows-specific scripts keep CRLF (PowerShell, Batch, CMD)
 *.ps1 text eol=crlf
 *.bat text eol=crlf
 *.cmd text eol=crlf
-
-# Shell scripts always LF
-*.sh text eol=lf
-
-# Common binary types
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.ico binary
-*.pdf binary
-*.zip binary
-*.tar binary
-*.gz binary
-*.jar binary
-*.class binary
-*.woff binary
-*.woff2 binary
-*.ttf binary
-*.eot binary

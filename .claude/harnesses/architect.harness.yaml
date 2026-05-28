@@ -1,0 +1,57 @@
+agent: architect
+purpose: |
+  Stage 2 of the lifecycle. Two modes:
+  - DESIGN: produce full system architecture (components, interfaces, APIs, DB, events) in one pass.
+    Also produces docs/architecture/hld.html (Mermaid diagrams — architecture, ER, business flows,
+    sequence diagrams per API), docs/architecture/diagrams/hld.drawio (draw.io XML component diagram),
+    and docs/architecture/flows/{flow}.html per business flow.
+  - EXTRACT: slice reviewed architecture into per-story contracts; self-resolves CONTRACT_GAPs by
+    re-entering DESIGN for targeted amendment.
+
+modes:
+  DESIGN:
+    inputs: []
+    outputs:
+      - .claude/memory/architecture/system-design.yaml
+      - docs/architecture/hld.html                          # HLD with all Mermaid diagrams
+      - docs/architecture/diagrams/hld.drawio               # draw.io XML component diagram
+      - docs/architecture/flows/{flow-slug}.html            # one per business flow from plan.json
+    prerequisites:
+      - .claude/memory/plan.json exists
+    error_modes:
+      - MISSING_PLAN: plan.json absent — run /clarify first
+      - UNJUSTIFIED_DECISION: a design decision lacks citation to a requirement or constraint
+      - REVIEWER_FAIL: auditor REVIEW (Design type) returned FAIL — revise before EXTRACT
+      - INVALID_DRAWIO: generated draw.io XML has duplicate cell IDs or orphaned edges
+
+  EXTRACT:
+    inputs:
+      - story_ids: list (omit or use 'all' to extract for every story)
+    outputs:
+      - .claude/memory/stories/{story_id}/contracts.json   # one file per story
+    prerequisites:
+      - .claude/memory/architecture/system-design.yaml exists
+      - .claude/memory/architecture/design_review.html exists with verdict PASS
+    error_modes:
+      - UNREVIEWED_DESIGN: architecture exists but has no PASS record in design_review.html
+      - UNRESOLVED_CONTRACT_GAP: a story's AC requires a contract not present after one DESIGN amendment round
+
+memory:
+  reads:
+    - .claude/memory/plan.json
+    - .claude/memory/architecture/system-design.yaml
+    - .claude/memory/decisions/
+    - .claude/memory/patterns/
+    - .claude/memory/stories/*/contracts.json   # only when re-extracting after a gap fix
+    - context/tech-stack.html
+    - context/project-brief.html
+    - context/constraints.html
+  writes:
+    - .claude/memory/architecture/system-design.yaml
+    - .claude/memory/stories/{story_id}/contracts.json
+    - docs/architecture/hld.html
+    - docs/architecture/diagrams/hld.drawio
+    - docs/architecture/flows/
+
+tools_allowed: [Read, Write, Edit, Grep, Glob]
+can_invoke: [auditor]   # invokes auditor REVIEW (Design) gate between DESIGN and EXTRACT

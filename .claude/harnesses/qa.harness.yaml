@@ -1,0 +1,89 @@
+agent: qa
+purpose: |
+  TDD driver for a single story. Four modes:
+  - PLAN: write executable test code before implementation (red phase). One test per AC + edge cases.
+  - RETEST: execute tests via Bash, generate HTML reports, append to bug registry. ACTUAL results only.
+  - REGISTER: after story passes + done, promote its test files into the regression suite.
+  - REGRESSION: run the full regression suite at ship time; generate aggregate HTML reports; emit PASS/FAIL verdict.
+
+  Browser access: Playwright and Cypress run via Bash and manage their own Chromium/Firefox binaries.
+  This is real browser automation — DOM interaction, JavaScript execution, screenshots — all headless.
+  WebFetch is HTTP-only and is used solely to check if a server process is responding before launching
+  the browser test suite. It cannot render JavaScript or verify UI state.
+
+modes:
+  PLAN:
+    inputs:
+      - story_id: string
+      - parsed_contracts: from .claude/memory/stories/{story_id}/contracts.json
+    outputs:
+      - test files in the repo's test directory (framework-conventional path)
+      - .claude/memory/stories/{story_id}/test_plan.yaml   # AC → test_id mapping
+    prerequisites:
+      - .claude/memory/stories/{story_id}/contracts.json exists
+      - context/tech-stack.html exists (or user confirms test framework)
+    error_modes:
+      - AMBIGUOUS_AC: an acceptance criterion is too vague to translate into a test
+      - PSEUDOCODE_REJECTED: tests must be executable, not pseudocode
+
+  RETEST:
+    inputs:
+      - story_id: string
+    outputs:
+      - .claude/memory/stories/{story_id}/test_results.json
+      - .claude/memory/stories/{story_id}/bugs.json
+      - .claude/memory/test-reports/{story_id}-backend.html   # HTML backend test report
+      - .claude/memory/test-reports/{story_id}-frontend.html  # HTML frontend/E2E test report
+      - .claude/memory/bugs/registry.html                     # appended (new bugs) / updated (resolved bugs)
+    prerequisites:
+      - .claude/memory/stories/{story_id}/test_plan.yaml exists
+      - test files exist on disk
+    error_modes:
+      - TESTS_NOT_EXECUTED: cannot report results without running tests
+      - REGRESSION: a previously passing test now fails — severity must be critical
+
+  REGISTER:
+    inputs:
+      - story_id: string
+    outputs:
+      - tests/regression/suite.json   # appended / updated for this story
+    prerequisites:
+      - .claude/memory/stories/{story_id}/test_results.json exists with has_critical_bugs: false
+      - kanban shows story status as done
+    error_modes:
+      - STORY_NOT_DONE: story is not done in kanban — cannot register
+      - TESTS_NOT_PASSING: has_critical_bugs is true — cannot register failing tests
+
+  REGRESSION:
+    inputs: []
+    outputs:
+      - .claude/memory/test-reports/regression-backend.html
+      - .claude/memory/test-reports/regression-frontend.html
+      - .claude/memory/test-reports/regression-results.json   # verdict: PASS | FAIL
+    prerequisites:
+      - tests/regression/suite.json exists with at least one registered story
+    error_modes:
+      - EMPTY_SUITE: suite.json has no registered stories
+      - REGRESSION_BLOCKED: one or more tests failed — verdict FAIL, delivery blocked
+
+memory:
+  reads:
+    - .claude/memory/stories/{story_id}/contracts.json       # PLAN
+    - .claude/memory/stories/{story_id}/test_plan.yaml       # RETEST, REGISTER
+    - .claude/memory/stories/{story_id}/test_results.json    # RETEST (regression check), REGISTER
+    - .claude/memory/bugs/registry.html                      # RETEST (dedup before append)
+    - tests/regression/suite.json                            # REGISTER, REGRESSION
+  writes:
+    - .claude/memory/stories/{story_id}/test_plan.yaml       # PLAN
+    - .claude/memory/stories/{story_id}/test_results.json    # RETEST
+    - .claude/memory/stories/{story_id}/bugs.json            # RETEST
+    - .claude/memory/test-reports/{story_id}-backend.html    # RETEST
+    - .claude/memory/test-reports/{story_id}-frontend.html   # RETEST
+    - .claude/memory/bugs/registry.html                      # RETEST
+    - tests/regression/suite.json                            # REGISTER
+    - .claude/memory/test-reports/regression-backend.html    # REGRESSION
+    - .claude/memory/test-reports/regression-frontend.html   # REGRESSION
+    - .claude/memory/test-reports/regression-results.json    # REGRESSION
+
+tools_allowed: [Read, Write, Edit, Grep, Glob, Bash, WebFetch]
+can_invoke: []

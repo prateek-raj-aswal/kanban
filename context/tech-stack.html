@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tech Stack</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: .5rem; }
+    h2 { color: #444; margin-top: 2rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: .5rem .75rem; text-align: left; }
+    th { background: #f5f5f5; }
+    code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 3px; font-size: .9em; }
+    .placeholder { color: #999; font-style: italic; }
+    .required { color: #c00; font-size: .8em; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<h1>Tech Stack</h1>
+<p>
+  This file is read by agents (<code>backend</code>, <code>frontend</code>, <code>qa</code>, <code>devops</code>) to
+  determine the frameworks, test runners, and deployment targets to use.
+  Fill in every section before running <code>/design</code> or <code>/build</code>.
+</p>
+
+<!-- ─── LANGUAGE & RUNTIME ─────────────────────────────────────────── -->
+<h2>Language &amp; Runtime <span class="required">REQUIRED</span></h2>
+<table>
+  <tr><th>Layer</th><th>Language / Runtime</th><th>Version</th></tr>
+  <tr><td>Backend</td><td class="placeholder">e.g. Node.js 22 / Python 3.12 / Java 21 / Go 1.23</td><td class="placeholder">x.y.z</td></tr>
+  <tr><td>Frontend</td><td class="placeholder">e.g. TypeScript 5.x / JavaScript ES2024</td><td class="placeholder">x.y</td></tr>
+</table>
+
+<!-- ─── BACKEND FRAMEWORK ──────────────────────────────────────────── -->
+<h2>Backend Framework <span class="required">REQUIRED</span></h2>
+<table>
+  <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
+  <tr><td>Framework</td><td class="placeholder">e.g. Express / FastAPI / Spring Boot / Gin</td><td></td></tr>
+  <tr><td>ORM / DB client</td><td class="placeholder">e.g. Prisma / SQLAlchemy / Hibernate / GORM</td><td></td></tr>
+  <tr><td>Auth library</td><td class="placeholder">e.g. Passport.js / FastAPI-JWT / Spring Security</td><td></td></tr>
+</table>
+
+<!-- ─── FRONTEND FRAMEWORK ────────────────────────────────────────── -->
+<h2>Frontend Framework <span class="required">REQUIRED</span></h2>
+<table>
+  <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
+  <tr><td>Framework</td><td class="placeholder">e.g. Next.js 15 / Vite+React / SvelteKit / Nuxt</td><td></td></tr>
+  <tr><td>Styling</td><td class="placeholder">e.g. Tailwind CSS / CSS Modules / MUI / shadcn/ui</td><td></td></tr>
+  <tr><td>State management</td><td class="placeholder">e.g. Zustand / Redux Toolkit / Jotai / Context only</td><td></td></tr>
+  <tr><td>HTTP client</td><td class="placeholder">e.g. fetch / Axios / TanStack Query</td><td></td></tr>
+</table>
+
+<!-- ─── DATABASE ──────────────────────────────────────────────────── -->
+<h2>Database <span class="required">REQUIRED</span></h2>
+<table>
+  <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
+  <tr><td>Primary DB</td><td class="placeholder">e.g. PostgreSQL 16 / MySQL 8 / MongoDB 7 / SQLite</td><td></td></tr>
+  <tr><td>Cache</td><td class="placeholder">e.g. Redis 7 / Memcached / none</td><td></td></tr>
+  <tr><td>Migration tool</td><td class="placeholder">e.g. Flyway / Liquibase / Alembic / raw SQL versioned</td><td></td></tr>
+</table>
+
+<!-- ─── TEST FRAMEWORKS ───────────────────────────────────────────── -->
+<h2>Test Frameworks <span class="required">REQUIRED</span></h2>
+<table>
+  <tr><th>Layer</th><th>Framework</th><th>Run command</th></tr>
+  <tr><td>Backend unit</td><td class="placeholder">e.g. Jest / pytest / JUnit 5 / go test</td><td class="placeholder">e.g. <code>npx jest</code></td></tr>
+  <tr><td>Frontend unit</td><td class="placeholder">e.g. Vitest / Jest + Testing Library</td><td class="placeholder">e.g. <code>npx vitest run</code></td></tr>
+  <tr><td>E2E / browser</td><td class="placeholder">e.g. Playwright / Cypress / Selenium</td><td class="placeholder">e.g. <code>npx playwright test</code></td></tr>
+</table>
+
+<!-- ─── DEPLOYMENT TARGET ─────────────────────────────────────────── -->
+<h2>Deployment Target <span class="required">REQUIRED (for devops agent)</span></h2>
+<table>
+  <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
+  <tr><td>Platform</td><td class="placeholder">e.g. Kubernetes (EKS/GKE/AKS) / ECS / Cloud Run / VMs / Docker Compose</td><td></td></tr>
+  <tr><td>Cloud provider</td><td class="placeholder">e.g. AWS / GCP / Azure / DigitalOcean / self-hosted</td><td></td></tr>
+  <tr><td>CI/CD platform</td><td class="placeholder">e.g. GitHub Actions / GitLab CI / CircleCI / Jenkins</td><td></td></tr>
+  <tr><td>Container registry</td><td class="placeholder">e.g. ECR / GCR / Docker Hub / GHCR</td><td></td></tr>
+  <tr><td>Secret manager</td><td class="placeholder">e.g. AWS Secrets Manager / GCP Secret Manager / Vault / K8s Sealed Secrets</td><td></td></tr>
+</table>
+
+<!-- ─── LOCAL DEV ENVIRONMENT ─────────────────────────────────────── -->
+<h2>Local Development Environment</h2>
+<table>
+  <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
+  <tr><td>Container runtime</td><td>Docker Desktop</td><td>Used for local service orchestration and testing</td></tr>
+  <tr><td>Local compose file</td><td class="placeholder">e.g. <code>docker-compose.yml</code> at repo root</td><td></td></tr>
+  <tr><td>Dev server port</td><td class="placeholder">e.g. 3000 (frontend) / 8080 (backend)</td><td></td></tr>
+  <tr><td>Browser for E2E</td><td class="placeholder">e.g. Chromium (Playwright default) / Chrome / Firefox</td><td></td></tr>
+</table>
+
+<!-- ─── PACKAGE MANAGER ───────────────────────────────────────────── -->
+<h2>Package Manager</h2>
+<table>
+  <tr><th>Ecosystem</th><th>Manager</th><th>Lockfile</th></tr>
+  <tr><td>Node.js</td><td class="placeholder">e.g. npm / pnpm / yarn</td><td class="placeholder">e.g. package-lock.json</td></tr>
+  <tr><td>Python</td><td class="placeholder">e.g. pip + requirements.txt / Poetry / uv</td><td class="placeholder"></td></tr>
+  <tr><td>JVM</td><td class="placeholder">e.g. Maven / Gradle</td><td class="placeholder"></td></tr>
+</table>
+
+<!-- ─── ADDITIONAL NOTES ──────────────────────────────────────────── -->
+<h2>Additional Notes</h2>
+<p class="placeholder">
+  Add any non-obvious constraints, architectural decisions already made, or environment-specific
+  configuration that agents should be aware of (e.g. monorepo layout, multi-service boundaries,
+  existing shared libraries, environment variable naming conventions).
+</p>
+
+</body>
+</html>

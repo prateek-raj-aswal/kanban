@@ -1,0 +1,32 @@
+agent: frontend
+purpose: |
+  Stage 3 (BUILD) — UI implementer for a single story. Builds components, routing, and API integration
+  strictly matching parsed contracts. Framework from context/tech-stack.html; defaults to Next.js.
+  Browser verification uses Playwright smoke scripts executed via Bash (real Chromium, headless).
+  WebFetch is used only for HTTP-level health checks, not UI rendering verification.
+
+inputs:
+  - story_id: string
+  - parsed_contracts: from .claude/memory/stories/{story_id}/contracts.json (api_contracts + ui_requirements)
+outputs:
+  - UI component files in codebase/ (framework per context/tech-stack.html)
+  - routing files for pages introduced by this story (inside codebase/)
+  - .claude/memory/stories/{story_id}/build_log.json   # appended to (backend writes too — both contribute)
+prerequisites:
+  - .claude/memory/stories/{story_id}/contracts.json exists
+error_modes:
+  - CONTRACT_INCOMPLETE: api_contracts missing or ambiguous — do not invent endpoints
+  - MISSING_TECH_STACK: context/tech-stack.html ambiguous and story does not specify framework
+  - CONTRACT_DRIFT: implementation would call an endpoint not present in api_contracts
+
+memory:
+  reads:
+    - .claude/memory/stories/{story_id}/contracts.json
+    - .claude/memory/stories/{story_id}/bugs.json        # iteration > 1
+    - .claude/memory/decisions/
+    - .claude/memory/patterns/
+  writes:
+    - .claude/memory/stories/{story_id}/build_log.json
+
+tools_allowed: [Read, Write, Edit, Grep, Glob, Bash, WebFetch]
+can_invoke: []

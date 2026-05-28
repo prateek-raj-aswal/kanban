@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>.claude — Lean SDLC Agent System</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1.5rem; line-height: 1.6; }
+    h1 { border-bottom: 3px solid #333; padding-bottom: .5rem; }
+    h2 { color: #222; border-bottom: 1px solid #ddd; padding-bottom: .25rem; margin-top: 2.5rem; }
+    h3 { color: #444; margin-top: 1.5rem; }
+    h4 { color: #555; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #ccc; padding: .4rem .75rem; text-align: left; vertical-align: top; }
+    th { background: #f5f5f5; font-weight: 600; }
+    code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 3px; font-size: .88em; }
+    pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: .85em; }
+    pre code { background: none; padding: 0; }
+    a { color: #0066cc; }
+    .toc { background: #f9f9f9; border: 1px solid #ddd; padding: 1rem 1.5rem; border-radius: 4px; }
+    .toc ol { margin: 0; padding-left: 1.5rem; }
+    .note { background: #fff8e1; border-left: 3px solid #f9a825; padding: .5rem .75rem; margin: 1rem 0; }
+    .agent-card { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 4px; padding: 1rem; margin: 1rem 0; }
+    .agent-card h4 { margin-top: 0; }
+    .verdict-pass { color: #2e7d32; font-weight: bold; }
+    .verdict-fail { color: #c62828; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<h1>.claude — Lean SDLC Agent System</h1>
+<p>
+  A <strong>9-agent / 13-command</strong> pipeline organized around a <strong>5-stage lifecycle</strong>,
+  with declarative per-agent harnesses, domain + per-story memory for context optimization,
+  and automatic event logging via a <code>PostToolUse</code> hook.
+</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ol>
+    <li><a href="#architecture">Architectural Design</a></li>
+    <li><a href="#lifecycle">The 5-Stage Lifecycle</a></li>
+    <li><a href="#agents">Agent Reference (9)</a></li>
+    <li><a href="#commands">Command Reference (13)</a></li>
+    <li><a href="#harness">Harness Format</a></li>
+    <li><a href="#memory">Memory Architecture</a></li>
+    <li><a href="#hook">Event Logging Hook</a></li>
+    <li><a href="#workflows">Common Workflows</a></li>
+    <li><a href="#matrix">Decision Matrix</a></li>
+    <li><a href="#layout">File Layout</a></li>
+  </ol>
+</div>
+
+<hr>
+
+<!-- ─── 1. ARCHITECTURE ───────────────────────────────────────────── -->
+<h2 id="architecture">1. Architectural Design</h2>
+
+<h3>1.1 System Layers</h3>
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│  USER                                                           │
+│  Types  /command  in Claude Code prompt                         │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  COMMAND LAYER (13 files in .claude/commands/)                  │
+│   • Pipeline    /full-pipeline                                  │
+│   • Workflow    /execute-story                                  │
+│   • Stage       /clarify · /design · /build · /verify · /ship   │
+│   • Atomic      /board · /next · /align · /run-tests ·          │
+│                 /review-code · /security-scan                   │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  HARNESS LAYER (9 files in .claude/harnesses/)                  │
+│  Per-agent YAML contract:                                       │
+│   • modes / inputs / outputs / prerequisites / error_modes      │
+│   • memory.reads · memory.writes (the only paths it may touch)  │
+│   • tools_allowed (mirrored in agent frontmatter — enforced)    │
+│   • can_invoke (which other agents it may call)                 │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  AGENT LAYER (9 files in .claude/agents/)                       │
+│   tracker · clarify · architect · backend · frontend · qa ·     │
+│   auditor · devops · doc-writer                                 │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │  uses Write/Edit/Bash...
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  MEMORY LAYER (.claude/memory/)                                 │
+│  Domain-shared:  kanban.json · plan.json · requirements.html ·  │
+│                  architecture/ · decisions/ · patterns/ ·       │
+│                  security/findings.json · delivery.html         │
+│  Per-story:      stories/{id}/{contracts,test_plan,             │
+│                                 test_results,bugs,build_log,    │
+│                                 review.html,doc_summary.html}   │
+│  Audit:          events.jsonl  (hook-appended on every mutation)│
+└──────────────────────────┬──────────────────────────────────────┘
+                           │  PostToolUse fires
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  HOOK LAYER (.claude/hooks/log-event.ps1)                       │
+│  Receives tool JSON on stdin, reads $CLAUDE_AGENT and           │
+│  $CLAUDE_STORY_ID from environment, appends 1 JSONL line.       │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
+
+<h3>1.2 Context Files (fill before first run)</h3>
+<table>
+  <tr><th>File</th><th>Read by</th><th>Purpose</th></tr>
+  <tr><td><code>context/tech-stack.html</code></td><td>backend, frontend, qa, devops</td><td>Frameworks, test runners, deployment target — <strong>required</strong></td></tr>
+  <tr><td><code>context/project-brief.html</code></td><td>clarify, architect</td><td>Goals, personas, scale, non-functional requirements</td></tr>
+  <tr><td><code>context/docker.html</code></td><td>frontend, qa, devops</td><td>Docker Desktop local dev setup, compose services, ports, health checks</td></tr>
+  <tr><td><code>context/constraints.html</code></td><td>architect</td><td>Hard technical/dependency/security constraints that override design decisions</td></tr>
+</table>
+
+<h3>1.3 Stage Data Flow</h3>
+<pre>
+   ┌──────────┐    ┌─────────┐    ┌──────┐    ┌────────┐    ┌──────┐
+   │ CLARIFY  │ →  │ DESIGN  │ →  │BUILD │ →  │ VERIFY │ →  │ SHIP │
+   └────┬─────┘    └────┬────┘    └──┬───┘    └────┬───┘    └───┬──┘
+        │               │            │             │            │
+        ▼               ▼            ▼             ▼            ▼
+   clarify         architect      backend       auditor       devops
+                                  frontend      SECURITY      doc-writer
+                                  qa                          auditor
+                                  auditor                     DELIVERY
+                                  doc-writer
+</pre>
+
+<!-- ─── 2. LIFECYCLE ──────────────────────────────────────────────── -->
+<h2 id="lifecycle">2. The 5-Stage Lifecycle</h2>
+<table>
+  <tr><th>#</th><th>Stage</th><th>Primary agent(s)</th><th>Output (handoff to next stage)</th></tr>
+  <tr><td>1</td><td><strong>CLARIFY</strong></td><td>clarify (INTERROGATE → PLAN)</td><td>requirements.html + plan.json + kanban.json</td></tr>
+  <tr><td>2</td><td><strong>DESIGN</strong></td><td>architect (DESIGN → EXTRACT), gated by auditor REVIEW</td><td>architecture/system-design.yaml (PASS) + stories/{id}/contracts.json</td></tr>
+  <tr><td>3</td><td><strong>BUILD</strong></td><td>backend + frontend + qa + auditor REVIEW + doc-writer (per story)</td><td>repo code + stories/{id}/* artifacts</td></tr>
+  <tr><td>4</td><td><strong>VERIFY</strong></td><td>auditor SECURITY (project-wide)</td><td>security/findings.json (BLOCKED or CLEAR)</td></tr>
+  <tr><td>5</td><td><strong>SHIP</strong></td><td>devops + doc-writer (final) + <strong>qa REGRESSION</strong> (gate) + auditor DELIVERY</td><td>Dockerfile, manifests, CI/CD, docs/, regression HTML reports, delivery.html</td></tr>
+</table>
+
+<p>
+  Gates between stages are <strong>implicit</strong> when you run stage commands individually.
+  Inside <code>/full-pipeline</code> there are <strong>3 explicit human gates</strong>:
+  after CLARIFY (plan approval), after VERIFY (only if BLOCKED), end of SHIP (GO/NO-GO).
+</p>
+
+<!-- ─── 3. AGENTS ─────────────────────────────────────────────────── -->
+<h2 id="agents">3. Agent Reference (9)</h2>
+
+<div class="agent-card">
+  <h4>3.1 tracker (cross-cutting)</h4>
+  <table>
+    <tr><th>Modes</th><td>INIT, MOVE, STATUS, NEXT</td></tr>
+    <tr><th>Writes</th><td>kanban.json</td></tr>
+    <tr><th>Tools</th><td>Read, Write, Edit</td></tr>
+  </table>
+  <ul>
+    <li><strong>INIT</strong> — create fresh board from a story list.</li>
+    <li><strong>MOVE</strong> — advance one story (todo → in_progress → done; forward only).</li>
+    <li><strong>STATUS</strong> — read and return current board.</li>
+    <li><strong>NEXT</strong> — return stories whose dependencies are all done. Detects DEADLOCK.</li>
+  </ul>
+</div>
+
+<div class="agent-card">
+  <h4>3.2 clarify (Stage 1)</h4>
+  <table>
+    <tr><th>Modes</th><td>INTERROGATE, PLAN</td></tr>
+    <tr><th>Writes</th><td>requirements.html · plan.json</td></tr>
+    <tr><th>Tools</th><td>Read, Write, Edit, Grep, Glob</td></tr>
+    <tr><th>Context reads</th><td>context/project-brief.html</td></tr>
+  </table>
+  <ul>
+    <li><strong>INTERROGATE</strong> — adversarial alignment. Emits: ALIGNED | NEEDS_CLARIFICATION | REJECT.</li>
+    <li><strong>PLAN</strong> — requires requirements.html with verdict ALIGNED. Produces PRD + vertical-slice phases + story backlog. Calls <code>tracker INIT</code>.</li>
+  </ul>
+</div>
+
+<div class="agent-card">
+  <h4>3.3 architect (Stage 2)</h4>
+  <table>
+    <tr><th>Modes</th><td>DESIGN, EXTRACT</td></tr>
+    <tr><th>Writes</th><td>architecture/system-design.yaml · stories/{id}/contracts.json</td></tr>
+    <tr><th>Tools</th><td>Read, Write, Edit, Grep, Glob</td></tr>
+    <tr><th>Context reads</th><td>context/tech-stack.html · context/constraints.html · context/project-brief.html</td></tr>
+  </table>
+  <ul>
+    <li><strong>DESIGN</strong> — full architecture (components, APIs, DB, events). Every decision cites a requirement.</li>
+    <li><strong>EXTRACT</strong> — slices design into per-story contracts. Self-resolves CONTRACT_GAPs.</li>
+  </ul>
+</div>
+
+<div class="agent-card">
+  <h4>3.4 backend (Stage 3)</h4>
+  <table>
+    <tr><th>Tools</th><td>Read, Write, Edit, Grep, Glob, Bash</td></tr>
+    <tr><th>Context reads</th><td>context/tech-stack.html</td></tr>
+  </table>
+  <p>Implements backend code, versioned SQL migrations (UP+DOWN), and unit tests for one story. Runs tests via Bash before reporting done.</p>
+</div>
+
+<div class="agent-card">
+  <h4>3.5 frontend (Stage 3)</h4>
+  <table>
+    <tr><th>Tools</th><td>Read, Write, Edit, Grep, Glob, Bash, <strong>WebFetch</strong></td></tr>
+    <tr><th>Context reads</th><td>context/tech-stack.html · context/docker.html</td></tr>
+  </table>
+  <p>
+    Builds UI components and routing for one story. Integrates with APIs exactly as defined in contracts.
+    After building, starts the dev server and uses WebFetch to confirm each page returns HTTP 200.
+  </p>
+</div>
+
+<div class="agent-card">
+  <h4>3.6 qa (Stage 3 + 4)</h4>
+  <table>
+    <tr><th>Modes</th><td>PLAN, RETEST, REGISTER, REGRESSION</td></tr>
+    <tr><th>Tools</th><td>Read, Write, Edit, Grep, Glob, Bash, <strong>WebFetch</strong></td></tr>
+    <tr><th>Context reads</th><td>context/tech-stack.html · context/docker.html</td></tr>
+  </table>
+  <ul>
+    <li><strong>PLAN</strong> — writes executable test code (red phase). Unit, integration, and E2E browser tests. E2E targets local Docker Compose stack.</li>
+    <li><strong>RETEST</strong> — executes tests via Bash with HTML reporters. Generates <code>test-reports/{story_id}-backend.html</code> and <code>-frontend.html</code>. Appends new bugs to <code>bugs/registry.html</code>.</li>
+    <li><strong>REGISTER</strong> — after story passes + is done, promotes test files + run commands into <code>tests/regression/suite.json</code>. Refuses if bugs remain.</li>
+    <li><strong>REGRESSION</strong> — at /ship time, runs every registered story's tests, generates aggregate HTML reports, emits PASS/FAIL verdict. A single failure blocks delivery.</li>
+  </ul>
+</div>
+
+<div class="agent-card">
+  <h4>3.7 auditor (Stages 3, 4, 5)</h4>
+  <table>
+    <tr><th>Modes</th><td>REVIEW, SECURITY, DELIVERY</td></tr>
+    <tr><th>Writes</th><td>stories/{id}/review.html · architecture/design_review.html · security/findings.json · delivery.html</td></tr>
+    <tr><th>Tools</th><td>Read, Write, Edit, Grep, Glob (no Bash)</td></tr>
+  </table>
+  <ul>
+    <li><strong>REVIEW</strong> — PASS | FAIL (soft signal). Five sections: Summary, Critical, Warnings, Suggestions, Verdict.</li>
+    <li><strong>SECURITY</strong> — STRIDE + OWASP Top 10. Verdict: BLOCKED | CLEAR.</li>
+    <li><strong>DELIVERY</strong> — final GO/NO-GO: APPROVE | APPROVE WITH CONDITIONS | REJECT.</li>
+  </ul>
+</div>
+
+<div class="agent-card">
+  <h4>3.8 devops (Stage 5)</h4>
+  <table>
+    <tr><th>Tools</th><td>Read, Write, Edit, Grep, Glob, Bash</td></tr>
+    <tr><th>Context reads</th><td>context/tech-stack.html · context/docker.html</td></tr>
+  </table>
+  <p>
+    Generates Dockerfiles (multi-stage, non-root), deployment manifests (K8s / ECS / Cloud Run / Docker Compose),
+    CI/CD pipeline files, and health checks. Aligns Docker Compose services with the conventions established
+    in <code>context/docker.html</code>.
+  </p>
+</div>
+
+<div class="agent-card">
+  <h4>3.9 doc-writer (Stages 3 + 5)</h4>
+  <table>
+    <tr><th>Tools</th><td>Read, Write, Edit, Grep, Glob</td></tr>
+    <tr><th>Writes</th><td>docs/README.html · docs/api/{resource}.html · docs/adr/ADR-{N}.html · docs/runbooks/{feature}.html · docs/stories/index.html</td></tr>
+  </table>
+  <p>
+    Reads existing docs first; makes surgical edits only. API docs include full field-level schemas
+    (required/optional, format constraints, validation rules) and all error codes with trigger conditions.
+    Maintains <code>docs/stories/index.html</code> — a persistent, append-only registry of every story.
+    ADRs only for user-selected decisions.
+  </p>
+</div>
+
+<!-- ─── 4. COMMANDS ───────────────────────────────────────────────── -->
+<h2 id="commands">4. Command Reference (13)</h2>
+
+<table>
+  <tr><th>Command</th><th>Stage</th><th>Description</th></tr>
+  <tr><td><code>/full-pipeline</code></td><td>All</td><td>End-to-end SDLC. 3 human gates (plan approval, security BLOCKED, final GO/NO-GO)</td></tr>
+  <tr><td><code>/execute-story {id}</code></td><td>3</td><td>Per-story TDD: qa PLAN → backend+frontend → RETEST loop (max 5 iters) → REVIEW → doc-writer</td></tr>
+  <tr><td><code>/clarify [idea]</code></td><td>1</td><td>INTERROGATE → human gate → PLAN → tracker INIT</td></tr>
+  <tr><td><code>/design [id?]</code></td><td>2</td><td>DESIGN → auditor REVIEW → EXTRACT (with gap self-resolution)</td></tr>
+  <tr><td><code>/build [id?]</code></td><td>3</td><td>All ready stories via /execute-story in batches of 3 (or one specific story)</td></tr>
+  <tr><td><code>/verify [id?]</code></td><td>4</td><td>auditor SECURITY (full codebase); or qa RETEST + auditor REVIEW for one story</td></tr>
+  <tr><td><code>/ship</code></td><td>5</td><td>devops → doc-writer (final) → auditor DELIVERY → human GO/NO-GO</td></tr>
+  <tr><td><code>/align</code></td><td>1</td><td>Re-interrogate requirements without re-planning</td></tr>
+  <tr><td><code>/board</code></td><td>—</td><td>Show current kanban state</td></tr>
+  <tr><td><code>/next</code></td><td>—</td><td>Show unblocked stories (detects DEADLOCK)</td></tr>
+  <tr><td><code>/run-tests {id}</code></td><td>3</td><td>qa RETEST for one story</td></tr>
+  <tr><td><code>/review-code {id} [type?]</code></td><td>3</td><td>auditor REVIEW (Code | Test | Design)</td></tr>
+  <tr><td><code>/security-scan</code></td><td>4</td><td>auditor SECURITY — project-wide re-scan</td></tr>
+</table>
+
+<!-- ─── 5. HARNESS ────────────────────────────────────────────────── -->
+<h2 id="harness">5. Harness Format</h2>
+<p>Every agent has a sibling harness at <code>.claude/harnesses/{name}.harness.yaml</code>. The agent reads it as the first thing it does. Scope violations are refusals, not silent successes.</p>
+
+<pre>
+agent: {name}
+purpose: |
+  One-paragraph contract...
+
+modes:
+  MODE_NAME:
+    inputs:   [...]
+    outputs:  [...]
+    prerequisites:  [...]
+    error_modes:    [ERROR_NAME: explanation]
+
+memory:
+  reads:  [...]    # the ONLY paths this agent will read
+  writes: [...]    # the ONLY paths this agent may write
+
+tools_allowed: [Read, Write, Edit, Grep, Glob, Bash, WebFetch]
+can_invoke: [other-agent-name]
+</pre>
+
+<table>
+  <tr><th>Concern</th><th>How the harness handles it</th></tr>
+  <tr><td>Context bloat</td><td>memory.reads is a closed list — no "everything in /memory" dumps</td></tr>
+  <tr><td>Tool drift</td><td>tools_allowed mirrors frontmatter <code>tools:</code> — Claude Code enforces it hard</td></tr>
+  <tr><td>Stage handoff</td><td>prerequisites make every agent self-policing</td></tr>
+  <tr><td>Hidden coupling</td><td>can_invoke documents the full dependency graph</td></tr>
+  <tr><td>Debugging vocabulary</td><td>error_modes give every refusal a greppable name</td></tr>
+</table>
+
+<!-- ─── 6. MEMORY ─────────────────────────────────────────────────── -->
+<h2 id="memory">6. Memory Architecture</h2>
+
+<pre>
+.claude/memory/
+├── kanban.json                         ← tracker — story state (single source of truth)
+├── requirements.html                   ← clarify INTERROGATE — verdict + assumptions + open Qs
+├── plan.json                           ← clarify PLAN — PRD + phases + stories + dependencies
+├── architecture/
+│   ├── system-design.yaml              ← architect DESIGN
+│   └── design_review.html             ← auditor REVIEW (Design)
+├── stories/{story_id}/                 ← per-story artifacts (NEVER garbage-collected)
+│   ├── contracts.json                  ← architect EXTRACT
+│   ├── test_plan.yaml                  ← qa PLAN
+│   ├── test_results.json               ← qa RETEST (includes report links)
+│   ├── bugs.json                       ← qa RETEST
+│   ├── build_log.json                  ← backend + frontend
+│   ├── review.html                     ← auditor REVIEW (Code/Test)
+│   └── doc_summary.html                ← doc-writer (scope=story)
+├── bugs/
+│   └── registry.html                   ← qa RETEST — aggregate bug log, all stories, all runs
+├── test-reports/
+│   ├── {story_id}-backend.html         ← qa RETEST — per-story backend HTML report
+│   ├── {story_id}-frontend.html        ← qa RETEST — per-story frontend/E2E HTML report
+│   ├── regression-backend.html         ← qa REGRESSION — aggregate backend report (at ship)
+│   ├── regression-frontend.html        ← qa REGRESSION — aggregate frontend report (at ship)
+│   └── regression-results.json         ← qa REGRESSION — PASS/FAIL verdict (gates delivery)
+├── security/
+│   └── findings.json                   ← auditor SECURITY
+├── delivery.html                       ← auditor DELIVERY (final GO/NO-GO package)
+├── decisions/                          ← architectural/product decisions (HTML)
+│   └── DEC-{slug}.html
+├── patterns/                           ← hand-curated code patterns (read-only reference)
+│   └── {pattern}.html
+└── events.jsonl                        ← hook-appended audit log (every file mutation + job_complete)
+
+tests/regression/
+└── suite.json                          ← qa REGISTER — registry of all approved regression tests
+
+docs/
+├── README.html
+├── api/{resource}.html                 ← full field-level API reference per resource
+├── adr/ADR-{N}-{slug}.html
+├── runbooks/{feature}.html
+└── stories/index.html                  ← persistent story registry (one row per done story)
+</pre>
+
+<h3>6.1 Two Layers</h3>
+<table>
+  <tr><th>Layer</th><th>What lives here</th><th>Lifetime</th></tr>
+  <tr><td>Domain-shared</td><td>kanban.json · plan.json · requirements.html · architecture/ · decisions/ · patterns/ · security/findings.json · delivery.html</td><td>Project lifetime</td></tr>
+  <tr><td>Per-story</td><td>stories/{id}/*</td><td>Story lifetime — can be garbage-collected after ship</td></tr>
+</table>
+
+<!-- ─── 7. HOOK ───────────────────────────────────────────────────── -->
+<h2 id="hook">7. Event Logging Hook</h2>
+
+<h3>Hook scripts</h3>
+<table>
+  <tr><th>Hook event</th><th>Script</th><th>What it captures</th></tr>
+  <tr><td><code>PostToolUse</code> (Write|Edit|Bash)</td><td>log-event.ps1</td><td>Every file mutation or shell command — agent + story attribution</td></tr>
+  <tr><td><code>Stop</code></td><td>log-usage.ps1</td><td>Token usage at end of every agent turn — context vs output breakdown</td></tr>
+</table>
+
+<h3>settings.json config</h3>
+<pre>
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit|Bash",
+        "hooks": [{ "type": "command", "command": "powershell.exe ... log-event.ps1" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "powershell.exe ... log-usage.ps1" }]
+      }
+    ]
+  }
+}
+</pre>
+
+<h3>Log entry shapes</h3>
+
+<p><strong>Tool event</strong> (from log-event.ps1, event field absent = tool event):</p>
+<pre>
+{"ts":"2026-05-28T10:23:14Z","agent":"qa","story_id":"US-003","tool":"Write","path":".claude/memory/stories/US-003/test_plan.yaml","ok":true}
+{"ts":"2026-05-28T10:24:01Z","agent":"backend","story_id":"US-003","tool":"Bash","command":"npx jest --testPathPattern=registration","ok":true}
+</pre>
+
+<p><strong>Job completion</strong> (from log-usage.ps1, <code>"event":"job_complete"</code>):</p>
+<pre>
+{
+  "ts":        "2026-05-28T10:25:00Z",
+  "event":     "job_complete",
+  "agent":     "backend",
+  "story_id":  "US-003",
+  "tokens": {
+    "context":     42150,   // total input  = input_new + cache_new + cache_read
+    "output":       2840,   // tokens the model generated
+    "total":       44990,
+    "input_new":   18200,   // uncached input (full price)
+    "cache_new":    5400,   // written to cache this turn (1.25× price, amortised)
+    "cache_read":  18550,   // served from prompt cache (~0.1× price)
+    "context_pct":   93.7  // context / total — how saturated the window is
+  }
+}
+</pre>
+
+<h3>Token field glossary</h3>
+<table>
+  <tr><th>Field</th><th>Meaning</th><th>Cost note</th></tr>
+  <tr><td><code>context</code></td><td>Total tokens sent IN (context window)</td><td>Sum of the three input rows</td></tr>
+  <tr><td><code>output</code></td><td>Tokens the model generated</td><td>Typically 3–15× more expensive per token than input</td></tr>
+  <tr><td><code>input_new</code></td><td>Fresh, uncached input tokens</td><td>Full input price</td></tr>
+  <tr><td><code>cache_new</code></td><td>Tokens written into a new cache entry</td><td>~1.25× input price (write cost)</td></tr>
+  <tr><td><code>cache_read</code></td><td>Tokens served from existing cache</td><td>~0.1× input price — very cheap</td></tr>
+  <tr><td><code>context_pct</code></td><td>context / total × 100</td><td>~90–97 % is normal for large agents</td></tr>
+</table>
+
+<h3>Querying the log</h3>
+<pre>
+# ── Token usage summary per agent across all jobs ──────────────────────────────
+Get-Content .claude/memory/events.jsonl |
+  ForEach-Object { $_ | ConvertFrom-Json } |
+  Where-Object   { $_.event -eq 'job_complete' } |
+  Group-Object   { $_.agent } |
+  ForEach-Object {
+    $jobs = $_.Group
+    [PSCustomObject]@{
+      Agent       = $_.Name
+      Jobs        = $jobs.Count
+      TotalTokens = ($jobs | Measure-Object { $_.tokens.total }   -Sum).Sum
+      AvgContext  = [Math]::Round(($jobs | Measure-Object { $_.tokens.context_pct } -Average).Average, 1)
+      CacheRead   = ($jobs | Measure-Object { $_.tokens.cache_read } -Sum).Sum
+    }
+  } | Format-Table -AutoSize
+
+# ── All job completions for one story ──────────────────────────────────────────
+Get-Content .claude/memory/events.jsonl |
+  ForEach-Object { $_ | ConvertFrom-Json } |
+  Where-Object   { $_.event -eq 'job_complete' -and $_.story_id -eq 'US-003' } |
+  Select-Object  ts, agent, @{n='total';e={$_.tokens.total}}, @{n='ctx%';e={$_.tokens.context_pct}}
+
+# ── Tool mutations (file writes/edits) for story US-003 ────────────────────────
+Get-Content .claude/memory/events.jsonl |
+  ForEach-Object { $_ | ConvertFrom-Json } |
+  Where-Object   { -not $_.event -and $_.story_id -eq 'US-003' } |
+  Select-Object  ts, agent, tool, path, command
+</pre>
+
+<!-- ─── 8. WORKFLOWS ──────────────────────────────────────────────── -->
+<h2 id="workflows">8. Common Workflows</h2>
+
+<h3>8.1 One-shot (autonomous, 3 gates)</h3>
+<pre>
+/full-pipeline
+  └── Gate 1 — review &amp; approve plan
+  └── (autonomous design + build with per-story TDD)
+  └── Gate 2 — if security BLOCKED, fix and re-verify
+  └── Gate 3 — APPROVE / APPROVE WITH CONDITIONS / REJECT
+</pre>
+
+<h3>8.2 Deliberate stage-by-stage</h3>
+<pre>
+/clarify          → review requirements + plan
+/design           → review architecture
+/build            → review delivered stories
+/verify           → review security findings
+/ship             → GO/NO-GO
+</pre>
+
+<h3>8.3 Surgical iteration on one story</h3>
+<pre>
+/build US-003          # one story only
+/run-tests US-003      # re-run tests after a fix
+/review-code US-003    # re-review after edits
+</pre>
+
+<h3>8.4 Resuming after a break</h3>
+<pre>
+/board                 # see todo / in_progress / done
+/next                  # see what's unblocked right now
+/execute-story US-007  # pick up a ready story
+</pre>
+
+<h3>8.5 Recovering from a TDD escalation (5-iter cap)</h3>
+<ol>
+  <li>Inspect <code>.claude/memory/stories/{id}/bugs.json</code> for the latest failing tests.</li>
+  <li>Inspect <code>.claude/memory/stories/{id}/review.html</code> for the auditor's analysis.</li>
+  <li>Decide: fix the design (<code>/design {id}</code>), split the story, or manually override (<code>tracker MOVE to done</code>).</li>
+</ol>
+
+<!-- ─── 9. DECISION MATRIX ───────────────────────────────────────── -->
+<h2 id="matrix">9. Decision Matrix</h2>
+
+<table>
+  <tr><th>You want to…</th><th>Use</th></tr>
+  <tr><td>Start from a raw idea (automated)</td><td><code>/full-pipeline</code></td></tr>
+  <tr><td>Start from a raw idea (deliberate)</td><td><code>/clarify</code></td></tr>
+  <tr><td>Re-align requirements without re-planning</td><td><code>/align</code></td></tr>
+  <tr><td>Produce the system architecture</td><td><code>/design</code></td></tr>
+  <tr><td>Build all ready stories</td><td><code>/build</code></td></tr>
+  <tr><td>Build one story</td><td><code>/build US-003</code> or <code>/execute-story US-003</code></td></tr>
+  <tr><td>Re-run tests for one story</td><td><code>/run-tests US-003</code></td></tr>
+  <tr><td>Re-review code or tests</td><td><code>/review-code US-003 [Code|Test]</code></td></tr>
+  <tr><td>Re-review the architecture</td><td><code>/review-code Design</code></td></tr>
+  <tr><td>Project-wide security scan</td><td><code>/security-scan</code> or <code>/verify</code></td></tr>
+  <tr><td>Ship the project</td><td><code>/ship</code></td></tr>
+  <tr><td>See the board</td><td><code>/board</code></td></tr>
+  <tr><td>See unblocked stories</td><td><code>/next</code></td></tr>
+</table>
+
+<h3>When do I need a human in the loop?</h3>
+<table>
+  <tr><th>Trigger</th><th>Human decision</th></tr>
+  <tr><td>clarify INTERROGATE returns NEEDS_CLARIFICATION</td><td>Answer the open questions</td></tr>
+  <tr><td>clarify PLAN asks execution mode</td><td>"agents", "humans", or "both"</td></tr>
+  <tr><td>auditor SECURITY returns BLOCKED</td><td>Fix critical findings before /ship</td></tr>
+  <tr><td>/execute-story hits 5-iteration TDD cap</td><td>Fix design, split story, or override</td></tr>
+  <tr><td>auditor DELIVERY produces delivery.html</td><td>APPROVE / APPROVE WITH CONDITIONS / REJECT</td></tr>
+  <tr><td>doc-writer lists new decisions</td><td>Which become formal ADRs?</td></tr>
+</table>
+
+<!-- ─── 10. FILE LAYOUT ──────────────────────────────────────────── -->
+<h2 id="layout">10. File Layout</h2>
+
+<pre>
+project-root/
+├── codebase/                        ← ALL generated code lives here
+│   ├── {backend source tree}        ← framework-conventional layout (src/main, etc.)
+│   ├── {frontend source tree}       ← framework-conventional layout (src/, pages/, etc.)
+│   ├── db/migrations/               ← versioned SQL migrations (backend writes)
+│   ├── Dockerfile / Dockerfile.*    ← devops writes (multi-stage, non-root)
+│   ├── docker-compose.yml           ← devops writes
+│   ├── .github/workflows/ (or CI)   ← devops writes
+│   └── {deployment manifests}       ← devops writes
+│
+├── docs/                            ← ALL documentation lives here
+│   ├── architecture/
+│   │   ├── hld.html                 ← HLD with embedded Mermaid diagrams (architect DESIGN)
+│   │   ├── diagrams/
+│   │   │   └── hld.drawio           ← draw.io XML component diagram (architect DESIGN)
+│   │   └── flows/
+│   │       └── {flow-slug}.html     ← per-business-flow Mermaid diagrams (architect DESIGN)
+│   ├── api/{resource}.html          ← full API reference + Mermaid sequence diagrams per endpoint
+│   ├── ui/{feature}.html            ← Mermaid navigation flow + user journey + component tree
+│   ├── adr/ADR-{N}-{slug}.html
+│   ├── runbooks/{feature}.html
+│   └── stories/index.html           ← persistent story registry
+│
+├── tests/
+│   └── regression/
+│       └── suite.json               ← qa REGISTER registry (points to tests in codebase/)
+│
+├── context/                         ← fill BEFORE running /clarify or /design
+│   ├── tech-stack.html              ← frameworks, test runners, deployment target (REQUIRED)
+│   ├── project-brief.html           ← goals, personas, scale, NFRs
+│   ├── docker.html                  ← Docker Desktop local dev setup
+│   └── constraints.html             ← hard constraints the architect must respect
+│
+└── .claude/
+    ├── agents/                      ← 9 agent definitions (.md — required by Claude Code)
+    ├── commands/                    ← 13 slash command definitions (.md)
+    ├── harnesses/                   ← 9 per-agent scope contracts (.yaml)
+    ├── hooks/                       ← log-event.ps1 + log-usage.ps1
+    ├── memory/                      ← runtime state
+    │   ├── architecture/            ← system-design.yaml, design_review.html
+    │   ├── bugs/registry.html       ← aggregate bug log (qa RETEST)
+    │   ├── test-reports/            ← per-story + regression HTML reports (qa)
+    │   ├── stories/{id}/            ← per-story artifacts (NEVER deleted)
+    │   ├── security/findings.json
+    │   ├── decisions/
+    │   ├── patterns/
+    │   └── events.jsonl
+    ├── settings.json
+    └── README.html
+</pre>
+
+<div class="note">
+  <strong>Note:</strong> Agent definition files (<code>.claude/agents/*.md</code>),
+  command files (<code>.claude/commands/*.md</code>), and <code>CLAUDE.md</code> remain
+  <code>.md</code> — Claude Code discovers them by extension. All documentation, memory,
+  and context files are HTML.
+</div>
+
+</body>
+</html>
