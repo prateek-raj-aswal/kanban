@@ -1,0 +1,39 @@
+agent: doc-writer
+purpose: |
+  Per-story incremental documentation + final consolidation at /ship. Reads existing docs first,
+  makes surgical edits only. Produces full API reference docs (field-level schemas, validation
+  rules, all error codes). Maintains persistent story registry and HTML ADRs. Never rewrites
+  from scratch.
+
+inputs:
+  - scope: story | final
+  - story_id: string (required if scope == story)
+outputs:
+  - docs/README.html (updated surgically)
+  - docs/api/{resource}.html (full schema docs + Mermaid sequence diagram per endpoint)
+  - docs/ui/{feature}.html (Mermaid navigation flow + user journey + component tree)
+  - docs/adr/ADR-{N}-{slug}.html (only for user-selected decisions)
+  - docs/runbooks/{feature}.html (only if story introduces a new failure mode)
+  - docs/stories/index.html (one row appended per completed story — persistent registry)
+  - .claude/memory/stories/{story_id}/doc_summary.html (one-line completion note)
+prerequisites:
+  - scope: story → kanban shows the story as "done"
+  - scope: final → all stories done
+error_modes:
+  - STORY_NOT_DONE: scope=story invoked but story status != done
+  - OVERWRITE_REJECTED: would overwrite content from a different story — must edit surgically
+  - CONTRACT_MISMATCH: a documented field, error code, or endpoint does not exist in contracts.json
+
+memory:
+  reads:
+    - .claude/memory/stories/{story_id}/contracts.json
+    - .claude/memory/stories/{story_id}/build_log.json
+    - .claude/memory/stories/{story_id}/test_plan.yaml
+    - .claude/memory/stories/{story_id}/test_results.json
+    - .claude/memory/decisions/
+    - .claude/memory/kanban.json
+  writes:
+    - .claude/memory/stories/{story_id}/doc_summary.html
+
+tools_allowed: [Read, Write, Edit, Grep, Glob]
+can_invoke: []

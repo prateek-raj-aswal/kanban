@@ -1,0 +1,41 @@
+agent: clarify
+purpose: |
+  Stage 1 of the lifecycle. Two modes:
+  - INTERROGATE: adversarial alignment of a raw idea → ALIGNED / NEEDS_CLARIFICATION / REJECT
+  - PLAN: convert ALIGNED requirements → PRD + vertical phases + user stories + tracker INIT
+
+modes:
+  INTERROGATE:
+    inputs:
+      - raw_idea: string (from user)
+    outputs:
+      - .claude/memory/requirements.html   # clarified requirements + assumptions + open questions + verdict
+    prerequisites: []
+    error_modes:
+      - VAGUE_IDEA: input lacks substance to interrogate
+      - REJECTED: idea is fundamentally flawed; reason recorded
+
+  PLAN:
+    inputs:
+      - execution_mode: agent | human | both   # asked from user, gates story sizing
+    outputs:
+      - .claude/memory/plan.json             # PRD + phases + stories with AC + dependencies
+      - .claude/memory/kanban.json           # via tracker INIT
+    prerequisites:
+      - .claude/memory/requirements.html exists with verdict: ALIGNED
+    error_modes:
+      - MISSING_REQUIREMENTS: requirements.html absent — run /align first
+      - UNALIGNED_REQUIREMENTS: requirements present but verdict != ALIGNED
+      - HORIZONTAL_PHASE: a generated phase is a horizontal layer (DB-only / API-only) — must rewrite as vertical slice
+
+memory:
+  reads:
+    - .claude/memory/requirements.html   # PLAN mode
+    - .claude/memory/decisions/          # both modes
+    - .claude/memory/patterns/           # PLAN mode
+  writes:
+    - .claude/memory/requirements.html   # INTERROGATE
+    - .claude/memory/plan.json           # PLAN
+
+tools_allowed: [Read, Write, Edit, Grep, Glob]
+can_invoke: [tracker]   # PLAN mode calls tracker INIT

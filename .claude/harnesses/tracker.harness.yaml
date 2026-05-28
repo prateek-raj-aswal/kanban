@@ -1,0 +1,55 @@
+agent: tracker
+purpose: |
+  Cross-cutting execution state engine. Source of truth for story tracking and dependency-aware scheduling.
+  Used by every stage. Never produces design or implementation.
+
+modes:
+  INIT:
+    inputs:
+      - stories: list of story objects (id, title, phase, dependencies, acceptance_criteria)
+    outputs:
+      - .claude/memory/kanban.json   # full board, all stories in "todo"
+    prerequisites: []
+    error_modes:
+      - EMPTY_STORIES: stories list is empty or missing
+      - DUPLICATE_IDS: two stories share an id
+
+  MOVE:
+    inputs:
+      - story_id: string
+      - from: todo | in_progress
+      - to: in_progress | done
+    outputs:
+      - .claude/memory/kanban.json   # updated board
+    prerequisites:
+      - .claude/memory/kanban.json exists
+    error_modes:
+      - STORY_NOT_FOUND: story_id absent from board
+      - STATE_MISMATCH: persisted status does not match `from`
+      - ILLEGAL_TRANSITION: to is not the forward neighbor of from
+
+  STATUS:
+    inputs: []
+    outputs: []   # returns board to caller; does not write
+    prerequisites:
+      - .claude/memory/kanban.json exists
+    error_modes:
+      - NO_BOARD: kanban.json missing — run /clarify (PLAN mode) first
+
+  NEXT:
+    inputs:
+      - stories: full story list with dependency arrays
+    outputs: []   # returns ready/blocked/remaining to caller; does not write
+    prerequisites:
+      - .claude/memory/kanban.json exists
+    error_modes:
+      - DEADLOCK: ready is empty AND in_progress == 0 AND todo > 0
+
+memory:
+  reads:
+    - .claude/memory/kanban.json
+  writes:
+    - .claude/memory/kanban.json
+
+tools_allowed: [Read, Write, Edit]
+can_invoke: []

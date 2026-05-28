@@ -1,0 +1,41 @@
+# Per-developer local permissions (never commit)
+.claude/settings.local.json
+
+# Runtime memory — generated per project, not part of the template
+.claude/memory/events.jsonl
+.claude/memory/kanban.json
+.claude/memory/plan.json
+.claude/memory/requirements.html
+.claude/memory/delivery.html
+.claude/memory/architecture/system-design.yaml
+.claude/memory/architecture/design_review.html
+.claude/memory/security/findings.json
+.claude/memory/stories/*/
+.claude/memory/bugs/registry.html
+.claude/memory/test-reports/*.html
+.claude/memory/test-reports/regression-results.json
+.claude/memory/decisions/DEC-*.html
+.claude/memory/patterns/*.html
+
+# Generated project docs (produced by architect/doc-writer at runtime)
+docs/architecture/hld.html
+docs/architecture/diagrams/hld.drawio
+docs/architecture/flows/
+docs/api/*.html
+docs/ui/*.html
+docs/stories/index.html
+docs/adr/
+docs/runbooks/
+
+# Regression suite registry (populated at runtime)
+tests/regression/suite.json
+
+# Generated code (produced by backend/frontend/devops at runtime)
+codebase/*
+!codebase/.gitkeep
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

@@ -1,0 +1,69 @@
+agent: auditor
+purpose: |
+  Three modes spanning two stages:
+  - REVIEW: Code/Test/Design artifact review. Deep Modules + bounded context + contract drift. PASS/FAIL (soft signal).
+  - SECURITY: full-codebase STRIDE + OWASP scan. Runs once at /verify. BLOCKED/CLEAR.
+  - DELIVERY: compile final GO/NO-GO package at /ship.
+
+modes:
+  REVIEW:
+    inputs:
+      - artifact: code files | test files | design YAML
+      - type: Code | Test | Design
+      - story_id: string (omit for Design)
+      - parsed_contracts: required for Code/Test
+    outputs:
+      - .claude/memory/stories/{story_id}/review.html   # Code/Test
+      - .claude/memory/architecture/design_review.html  # Design
+    prerequisites:
+      - Code/Test: contracts.json for the story
+      - Design: architecture/system-design.yaml
+    error_modes:
+      - MISSING_ARTIFACT: nothing to review
+      - WRONG_TYPE: type does not match artifact contents
+
+  SECURITY:
+    inputs: []
+    outputs:
+      - .claude/memory/security/findings.json
+    prerequisites:
+      - all stories in kanban.json have status "done" (project-wide scan, not per-story)
+    error_modes:
+      - INCOMPLETE_CODEBASE: kanban shows stories still in_progress or todo
+
+  DELIVERY:
+    inputs: []
+    outputs:
+      - .claude/memory/delivery.html     # executive summary + per-story status + GO/NO-GO recommendation
+    prerequisites:
+      - all stories done
+      - .claude/memory/security/findings.json exists with verdict: CLEAR
+      - per-story review.html exists for every story
+      - .claude/memory/test-reports/regression-results.json exists with verdict: PASS
+    error_modes:
+      - SECURITY_BLOCKED: cannot compile delivery while security verdict is BLOCKED
+      - MISSING_REVIEWS: not every story has a review.html
+      - REGRESSION_BLOCKED: regression-results.json verdict is FAIL or file absent — run qa REGRESSION first
+
+memory:
+  reads:
+    - .claude/memory/stories/*/contracts.json
+    - .claude/memory/stories/*/test_results.json
+    - .claude/memory/stories/*/bugs.json
+    - .claude/memory/stories/*/review.html
+    - .claude/memory/architecture/system-design.yaml
+    - .claude/memory/kanban.json
+    - .claude/memory/security/findings.json
+    - .claude/memory/decisions/
+    - .claude/memory/bugs/registry.html
+    - .claude/memory/test-reports/regression-results.json
+    - .claude/memory/test-reports/regression-backend.html
+    - .claude/memory/test-reports/regression-frontend.html
+  writes:
+    - .claude/memory/stories/{story_id}/review.html
+    - .claude/memory/architecture/design_review.html
+    - .claude/memory/security/findings.json
+    - .claude/memory/delivery.html
+
+tools_allowed: [Read, Write, Edit, Grep, Glob]
+can_invoke: []

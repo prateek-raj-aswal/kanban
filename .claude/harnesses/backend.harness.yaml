@@ -1,0 +1,35 @@
+agent: backend
+purpose: |
+  Stage 3 (BUILD) — backend implementer for a single story. Reads per-story contracts and writes:
+  framework code, DB migrations (database role folded in), and unit tests. Runs tests via Bash before reporting done.
+
+inputs:
+  - story_id: string
+  - parsed_contracts: from .claude/memory/stories/{story_id}/contracts.json
+  - test_plan: from .claude/memory/stories/{story_id}/test_plan.yaml (written by qa PLAN before backend runs)
+outputs:
+  - source files in codebase/ (framework per context/tech-stack.html)
+  - migration files in codebase/db/migrations/ (raw SQL with UP and DOWN blocks, versioned)
+  - .claude/memory/stories/{story_id}/build_log.json   # status, files touched, test exit code
+prerequisites:
+  - .claude/memory/stories/{story_id}/contracts.json exists
+  - .claude/memory/stories/{story_id}/test_plan.yaml exists
+  - context/tech-stack.html exists (or user confirms framework)
+error_modes:
+  - CONTRACT_INCOMPLETE: contracts missing fields required for implementation — do not guess
+  - MISSING_TECH_STACK: context/tech-stack.html absent — ask before proceeding
+  - MIGRATION_VERSION_CONFLICT: existing migration file has same or higher version number
+  - TESTS_NOT_RUN: unit tests must be executed via Bash before reporting done
+
+memory:
+  reads:
+    - .claude/memory/stories/{story_id}/contracts.json
+    - .claude/memory/stories/{story_id}/test_plan.yaml
+    - .claude/memory/stories/{story_id}/bugs.json        # iteration > 1 (TDD loop fix-up)
+    - .claude/memory/decisions/
+    - .claude/memory/patterns/
+  writes:
+    - .claude/memory/stories/{story_id}/build_log.json
+
+tools_allowed: [Read, Write, Edit, Grep, Glob, Bash]
+can_invoke: []

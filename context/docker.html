@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Docker Desktop — Local Dev Context</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: .5rem; }
+    h2 { color: #444; margin-top: 2rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: .5rem .75rem; text-align: left; }
+    th { background: #f5f5f5; }
+    code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 3px; font-size: .9em; }
+    pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; }
+    .placeholder { color: #999; font-style: italic; }
+    .note { background: #fff8e1; border-left: 3px solid #f9a825; padding: .5rem .75rem; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+
+<h1>Docker Desktop — Local Development Context</h1>
+<p>
+  This file tells agents how Docker Desktop is used in this project for local development,
+  running services, and E2E testing. Agents (<code>backend</code>, <code>frontend</code>,
+  <code>qa</code>, <code>devops</code>) read this alongside <code>tech-stack.html</code>.
+</p>
+
+<div class="note">
+  <strong>Prerequisite:</strong> Docker Desktop must be running before executing any
+  <code>docker</code> or <code>docker compose</code> commands.
+</div>
+
+<!-- ─── COMPOSE SETUP ─────────────────────────────────────────────── -->
+<h2>Docker Compose Setup</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Compose file</td><td class="placeholder"><code>docker-compose.yml</code> at repo root</td></tr>
+  <tr><td>Dev override</td><td class="placeholder"><code>docker-compose.override.yml</code> (hot-reload mounts)</td></tr>
+  <tr><td>Start services</td><td><code>docker compose up -d</code></td></tr>
+  <tr><td>Stop services</td><td><code>docker compose down</code></td></tr>
+  <tr><td>View logs</td><td><code>docker compose logs -f [service]</code></td></tr>
+  <tr><td>Rebuild after code change</td><td><code>docker compose up -d --build [service]</code></td></tr>
+</table>
+
+<!-- ─── SERVICES ──────────────────────────────────────────────────── -->
+<h2>Services Defined in Compose</h2>
+<table>
+  <tr><th>Service name</th><th>Image / build</th><th>Port mapping</th><th>Purpose</th></tr>
+  <tr>
+    <td class="placeholder">api</td>
+    <td class="placeholder">build: ./backend</td>
+    <td class="placeholder">8080:8080</td>
+    <td class="placeholder">Backend API server</td>
+  </tr>
+  <tr>
+    <td class="placeholder">web</td>
+    <td class="placeholder">build: ./frontend</td>
+    <td class="placeholder">3000:3000</td>
+    <td class="placeholder">Frontend dev server</td>
+  </tr>
+  <tr>
+    <td class="placeholder">db</td>
+    <td class="placeholder">postgres:16-alpine</td>
+    <td class="placeholder">5432:5432</td>
+    <td class="placeholder">PostgreSQL database</td>
+  </tr>
+  <tr>
+    <td class="placeholder">cache</td>
+    <td class="placeholder">redis:7-alpine</td>
+    <td class="placeholder">6379:6379</td>
+    <td class="placeholder">Redis cache</td>
+  </tr>
+</table>
+
+<!-- ─── E2E TESTING WITH BROWSER ──────────────────────────────────── -->
+<h2>E2E Browser Testing via Docker</h2>
+<p>
+  The <code>qa</code> agent runs Playwright (or Cypress) tests against the locally running
+  Docker Compose stack. Services must be healthy before tests run.
+</p>
+
+<h3>Running E2E tests locally</h3>
+<pre>
+# 1. Ensure Docker Desktop is running and services are up
+docker compose up -d
+
+# 2. Wait for services to be healthy
+docker compose ps   # all services should show "healthy" or "running"
+
+# 3. Run E2E tests (adjust to your test framework)
+npx playwright test           # Playwright
+npx cypress run               # Cypress
+</pre>
+
+<h3>Running E2E tests inside Docker (CI parity)</h3>
+<pre>
+# Playwright in Docker (no display needed — runs headless)
+docker run --rm --network host -v $(pwd):/app -w /app \
+  mcr.microsoft.com/playwright:v1.x.x-jammy \
+  npx playwright test
+</pre>
+
+<div class="note">
+  The <code>qa</code> agent will use the run commands from <code>tech-stack.html</code>
+  (E2E / browser row). For browser-headed runs on Windows, Playwright uses the system
+  Chrome/Chromium installed by Docker Desktop or the local Node install.
+</div>
+
+<!-- ─── DATABASE MIGRATIONS IN DOCKER ────────────────────────────── -->
+<h2>Database Migrations</h2>
+<pre>
+# Run migrations against the Docker Compose db service
+docker compose exec api &lt;migration-command&gt;
+
+# Examples by framework:
+# Flyway:     docker compose exec api ./mvnw flyway:migrate
+# Alembic:    docker compose exec api alembic upgrade head
+# Prisma:     docker compose exec api npx prisma migrate deploy
+# Raw SQL:    docker compose exec db psql -U postgres -d mydb -f /migrations/V001__init.sql
+</pre>
+
+<!-- ─── HEALTH CHECKS ──────────────────────────────────────────────── -->
+<h2>Health Check Conventions</h2>
+<table>
+  <tr><th>Service</th><th>Health check endpoint / command</th></tr>
+  <tr><td class="placeholder">api</td><td class="placeholder"><code>GET /health</code> → <code>{"status":"ok"}</code></td></tr>
+  <tr><td class="placeholder">web</td><td class="placeholder"><code>GET /</code> → HTTP 200</td></tr>
+  <tr><td class="placeholder">db</td><td class="placeholder"><code>pg_isready -U postgres</code></td></tr>
+</table>
+<p>
+  The <code>devops</code> agent will generate matching <code>HEALTHCHECK</code> directives
+  in Dockerfiles and readiness/liveness probes in deployment manifests based on these conventions.
+</p>
+
+<!-- ─── IMAGE BUILD CONVENTIONS ──────────────────────────────────── -->
+<h2>Image Build Conventions</h2>
+<ul>
+  <li>All Dockerfiles are multi-stage: <code>builder</code> → <code>runtime</code>.</li>
+  <li>Runtime stage uses a minimal base image (e.g. <code>node:22-alpine</code>, <code>python:3.12-slim</code>).</li>
+  <li>Containers run as a non-root user — never as <code>root</code>.</li>
+  <li>No secrets baked into images. Use environment variables or secret mounts at runtime.</li>
+  <li>Images are tagged with git SHA (<code>:sha-abc1234</code>) — never <code>:latest</code>.</li>
+</ul>
+
+<!-- ─── COMMON TROUBLESHOOTING ────────────────────────────────────── -->
+<h2>Common Docker Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Fix</th></tr>
+  <tr><td>Port already in use</td><td><code>docker compose down</code> then restart</td></tr>
+  <tr><td>DB connection refused</td><td>Wait for db healthcheck: <code>docker compose ps</code></td></tr>
+  <tr><td>Stale build cache</td><td><code>docker compose build --no-cache [service]</code></td></tr>
+  <tr><td>Volume data persists unexpectedly</td><td><code>docker compose down -v</code> to clear volumes</td></tr>
+  <tr><td>Docker Desktop not running</td><td>Open Docker Desktop app; wait for the whale icon to stop animating</td></tr>
+</table>
+
+</body>
+</html>
