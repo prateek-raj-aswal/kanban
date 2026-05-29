@@ -389,3 +389,78 @@ findings:
       Attach a client-generated correlation ID (crypto.randomUUID()) to each
       sendChatMessage call. The agent service should echo this ID in structured
       logs.
+
+  # ---- OLM-001 findings ----
+
+  - id: SEC-023
+    severity: Critical
+    status: open
+    story: OLM-001
+    finding: >
+      Live Groq API key present in .env on disk:
+      GROQ_API_KEY=<redacted>.
+      The file is gitignored and not committed, but the key is a live credential
+      that can be used to make billed API calls. OLM-003/OLM-004 plan to remove
+      the key from the stack but both stories are status: todo. The key must be
+      revoked on the Groq dashboard immediately regardless of migration story
+      timeline.
+    location: ".env:12"
+    recommendation: >
+      1. Immediately revoke the key at console.groq.com — assume it is compromised
+         regardless of git history because the file is on disk.
+      2. If Groq integration is still needed before OLM-005 lands, generate a new
+         key and do not store it in .env. Use an OS-level secret manager or pass
+         it only in the shell environment of the docker-compose invocation.
+      3. Prioritise OLM-003 and OLM-004 to remove all Groq references from the
+         stack once OLM-005 rewrites the agent to use Ollama.
+
+  - id: SEC-024
+    severity: High
+    status: open
+    story: OLM-001
+    finding: >
+      FROM ollama/ollama uses a floating :latest tag with no digest pin.
+      Supply-chain replacement of the upstream tag on Docker Hub would be silently
+      adopted on the next docker build without any warning. The base image
+      includes CUDA/ROCm drivers; a compromised version would have full access
+      to the host GPU and the Docker network.
+    location: "ollama/Dockerfile:1"
+    recommendation: >
+      Pin to a specific version tag and SHA-256 digest:
+        FROM ollama/ollama:0.9.2@sha256:<digest>
+      Obtain the digest via: docker pull ollama/ollama:0.9.2 && docker inspect
+      ollama/ollama:0.9.2 --format '{{index .RepoDigests 0}}'
+      Re-pin on each intentional version upgrade.
+
+  - id: SEC-025
+    severity: Medium
+    status: open
+    story: OLM-001
+    finding: >
+      When OLM-002 adds the ollama service to docker-compose.yml, exposing
+      port 11434 on the host would make the unauthenticated Ollama REST API
+      accessible to all processes on the developer's machine. Any process could
+      submit arbitrary inference requests, load additional models to exhaust
+      disk, or delete the baked model weights.
+    location: "docker-compose.yml (OLM-002 pending)"
+    recommendation: >
+      In OLM-002, do not publish port 11434 on the host. The agent container
+      can reach Ollama via the internal bridge (http://ollama:11434) without any
+      host-side port binding. If host-side access is required for developer
+      tooling, restrict to 127.0.0.1:11434:11434.
+
+  - id: SEC-026
+    severity: Low
+    status: open
+    story: OLM-001
+    finding: >
+      The container runs as root (no USER directive; enforced by TC-005).
+      This is an intentional and documented constraint of the upstream
+      ollama/ollama image, which requires root to write /root/.ollama and to
+      access GPU device files. Accepted risk for a local dev environment.
+    location: "ollama/Dockerfile (no USER directive)"
+    recommendation: >
+      Track upstream ollama/ollama for rootless mode support. If this image is
+      ever used outside a single-developer local machine, add at the
+      docker-compose level: security_opt: ["no-new-privileges:true"]. This does
+      not fix root but limits privilege escalation from within the container.

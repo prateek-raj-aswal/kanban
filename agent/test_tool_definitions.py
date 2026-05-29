@@ -212,7 +212,7 @@ def test_tool_loop_uses_actual_tool_result():
 
     with patch("main.httpx.get", return_value=_ok_backend()), \
          patch("tools.httpx.get", return_value=tools_get_mock), \
-         patch("main._groq_client.chat.completions.create", side_effect=_capture_create):
+         patch("main._ollama_client.chat.completions.create", side_effect=_capture_create):
         response = TestClient(app).post(
             "/chat", json={"messages": [{"role": "user", "content": "hi"}]},
             headers={"Authorization": f"Bearer {JWT}"}
@@ -262,7 +262,7 @@ def test_malformed_tool_arguments_returns_error_not_500():
         return _make_tool_resp_bad_args()
 
     with patch("main.httpx.get", return_value=_ok_backend()), \
-         patch("main._groq_client.chat.completions.create", side_effect=_capture):
+         patch("main._ollama_client.chat.completions.create", side_effect=_capture):
         response = TestClient(app).post(
             "/chat", json={"messages": [{"role": "user", "content": "hi"}]},
             headers={"Authorization": f"Bearer {JWT}"}
@@ -275,7 +275,7 @@ def test_malformed_tool_arguments_returns_error_not_500():
 
 
 def test_llm_receives_non_empty_tools_list():
-    """TC-014: _groq_client.chat.completions.create is called with non-empty tools."""
+    """TC-014: _ollama_client.chat.completions.create is called with non-empty tools."""
     msg = MagicMock()
     msg.content = "Hi"
     msg.tool_calls = None
@@ -285,7 +285,7 @@ def test_llm_receives_non_empty_tools_list():
     resp.choices = [choice]
 
     with patch("main.httpx.get", return_value=_ok_backend()), \
-         patch("main._groq_client.chat.completions.create", return_value=resp) as mock_create:
+         patch("main._ollama_client.chat.completions.create", return_value=resp) as mock_create:
         TestClient(app).post(
             "/chat", json={"messages": [{"role": "user", "content": "hi"}]},
             headers={"Authorization": f"Bearer {JWT}"}

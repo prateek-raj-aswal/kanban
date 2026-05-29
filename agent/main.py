@@ -12,19 +12,9 @@ from models import ChatRequest, ChatResponse
 _debug = os.getenv("DEBUG", "false").lower() == "true"
 _backend_url = os.getenv("BACKEND_URL", "http://localhost:8080")
 
-_groq_api_key = os.getenv("GROQ_API_KEY")
-if not _groq_api_key:
-    raise RuntimeError(
-        "GROQ_API_KEY environment variable is required. "
-        "Get your key at https://console.groq.com"
-    )
-
-_groq_client = openai.OpenAI(
-    api_key=_groq_api_key,
-    base_url="https://api.groq.com/openai/v1",
-)
-
-_GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+_ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+_ollama_client = openai.OpenAI(base_url=f"{_ollama_base_url}/v1", api_key="ollama")
+_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 
 _TOOL_DEFINITIONS = [
     {
@@ -249,8 +239,8 @@ def _run_tool_loop(messages: list[dict], jwt: str) -> str:
     conversation = list(messages)
     for _ in range(_MAX_TOOL_ROUNDS):
         try:
-            completion = _groq_client.chat.completions.create(
-                model=_GROQ_MODEL,
+            completion = _ollama_client.chat.completions.create(
+                model=_OLLAMA_MODEL,
                 messages=conversation,
                 tools=_TOOL_DEFINITIONS,
             )

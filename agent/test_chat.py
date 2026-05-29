@@ -49,7 +49,7 @@ def _groq_text_response(content: str = "OK") -> MagicMock:
 def test_post_chat_valid_request_returns_200():
     """TC-001 - AC-1: valid body + Authorization header yields HTTP 200 with a 'reply' string."""
     with patch("main.httpx.get", return_value=_ok_response()), \
-         patch("main._groq_client.chat.completions.create",
+         patch("main._ollama_client.chat.completions.create",
                return_value=_groq_text_response()):
         response = client.post("/chat", json=VALID_BODY, headers=VALID_HEADERS)
     assert response.status_code == 200

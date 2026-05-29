@@ -7,22 +7,16 @@ Test plan:
       maps_to_ac: "AC-1: LLM returns text (no tool calls) → reply returned in ChatResponse"
       type: acceptance
     - id: TC-002
-      maps_to_ac: "AC-2: Groq API connection error → 502 LLM service unavailable"
+      maps_to_ac: "AC-2: Ollama API connection error → 502 LLM service unavailable"
       type: acceptance
     - id: TC-003
-      maps_to_ac: "AC-2: Groq API returns 5xx → 502 LLM service unavailable"
-      type: acceptance
-    - id: TC-004
-      maps_to_ac: "AC-3: GROQ_API_KEY not set → startup raises RuntimeError"
+      maps_to_ac: "AC-2: Ollama API returns 5xx → 502 LLM service unavailable"
       type: acceptance
     - id: TC-005
       maps_to_ac: "Tool call loop: LLM emits tool_call → stub executed → final text returned"
       type: unit
 """
 
-import importlib
-import os
-import sys
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -46,7 +40,7 @@ def _ok_backend() -> MagicMock:
     return mock
 
 
-def _groq_text_response(content: str) -> MagicMock:
+def _llm_text_response(content: str) -> MagicMock:
     msg = MagicMock()
     msg.content = content
     msg.tool_calls = None
@@ -58,7 +52,7 @@ def _groq_text_response(content: str) -> MagicMock:
     return resp
 
 
-def _groq_tool_response(tool_name: str, tool_call_id: str, args: str) -> MagicMock:
+def _llm_tool_response(tool_name: str, tool_call_id: str, args: str) -> MagicMock:
     tc = MagicMock()
     tc.id = tool_call_id
     tc.function.name = tool_name
@@ -84,8 +78,8 @@ def _groq_tool_response(tool_name: str, tool_call_id: str, args: str) -> MagicMo
 def test_llm_text_response_returned():
     """TC-001: valid body + Groq returns text → ChatResponse.reply equals LLM content."""
     with patch("main.httpx.get", return_value=_ok_backend()), \
-         patch("main._groq_client.chat.completions.create",
-               return_value=_groq_text_response("Hello there!")):
+         patch("main._ollama_client.chat.completions.create",
+               return_value=_llm_text_response("Hello there!")):
         response = TestClient(app).post("/chat", json=VALID_BODY, headers=AUTH_HEADERS)
 
     assert response.status_code == 200
@@ -95,7 +89,7 @@ def test_llm_text_response_returned():
 def test_groq_connection_error_returns_502():
     """TC-002: APIConnectionError from Groq → 502 LLM service unavailable."""
     with patch("main.httpx.get", return_value=_ok_backend()), \
-         patch("main._groq_client.chat.completions.create",
+         patch("main._ollama_client.chat.completions.create",
                side_effect=openai.APIConnectionError(request=MagicMock())):
         response = TestClient(app).post("/chat", json=VALID_BODY, headers=AUTH_HEADERS)
 
@@ -106,7 +100,7 @@ def test_groq_connection_error_returns_502():
 def test_groq_5xx_returns_502():
     """TC-003: APIStatusError (5xx) from Groq → 502 LLM service unavailable."""
     with patch("main.httpx.get", return_value=_ok_backend()), \
-         patch("main._groq_client.chat.completions.create",
+         patch("main._ollama_client.chat.completions.create",
                side_effect=openai.APIStatusError(
                    "server error", response=MagicMock(status_code=503),
                    body=None)):
@@ -116,27 +110,13 @@ def test_groq_5xx_returns_502():
     assert response.json() == {"detail": "LLM service unavailable"}
 
 
-def test_startup_fails_without_api_key():
-    """TC-004: GROQ_API_KEY not set → importing main raises RuntimeError."""
-    saved = os.environ.pop("GROQ_API_KEY", None)
-    original_module = sys.modules.pop("main", None)
-    try:
-        with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
-            importlib.import_module("main")
-    finally:
-        if saved:
-            os.environ["GROQ_API_KEY"] = saved
-        sys.modules.pop("main", None)
-        if original_module is not None:
-            sys.modules["main"] = original_module
-
 
 def test_tool_call_loop_executes_and_returns_final_text():
     """TC-005: LLM emits tool_call → loop executes stub → second call returns text."""
-    tool_resp = _groq_tool_response("get_boards", "call-1", "{}")
-    text_resp = _groq_text_response("You have 2 boards.")
+    tool_resp = _llm_tool_response("get_boards", "call-1", "{}")
+    text_resp = _llm_text_response("You have 2 boards.")
     with patch("main.httpx.get", return_value=_ok_backend()), \
-         patch("main._groq_client.chat.completions.create",
+         patch("main._ollama_client.chat.completions.create",
                side_effect=[tool_resp, text_resp]) as mock_create:
         response = TestClient(app).post("/chat", json=VALID_BODY, headers=AUTH_HEADERS)
 
@@ -147,9 +127,9 @@ def test_tool_call_loop_executes_and_returns_final_text():
 
 def test_tool_loop_cap_returns_500():
     """TC-006: LLM keeps emitting tool_calls beyond MAX_TOOL_ROUNDS → 500."""
-    tool_resp = _groq_tool_response("get_boards", "call-1", "{}")
+    tool_resp = _llm_tool_response("get_boards", "call-1", "{}")
     with patch("main.httpx.get", return_value=_ok_backend()), \
-         patch("main._groq_client.chat.completions.create",
+         patch("main._ollama_client.chat.completions.create",
                return_value=tool_resp) as mock_create:
         response = TestClient(app).post("/chat", json=VALID_BODY, headers=AUTH_HEADERS)
 

@@ -1,185 +1,92 @@
 {
   "stories": [
     {
-      "id": "AGT-001",
-      "title": "Scaffold FastAPI agent service with Docker",
+      "id": "OLM-001",
+      "title": "Ollama Dockerfile with baked model",
       "phase": "PHASE-001",
       "dependencies": [],
       "status": "done",
-      "acceptance_criteria": []
+      "acceptance_criteria": [
+        "GIVEN ollama/Dockerfile exists, WHEN docker build -t kanban-ollama ./ollama runs, THEN the build completes without error and the image contains llama3.2:3b model weights",
+        "GIVEN the built image is started, WHEN ollama list runs, THEN the output includes llama3.2:3b",
+        "GIVEN the Dockerfile, WHEN inspected, THEN it uses the official ollama/ollama base image and references no cloud credentials"
+      ]
     },
     {
-      "id": "AGT-002",
-      "title": "Define POST /chat request and response contracts",
+      "id": "OLM-002",
+      "title": "Ollama service added to docker-compose.yml",
       "phase": "PHASE-001",
-      "dependencies": ["AGT-001"],
+      "dependencies": ["OLM-001"],
       "status": "done",
-      "acceptance_criteria": []
+      "acceptance_criteria": [
+        "GIVEN docker-compose.yml is parsed, WHEN services key is inspected, THEN a service named ollama exists with build.context: ./ollama",
+        "GIVEN the ollama service definition, WHEN healthcheck.test is read, THEN it references port 11434 and confirms the model is available",
+        "GIVEN the agent service depends_on block, WHEN inspected, THEN it includes ollama with condition: service_healthy"
+      ]
     },
     {
-      "id": "AGT-003",
-      "title": "Implement JWT forwarding and backend connectivity check",
-      "phase": "PHASE-001",
-      "dependencies": ["AGT-002"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-004",
-      "title": "Implement raw Groq tool-calling loop skeleton",
-      "phase": "PHASE-001",
-      "dependencies": ["AGT-003"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-005",
-      "title": "Implement get_boards and get_board tools",
+      "id": "OLM-003",
+      "title": "Remove GROQ_API_KEY from docker-compose.yml",
       "phase": "PHASE-002",
-      "dependencies": ["AGT-004"],
+      "dependencies": ["OLM-002"],
       "status": "done",
-      "acceptance_criteria": []
+      "acceptance_criteria": [
+        "GIVEN docker-compose.yml is parsed, WHEN all service environment blocks are scanned, THEN no key named GROQ_API_KEY is present",
+        "GIVEN the agent service environment block, WHEN inspected, THEN it contains OLLAMA_BASE_URL: http://ollama:11434 and nothing referencing Groq"
+      ]
     },
     {
-      "id": "AGT-006",
-      "title": "Implement create_board tool",
+      "id": "OLM-004",
+      "title": "Remove GROQ_API_KEY from .env and .env.example",
       "phase": "PHASE-002",
-      "dependencies": ["AGT-005"],
+      "dependencies": ["OLM-003"],
       "status": "done",
-      "acceptance_criteria": []
+      "acceptance_criteria": [
+        "GIVEN .env is read, WHEN contents are scanned, THEN GROQ_API_KEY does not appear",
+        "GIVEN .env.example is read, WHEN contents are scanned, THEN GROQ_API_KEY does not appear and no Groq comment exists",
+        "GIVEN .env after the change, WHEN docker compose config runs, THEN no warnings about undefined variables previously satisfied by GROQ_API_KEY"
+      ]
     },
     {
-      "id": "AGT-007",
-      "title": "Implement get_cards_in_column tool",
+      "id": "OLM-005",
+      "title": "Rewrite agent/main.py to use Ollama",
       "phase": "PHASE-002",
-      "dependencies": ["AGT-005"],
+      "dependencies": ["OLM-003"],
       "status": "done",
-      "acceptance_criteria": []
+      "acceptance_criteria": [
+        "GIVEN main.py is read, WHEN source is scanned for the string groq (case-insensitive), THEN no occurrence is found",
+        "GIVEN main.py is imported in a test with OLLAMA_BASE_URL unset, WHEN the module loads, THEN it does not raise RuntimeError",
+        "GIVEN _run_tool_loop is called with a mocked _ollama_client.chat.completions.create, WHEN mock returns a non-tool-call completion, THEN the function returns the content string"
+      ]
     },
     {
-      "id": "AGT-008",
-      "title": "Implement search_cards tool",
+      "id": "OLM-006",
+      "title": "Update agent unit tests to remove Groq mock references",
       "phase": "PHASE-002",
-      "dependencies": ["AGT-005"],
+      "dependencies": ["OLM-005"],
       "status": "done",
-      "acceptance_criteria": []
+      "acceptance_criteria": [
+        "GIVEN all test files in agent/ are scanned for _groq_client, WHEN scan completes, THEN zero matches are found",
+        "GIVEN pytest agent/test_chat.py runs with OLLAMA_BASE_URL unset, WHEN run completes, THEN all tests pass",
+        "GIVEN pytest agent/ runs, WHEN complete, THEN all previously passing tests continue to pass with no GROQ_API_KEY requirement"
+      ]
     },
     {
-      "id": "AGT-009",
-      "title": "Implement create_card tool",
+      "id": "OLM-007",
+      "title": "Update test_compose.py for new Ollama topology",
       "phase": "PHASE-002",
-      "dependencies": ["AGT-005"],
+      "dependencies": ["OLM-002", "OLM-003"],
       "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-010",
-      "title": "Implement move_card tool",
-      "phase": "PHASE-002",
-      "dependencies": ["AGT-005"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-011",
-      "title": "Implement update_card tool",
-      "phase": "PHASE-002",
-      "dependencies": ["AGT-005"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-012",
-      "title": "Implement delete_card tool",
-      "phase": "PHASE-002",
-      "dependencies": ["AGT-005"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-013",
-      "title": "Register all 9 tools in the Groq tools definition list",
-      "phase": "PHASE-002",
-      "dependencies": ["AGT-005", "AGT-006", "AGT-007", "AGT-008", "AGT-009", "AGT-010", "AGT-011", "AGT-012"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-014",
-      "title": "Create agentStore Zustand store for chat state",
-      "phase": "PHASE-003",
-      "dependencies": [],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-015",
-      "title": "Build ChatSidebar component with message list and input",
-      "phase": "PHASE-003",
-      "dependencies": ["AGT-014"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-016",
-      "title": "Create agent API client function in frontend lib",
-      "phase": "PHASE-003",
-      "dependencies": ["AGT-014"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-017",
-      "title": "Wire send handler in ChatSidebar to agent API and store",
-      "phase": "PHASE-003",
-      "dependencies": ["AGT-015", "AGT-016"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-018",
-      "title": "Add AI chat toggle button to existing board layout",
-      "phase": "PHASE-003",
-      "dependencies": ["AGT-015", "AGT-017"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-019",
-      "title": "Style ChatSidebar with vanilla CSS matching app theme",
-      "phase": "PHASE-003",
-      "dependencies": ["AGT-018"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-020",
-      "title": "Add agent service to docker-compose.yml",
-      "phase": "PHASE-004",
-      "dependencies": ["AGT-013", "AGT-019"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-021",
-      "title": "Update .env and frontend build arg for agent service URL",
-      "phase": "PHASE-004",
-      "dependencies": ["AGT-020"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "AGT-022",
-      "title": "Add agent/requirements.txt and Python dependency manifest",
-      "phase": "PHASE-004",
-      "dependencies": ["AGT-001"],
-      "status": "done",
-      "acceptance_criteria": []
+      "acceptance_criteria": [
+        "GIVEN test_compose.py runs after OLM-002 and OLM-003 are applied, WHEN pytest agent/test_compose.py -v executes, THEN all tests pass",
+        "GIVEN the test file, WHEN read, THEN it asserts ollama is present in compose services and GROQ_API_KEY is absent from every service environment",
+        "GIVEN the test file, WHEN read, THEN the old TC-005 GROQ_API_KEY bare-env-reference test is replaced or removed"
+      ]
     }
   ],
   "summary": {
     "todo": 0,
     "in_progress": 0,
-    "done": 22
+    "done": 7
   }
 }

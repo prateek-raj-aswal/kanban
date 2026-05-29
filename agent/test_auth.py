@@ -49,7 +49,7 @@ def _groq_text_response(content: str = "OK") -> MagicMock:
 def test_valid_jwt_proceeds_to_handler():
     """TC-001: valid JWT in Authorization header → backend returns 200 → /chat returns 200."""
     with patch("main.httpx.get", return_value=_mock_response(200)) as mock_get, \
-         patch("main._groq_client.chat.completions.create",
+         patch("main._ollama_client.chat.completions.create",
                return_value=_groq_text_response()):
         response = client.post("/chat", json=MESSAGES_BODY, headers=VALID_HEADERS)
 

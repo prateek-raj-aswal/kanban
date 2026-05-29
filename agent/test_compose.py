@@ -24,6 +24,28 @@ def agent(compose: dict) -> dict:
     return compose["services"]["agent"]
 
 
+# TC-NEW-1 — OLM-007: ollama service exists in docker-compose.yml
+def test_ollama_service_exists_in_compose(compose: dict):
+    assert "ollama" in compose.get("services", {}), (
+        "Expected an 'ollama' key under services (added in OLM-002)"
+    )
+
+
+# TC-NEW-2 — OLM-007: GROQ_API_KEY absent from every service environment
+def test_groq_api_key_absent_from_all_services(compose: dict):
+    for svc_name, svc in compose.get("services", {}).items():
+        env = svc.get("environment", {})
+        if isinstance(env, dict):
+            assert "GROQ_API_KEY" not in env, (
+                f"Service '{svc_name}' still has GROQ_API_KEY in its environment"
+            )
+        elif isinstance(env, list):
+            for entry in env:
+                assert not str(entry).startswith("GROQ_API_KEY"), (
+                    f"Service '{svc_name}' still has GROQ_API_KEY in its environment"
+                )
+
+
 # TC-001 — AC-1: docker-compose.yml contains an `agent` service
 def test_agent_service_exists(compose: dict):
     assert "agent" in compose.get("services", {}), (
@@ -70,29 +92,6 @@ def test_agent_port_mapping(agent: dict):
         f"Expected '8001:8001' in ports, got {ports}"
     )
 
-
-# TC-005 — AC-5: GROQ_API_KEY is a bare variable reference, not hardcoded
-def test_groq_api_key_is_env_reference(agent: dict):
-    env = agent.get("environment", {})
-    # environment may be a mapping or a list of "KEY=VALUE" strings
-    if isinstance(env, list):
-        # Find the GROQ_API_KEY entry
-        key_entries = [e for e in env if str(e).startswith("GROQ_API_KEY")]
-        assert key_entries, "GROQ_API_KEY not found in environment list"
-        entry = key_entries[0]
-        # A bare reference looks like "GROQ_API_KEY" (no '=') or "GROQ_API_KEY="
-        # A hardcoded value looks like "GROQ_API_KEY=sk-..."
-        # We accept only the bare-reference form (no value after '=')
-        assert "=" not in str(entry) or str(entry).endswith("="), (
-            f"GROQ_API_KEY must be a bare env reference, not hardcoded: {entry}"
-        )
-    else:
-        assert "GROQ_API_KEY" in env, "GROQ_API_KEY not found in environment mapping"
-        value = env["GROQ_API_KEY"]
-        # In YAML a bare reference parses as None
-        assert value is None, (
-            f"GROQ_API_KEY must be a bare env reference (null value), got '{value}'"
-        )
 
 
 # TC-006 — AC-6: BACKEND_URL uses the docker-compose internal hostname
