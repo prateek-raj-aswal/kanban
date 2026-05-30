@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  backend:
-    name: Backend tests
+  build-and-test:
+    name: Backend build and test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +33,7 @@ jobs:
           --tests "com.kanban.controller.HealthControllerTest"
           --no-daemon
         env:
-          JWT_SECRET: ci-test-secret-value-at-least-32-chars
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
       - name: Upload test report
         if: failure()
@@ -68,19 +68,34 @@ jobs:
         run: npx tsc --noEmit
 
   docker-build:
-    name: Docker build check
+    name: Docker build and tag
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [build-and-test, frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
 
       - name: Build backend image
-        run: docker build --no-cache -t kanban-backend:ci ./backend
+        run: |
+          docker build \
+            -t kanban-backend:${{ github.sha }} \
+            -t kanban-backend:latest \
+            ./backend
+        env:
+          # Secrets are not passed as build args — image must remain secret-free.
+          # All runtime secrets are injected via environment variables at deploy time.
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_EXPIRY_MS: ${{ secrets.JWT_EXPIRY_MS }}
 
       - name: Build frontend image
         run: >
           docker build --no-cache
           --build-arg NEXT_PUBLIC_API_URL=http://localhost:8080
           --build-arg NEXT_PUBLIC_WS_URL=http://localhost:8080/ws
-          -t kanban-frontend:ci ./frontend
+          -t kanban-frontend:${{ github.sha }}
+          ./frontend

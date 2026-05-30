@@ -1,0 +1,34 @@
+# Production deployment on EC2.
+# PostgreSQL is already running as a separate Docker container on this host (postgres-db, port 5432).
+# The backend reaches it via host.docker.internal.
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  kanban-backend:
+    image: kanban-backend:latest
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_NAME: mydb
+      DB_USER: myuser
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_MS: ${JWT_EXPIRY_MS:-3600000}
+      APP_UPLOAD_DIR: /app/uploads
+    ports:
+      - "8080:8080"
+    volumes:
+      - kanban-uploads:/app/uploads
+  kanban-frontend:
+    image: kanban-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - kanban-backend
+
+volumes:
+  kanban-uploads:

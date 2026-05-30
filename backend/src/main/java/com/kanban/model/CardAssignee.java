@@ -5,12 +5,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "card_assignees")
+@Table(name = "task_assignees")
 @IdClass(CardAssigneeId.class)
 public class CardAssignee {
 
     @Id
-    @Column(name = "card_id", nullable = false)
+    @Column(name = "task_id", nullable = false)
     private UUID cardId;
 
     @Id

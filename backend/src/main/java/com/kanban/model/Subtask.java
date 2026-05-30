@@ -13,7 +13,7 @@ public class Subtask {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "card_id", nullable = false)
+    @JoinColumn(name = "task_id", nullable = false)
     private Card card;
 
     @Column(nullable = false)

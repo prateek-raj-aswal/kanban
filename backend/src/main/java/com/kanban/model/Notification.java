@@ -15,7 +15,7 @@ public class Notification {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
-    @Column(name = "card_id")
+    @Column(name = "task_id")
     private UUID cardId;
 
     @Column(name = "board_id")

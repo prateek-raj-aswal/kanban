@@ -15,7 +15,7 @@ public class ActivityLog {
     @Column(name = "board_id", nullable = false)
     private UUID boardId;
 
-    @Column(name = "card_id")
+    @Column(name = "task_id")
     private UUID cardId;
 
     @Column(name = "actor_id")

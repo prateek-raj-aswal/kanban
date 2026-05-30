@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "cards")
+@Table(name = "tasks")
 public class Card {
 
     @Id
@@ -48,8 +48,8 @@ public class Card {
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-        name = "card_labels",
-        joinColumns = @JoinColumn(name = "card_id"),
+        name = "task_labels",
+        joinColumns = @JoinColumn(name = "task_id"),
         inverseJoinColumns = @JoinColumn(name = "label_id")
     )
     private List<Label> labels = new ArrayList<>();
