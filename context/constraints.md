@@ -97,10 +97,10 @@
 # Technical Constraints
 
 ## Must Use
-- Angular frontend
+- Next.js frontend (React + TypeScript, Zustand state management)
 - Java Spring Boot backend
 - PostgreSQL database
-- Redis caching layer
+- Redis caching layer (deferred — not yet adopted; refresh-token store is currently PostgreSQL-backed, swappable to Redis later)
 - Dockerized deployment
 - WebSocket support for real-time collaboration
 - REST APIs for external integrations
@@ -111,7 +111,7 @@
 ## Must Not Use
 - No vendor lock-in
 - No monolithic frontend state chaos
-- No server-side rendering in MVP
+- No SSR data-fetching pipelines in MVP (Next.js App Router is used, but pages are predominantly client-rendered; avoid server-side data fetching/SSG for app data)
 - No paid UI component libraries
 - No synchronous long-running operations on API threads
 

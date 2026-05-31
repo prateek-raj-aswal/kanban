@@ -125,7 +125,9 @@
       "Bash(./gradlew :backend:compileJava -x test --no-daemon)",
       "Bash(./gradlew compileJava -x test --no-daemon)",
       "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kanban\" -Recurse -Directory)",
-      "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\frontend\" -Recurse -Force)"
+      "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\frontend\" -Recurse -Force)",
+      "Bash(docker tag *)",
+      "Bash(docker push *)"
     ]
   }
 }
