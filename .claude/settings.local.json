@@ -183,7 +183,9 @@
       "PowerShell(& \"C:\\\\Program Files\\\\Amazon\\\\AWSCLIV2\\\\aws.exe\" sts get-caller-identity 2>&1)",
       "Bash(scp *)",
       "Bash(docker save *)",
-      "Bash(gzip)"
+      "Bash(gzip)",
+      "Bash(docker tag *)",
+      "Bash(docker push *)"
     ]
   }
 }

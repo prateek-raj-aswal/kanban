@@ -1,62 +1,7 @@
 {
+  "source_plan": "runs/plan_enhancements_2026-05-31.md",
+  "note": "APPEND-ONLY. Does not overwrite runs/kanban.json (US-001..US-007) or runs/plan_final.md (US-101..US-1103). Fresh IDs: PHASE-012..014, US-1201+.",
   "stories": [
-    {
-      "id": "US-001",
-      "title": "Reconstruct JDBC URL from split env vars with SSL enforcement",
-      "phase": "PHASE-001",
-      "dependencies": [],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "US-002",
-      "title": "Add HikariCP connection pool tuning block",
-      "phase": "PHASE-001",
-      "dependencies": ["US-001"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "US-003",
-      "title": "Remove hardcoded credentials from application-dev.yml",
-      "phase": "PHASE-001",
-      "dependencies": [],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "US-004",
-      "title": "Add Flyway migration V16: create projects table",
-      "phase": "PHASE-002",
-      "dependencies": ["US-001"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "US-005",
-      "title": "Add Flyway migration V17: add project_id to boards",
-      "phase": "PHASE-002",
-      "dependencies": ["US-004"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "US-006",
-      "title": "Add Flyway migration V18: rename cards to tasks and add missing columns",
-      "phase": "PHASE-002",
-      "dependencies": ["US-005"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-    {
-      "id": "US-007",
-      "title": "Add Flyway migration V19: schema corrections for activity_log, comments, and labels",
-      "phase": "PHASE-002",
-      "dependencies": ["US-006"],
-      "status": "done",
-      "acceptance_criteria": []
-    },
-
     { "id": "US-1201", "title": "Add app favicon and document head metadata", "phase": "PHASE-012", "dependencies": [], "status": "todo", "story_points": 1, "execution_mode": "agent", "acceptance_criteria": ["GIVEN frontend/public has only .gitkeep WHEN favicon added+referenced THEN tab shows icon", "GIVEN any route WHEN loaded THEN no /favicon.ico 404"] },
     { "id": "US-1202", "title": "Fix column reorder not refreshing the DOM", "phase": "PHASE-012", "dependencies": [], "status": "todo", "story_points": 2, "execution_mode": "agent", "acceptance_criteria": ["GIVEN reorder PATCH 200 WHEN drag completes THEN DOM order updates without refresh", "GIVEN failed reorder WHEN error THEN optimistic rollback"] },
     { "id": "US-1203", "title": "Render logout control wired to authStore.logout()", "phase": "PHASE-012", "dependencies": [], "status": "todo", "story_points": 1, "execution_mode": "agent", "acceptance_criteria": ["GIVEN logout() exists WHEN control clicked THEN logout runs + redirect to login", "VERIFY desktop and mobile"] },
@@ -94,9 +39,5 @@
     { "id": "US-1410", "title": "Backend: assign/authorize roles per workspace and per board (API)", "phase": "PHASE-014", "dependencies": ["US-1409"], "status": "todo", "story_points": 2, "execution_mode": "agent", "acceptance_criteria": ["GIVEN member WHEN PATCH role THEN changes (only OWNER/ADMIN; only OWNER grants OWNER)", "GIVEN access grant/deny WHEN applied THEN policy honors immediately", "VERIFY JUnit allowed+forbidden"] },
     { "id": "US-1411", "title": "Frontend: user-management UI to view/assign roles and authorize access", "phase": "PHASE-014", "dependencies": ["US-1410", "US-1304"], "status": "todo", "story_points": 3, "execution_mode": "agent", "acceptance_criteria": ["GIVEN workspace/board WHEN open THEN members+roles listed + change role", "GIVEN insufficient role WHEN view THEN controls disabled per policy", "GIVEN role change WHEN succeeds THEN capabilities update", "VERIFY desktop and mobile"] }
   ],
-  "summary": {
-    "todo": 35,
-    "in_progress": 0,
-    "done": 7
-  }
+  "summary": { "todo": 35, "in_progress": 0, "done": 0 }
 }
