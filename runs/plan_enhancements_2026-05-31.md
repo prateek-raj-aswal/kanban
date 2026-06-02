@@ -493,9 +493,9 @@ story:
 story:
   id: US-1401
   title: "Migration V24: create modules/tags + card_modules join (reversible)"
-  description: "As the platform, I need a user-defined modules/tags concept on cards to power swimlane group-by-module."
+  description: "As the platform, I need a user-defined modules/tags concept on cards (scoped per board) to power swimlane group-by-module."
   acceptance_criteria:
-    - GIVEN Flyway at V23 WHEN V24 runs THEN a modules table (id, board_id or workspace_id scope, name, color NULL, created_at) and a card_modules join (card_id, module_id, composite PK) exist with appropriate indexes
+    - GIVEN Flyway at V23 WHEN V24 runs THEN a modules table (id, board_id FK, name, color NULL, created_at) and a card_modules join (card_id, module_id, composite PK) exist with appropriate indexes
     - GIVEN a matching undo/down WHEN authored THEN it drops join + table cleanly
     - VERIFY reversible and validated on a branch/non-prod DB before prod; no impact on existing cards
   phase: PHASE-014

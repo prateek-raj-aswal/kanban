@@ -424,7 +424,7 @@ export default function BoardView({ boardId }: Props) {
         </div>
 
         {/* Board area */}
-        <div style={{ flex: 1, overflow: 'hidden', paddingBottom: isMobile ? 56 : 0 }}>
+        <div data-testid="board-area" style={{ flex: 1, minHeight: 0, paddingBottom: isMobile ? 56 : 0 }}>
           {!board ? (
             <div style={{ padding: 24, color: T.textMuted, fontSize: 13 }}>Loading…</div>
           ) : isMobile ? (

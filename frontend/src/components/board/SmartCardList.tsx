@@ -2,6 +2,7 @@
 import { T } from '@/lib/theme'
 import type { SmartCardResponse } from '@/types/api'
 import Icon from '@/components/ui/Icon'
+import { useIsMobile } from '@/lib/useIsMobile'
 
 const PRIORITY_COLOR: Record<string, string> = {
   URGENT: '#dc2626',
@@ -22,11 +23,15 @@ interface Props {
 }
 
 export default function SmartCardList({ cards, emptyMessage }: Props) {
+  const isMobile = useIsMobile()
+
   if (cards.length === 0) {
     return (
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: 60, color: T.textFaint, fontSize: 13,
+        paddingTop: 60, paddingLeft: 60, paddingRight: 60,
+        paddingBottom: isMobile ? 56 : 60,
+        color: T.textFaint, fontSize: 13,
       }}>
         <Icon name="check" size={32} sw={1.5} style={{ marginBottom: 12, opacity: 0.4 }} />
         {emptyMessage}
@@ -35,7 +40,7 @@ export default function SmartCardList({ cards, emptyMessage }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingBottom: isMobile ? 56 : 0 }}>
       {cards.map(card => (
         <a
           key={card.id}

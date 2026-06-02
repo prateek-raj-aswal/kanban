@@ -1,8 +1,9 @@
 'use client'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { T } from '@/lib/theme'
 import Icon from './Icon'
 import { useIsMobile } from '@/lib/useIsMobile'
+import { useAuthStore } from '@/store/authStore'
 
 const TABS = [
   { id: 'board',    icon: 'grid'     as const, label: 'Board',    href: '/boards' },
@@ -14,6 +15,13 @@ const TABS = [
 export default function BottomNav() {
   const isMobile = useIsMobile()
   const pathname = usePathname()
+  const router = useRouter()
+  const logout = useAuthStore(s => s.logout)
+
+  function handleLogout() {
+    logout()
+    router.push('/login')
+  }
 
   if (!isMobile) return null
 
@@ -51,6 +59,19 @@ export default function BottomNav() {
           </a>
         )
       })}
+      <button
+        onClick={handleLogout}
+        aria-label="Log out"
+        style={{
+          flex: 1, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 3,
+          color: T.textMuted, fontSize: 10, fontWeight: 500,
+          background: 'transparent', border: 'none', cursor: 'pointer',
+        }}
+      >
+        <Icon name="logout" size={20} sw={1.7} />
+        Log out
+      </button>
     </nav>
   )
 }

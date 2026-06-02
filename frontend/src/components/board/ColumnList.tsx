@@ -11,6 +11,7 @@ import type { ColumnResponse, CardResponse } from '@/types/api'
 import { T } from '@/lib/theme'
 import { api } from '@/lib/api'
 import { computeNewPosition } from '@/lib/dnd'
+import { useBoardStore } from '@/store/boardStore'
 import Column from './Column'
 import CardItem from './CardItem'
 
@@ -34,6 +35,7 @@ function findContainerId(id: string, cols: ColumnResponse[]): string | null {
 }
 
 export default function ColumnList({ boardId, columns, onDeleteColumn, onSelectCard, onAddCard, onCardMoved, swimlanes }: Props) {
+  const reorderColumns = useBoardStore(s => s.reorderColumns)
   const [localColumns, setLocalColumns] = useState<ColumnResponse[]>(columns)
   const [activeCard, setActiveCard] = useState<CardResponse | null>(null)
   const [activeColumn, setActiveColumn] = useState<ColumnResponse | null>(null)
@@ -97,27 +99,44 @@ export default function ColumnList({ boardId, columns, onDeleteColumn, onSelectC
   }
 
   async function onDragEnd({ active, over }: DragEndEvent) {
-    setActiveCard(null)
-    setActiveColumn(null)
     const orig = originalColumnsRef.current
     originalColumnsRef.current = null
 
-    if (!over || !orig) { if (orig) setLocalColumns(orig); return }
+    if (!over || !orig) {
+      setActiveCard(null)
+      setActiveColumn(null)
+      if (orig) setLocalColumns(orig)
+      return
+    }
 
-    // Column reorder — persist to backend
+    // Column reorder — persist to backend.
+    // Active state is cleared in `finally` so the sync effect only fires AFTER
+    // reorderColumns has updated the store, preventing the stale-prop overwrite.
     if (active.data.current?.type === 'column') {
       const finalCols = localColumnsRef.current
       const unchanged = finalCols.map(c => c.id).join() === orig.map(c => c.id).join()
-      if (unchanged) return
+      if (unchanged) {
+        setActiveCard(null)
+        setActiveColumn(null)
+        return
+      }
       try {
         await api.patch(`/api/v1/boards/${boardId}/columns/reorder`, {
           columnIds: finalCols.map(c => c.id),
         })
+        reorderColumns(finalCols.map(c => c.id))
       } catch {
         setLocalColumns(orig)
+      } finally {
+        setActiveCard(null)
+        setActiveColumn(null)
       }
       return
     }
+
+    // For card moves clear active state before the async work (same as before)
+    setActiveCard(null)
+    setActiveColumn(null)
 
     // After onDragOver, card may already be in the target column in localColumnsRef
     let finalCols = localColumnsRef.current

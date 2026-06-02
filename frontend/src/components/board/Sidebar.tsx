@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { T, type IconKey } from '@/lib/theme'
 import type { BoardResponse, AuthResponse, SmartCardResponse } from '@/types/api'
@@ -9,6 +9,9 @@ import ThemeSwitcher from '@/components/ui/ThemeSwitcher'
 import NotificationPanel from '@/components/ui/NotificationPanel'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import { useWorkspaceStore } from '@/store/workspaceStore'
+import { useAuthStore } from '@/store/authStore'
+import { useIsMobile } from '@/lib/useIsMobile'
+import { useSidebarStore } from '@/store/sidebarStore'
 
 interface Props {
   currentBoardId?: string
@@ -16,7 +19,16 @@ interface Props {
 
 export default function Sidebar({ currentBoardId }: Props) {
   const pathname = usePathname()
+  const router = useRouter()
+  const isMobile = useIsMobile()
+  const logout = useAuthStore(s => s.logout)
+  const { collapsed, setCollapsed } = useSidebarStore()
   const { workspaces, activeWorkspaceId, setWorkspaces } = useWorkspaceStore()
+
+  function handleLogout() {
+    logout()
+    router.push('/login')
+  }
   const [boards, setBoards] = useState<BoardResponse[]>([])
   const [starredBoards, setStarredBoards] = useState<BoardResponse[]>([])
   const [inboxCount, setInboxCount] = useState(0)
@@ -82,9 +94,12 @@ export default function Sidebar({ currentBoardId }: Props) {
   }) => (
     <a
       href={href ?? '#'}
+      title={collapsed ? label : undefined}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '6px 10px', fontSize: 13,
+        display: 'flex', alignItems: 'center',
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        gap: collapsed ? 0 : 8,
+        padding: collapsed ? '8px 0' : '6px 10px', fontSize: 13,
         fontWeight: active ? 600 : 500,
         color: active ? T.selectedText : T.text,
         background: active ? T.selectedBg : 'transparent',
@@ -95,17 +110,21 @@ export default function Sidebar({ currentBoardId }: Props) {
         <Icon name={icon} size={14} sw={active ? 2 : 1.6}
           style={{ color: active ? T.selectedText : T.textMuted }} />
       )}
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
-      {count != null && count > 0 && (
-        <span style={{
-          fontSize: 11, fontWeight: 600,
-          background: active ? T.selectedText : T.accentSoft,
-          color: active ? T.selectedBg : T.accent,
-          borderRadius: 10, padding: '1px 6px',
-          fontVariantNumeric: 'tabular-nums',
-        }}>{count}</span>
+      {!collapsed && (
+        <>
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {label}
+          </span>
+          {count != null && count > 0 && (
+            <span style={{
+              fontSize: 11, fontWeight: 600,
+              background: active ? T.selectedText : T.accentSoft,
+              color: active ? T.selectedBg : T.accent,
+              borderRadius: 10, padding: '1px 6px',
+              fontVariantNumeric: 'tabular-nums',
+            }}>{count}</span>
+          )}
+        </>
       )}
     </a>
   )
@@ -128,9 +147,11 @@ export default function Sidebar({ currentBoardId }: Props) {
 
   return (
     <aside style={{
-      width: 232, flexShrink: 0,
+      width: collapsed ? 48 : 232, flexShrink: 0,
       background: T.sidebar, borderRight: `1px solid ${T.sidebarBorder}`,
       display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden',
+      paddingBottom: isMobile ? 56 : 0,
+      transition: 'width 0.18s ease',
     }}>
       {/* Workspace header — US-601 */}
       <div style={{
@@ -138,16 +159,33 @@ export default function Sidebar({ currentBoardId }: Props) {
         display: 'flex', alignItems: 'center', gap: 10,
         borderBottom: `1px solid ${T.sidebarBorder}`, flexShrink: 0,
       }}>
-        <div style={{
-          width: 26, height: 26, borderRadius: 6,
-          background: T.accent, color: T.accentText,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, fontWeight: 700, letterSpacing: '-.02em', flexShrink: 0,
-        }}>K</div>
-        <WorkspaceSwitcher onWorkspaceChange={loadBoards} />
+        {!collapsed && (
+          <>
+            <div style={{
+              width: 26, height: 26, borderRadius: 6,
+              background: T.accent, color: T.accentText,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 700, letterSpacing: '-.02em', flexShrink: 0,
+            }}>K</div>
+            <WorkspaceSwitcher onWorkspaceChange={loadBoards} />
+          </>
+        )}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 2,
+            color: T.textFaint, display: 'inline-flex', alignItems: 'center',
+            borderRadius: 4, flexShrink: 0, marginLeft: collapsed ? 0 : 'auto',
+          }}
+        >
+          <Icon name={collapsed ? 'chevron' : 'chevLeft'} size={14} />
+        </button>
       </div>
 
       {/* Search */}
+      {!collapsed && (
       <div style={{ padding: '10px 12px 4px', flexShrink: 0 }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px',
@@ -161,6 +199,7 @@ export default function Sidebar({ currentBoardId }: Props) {
           }}>⌘K</span>
         </div>
       </div>
+      )}
 
       {/* Nav */}
       <div style={{ flex: 1, padding: '4px 8px', overflowY: 'auto' }}>
@@ -176,7 +215,7 @@ export default function Sidebar({ currentBoardId }: Props) {
         {/* Starred boards — US-602 */}
         {starredBoards.length > 0 && (
           <>
-            <SectionHead>Starred</SectionHead>
+            {!collapsed && <SectionHead>Starred</SectionHead>}
             {starredBoards.map(b => (
               <NavItem
                 key={b.id}
@@ -192,10 +231,10 @@ export default function Sidebar({ currentBoardId }: Props) {
         {/* Boards grouped by workspace — US-606 */}
         {workspaceGroups.length > 0 && (
           <>
-            <SectionHead showAdd>Boards</SectionHead>
+            {!collapsed && <SectionHead showAdd>Boards</SectionHead>}
             {workspaceGroups.map(group => (
               <div key={group.id ?? 'personal'}>
-                {workspaceGroups.length > 1 && (
+                {!collapsed && workspaceGroups.length > 1 && (
                   <div style={{
                     padding: '6px 10px 2px',
                     fontSize: 10.5, fontWeight: 600,
@@ -226,9 +265,12 @@ export default function Sidebar({ currentBoardId }: Props) {
 
       {/* Bottom bar */}
       <div style={{
-        padding: '10px 12px', borderTop: `1px solid ${T.sidebarBorder}`,
-        display: 'flex', alignItems: 'center', gap: 9,
-        flexShrink: 0, position: 'relative',
+        padding: collapsed ? '10px 0' : '10px 12px',
+        borderTop: `1px solid ${T.sidebarBorder}`,
+        display: 'flex', alignItems: 'center',
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        flexDirection: collapsed ? 'column' : 'row',
+        gap: 9, flexShrink: 0, position: 'relative',
       }}>
         <div style={{
           width: 24, height: 24, borderRadius: '50%',
@@ -237,42 +279,58 @@ export default function Sidebar({ currentBoardId }: Props) {
         }}>
           <Icon name="user" size={12} sw={1.5} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.1,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {profile?.displayName || profile?.email || 'Account'}
-          </div>
-          {profile?.email && (
-            <div style={{ fontSize: 10.5, color: T.textFaint, lineHeight: 1.1, marginTop: 2,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {profile.email}
+        {!collapsed && (
+          <>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.1,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {profile?.displayName || profile?.email || 'Account'}
+              </div>
+              {profile?.email && (
+                <div style={{ fontSize: 10.5, color: T.textFaint, lineHeight: 1.1, marginTop: 2,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {profile.email}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <ThemeSwitcher />
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setNotifOpen(o => !o)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: T.textMuted, display: 'inline-flex', alignItems: 'center',
-              padding: 2, borderRadius: 4, position: 'relative',
-            }}
-          >
-            <Icon name="inbox" size={14} />
-            {unreadCount > 0 && (
-              <span style={{
-                position: 'absolute', top: -2, right: -2,
-                width: 14, height: 14, borderRadius: '50%',
-                background: T.danger, color: '#fff',
-                fontSize: 9, fontWeight: 700,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
-            )}
-          </button>
-          {notifOpen && <NotificationPanel onClose={() => setNotifOpen(false)} />}
-        </div>
-        <Icon name="cog" size={14} style={{ color: T.textMuted, cursor: 'pointer' }} />
+            <ThemeSwitcher />
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setNotifOpen(o => !o)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: T.textMuted, display: 'inline-flex', alignItems: 'center',
+                  padding: 2, borderRadius: 4, position: 'relative',
+                }}
+              >
+                <Icon name="inbox" size={14} />
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -2, right: -2,
+                    width: 14, height: 14, borderRadius: '50%',
+                    background: T.danger, color: '#fff',
+                    fontSize: 9, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+                )}
+              </button>
+              {notifOpen && <NotificationPanel onClose={() => setNotifOpen(false)} />}
+            </div>
+            <Icon name="cog" size={14} style={{ color: T.textMuted, cursor: 'pointer' }} />
+          </>
+        )}
+        <button
+          onClick={handleLogout}
+          aria-label="Log out"
+          title="Log out"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: T.textMuted, display: 'inline-flex', alignItems: 'center',
+            padding: 2, borderRadius: 4,
+          }}
+        >
+          <Icon name="logout" size={14} />
+        </button>
       </div>
     </aside>
   )

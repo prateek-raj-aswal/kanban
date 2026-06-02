@@ -13,6 +13,7 @@ interface BoardStore {
   addColumn: (col: ColumnResponse) => void
   deleteColumn: (columnId: string) => void
   updateColumnColor: (columnId: string, headerColor: string | null) => void
+  reorderColumns: (orderedIds: string[]) => void
   applyEvent: (event: BoardEvent) => void
 }
 
@@ -95,6 +96,18 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           }
         : {}
     ),
+
+  reorderColumns: (orderedIds) => set(({ board }) => {
+    if (!board) return {}
+    const colMap = new Map((board.columns ?? []).map(c => [c.id, c]))
+    const reordered = orderedIds
+      .map((id, idx) => {
+        const col = colMap.get(id)
+        return col ? { ...col, position: idx } : null
+      })
+      .filter((c): c is ColumnResponse => c !== null)
+    return { board: { ...board, columns: reordered } }
+  }),
 
   applyEvent: (event) => {
     const { board } = get()

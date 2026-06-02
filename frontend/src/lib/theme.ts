@@ -154,6 +154,7 @@ export const ICONS = {
   timeline: 'M2 4h6M5 8h9M2 12h6',
   star:     'M8 2l1.7 3.6 3.8.4-2.9 2.7.9 3.9L8 10.6 4.5 12.6l.9-3.9L2.5 6l3.8-.4Z',
   chevron:  'M6 4l4 4-4 4',
+  chevLeft: 'M10 4l-4 4 4 4',
   chevDown: 'M4 6l4 4 4-4',
   more:     'M3.5 8h.01M8 8h.01M12.5 8h.01',
   msg:      'M2.5 4.5h11v6h-3l-2.5 2-1-2H2.5z',
@@ -170,6 +171,7 @@ export const ICONS = {
   moon:     'M12 12.5a6 6 0 0 1-6-10 6.5 6.5 0 1 0 6 10Z',
   palette:  'M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8ZM5 8h.01M8 5h.01M11 8h.01M8 11h.01',
   grip:     'M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01',
+  logout:   'M10 3H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h4M13 8H6M11 5l3 3-3 3',
 } as const
 
 export type IconKey = keyof typeof ICONS

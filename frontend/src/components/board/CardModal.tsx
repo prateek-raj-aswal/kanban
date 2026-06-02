@@ -292,6 +292,8 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 50,
         backdropFilter: 'blur(2px)',
+        overflowY: 'auto',
+        padding: '16px 0',
       }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
@@ -307,6 +309,7 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
         fontSize: 13,
       } : {
         width: 720,
+        maxWidth: 'calc(100vw - 32px)',
         maxHeight: '88vh',
         background: T.card,
         color: T.text,

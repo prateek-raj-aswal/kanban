@@ -3,8 +3,9 @@ import type { Metadata } from 'next'
 import ThemeProvider from '@/components/ui/ThemeProvider'
 
 export const metadata: Metadata = {
-  title: 'Kanaban',
-  description: 'Kanaban application',
+  title: 'Kanban',
+  description: 'Collaborative Kanban board',
+  icons: { icon: '/favicon.ico' },
 }
 
 export default function RootLayout({

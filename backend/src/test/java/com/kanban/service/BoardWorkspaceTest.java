@@ -11,6 +11,7 @@ import com.kanban.repository.CardRepository;
 import com.kanban.repository.CommentRepository;
 import com.kanban.repository.SubtaskRepository;
 import com.kanban.repository.UserRepository;
+import com.kanban.repository.WorkspaceMemberRepository;
 import com.kanban.security.BoardAccessPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,7 @@ class BoardWorkspaceTest {
     @Mock CommentRepository commentRepository;
     @Mock CardAssigneeRepository cardAssigneeRepository;
     @Mock CardRepository cardRepository;
+    @Mock WorkspaceMemberRepository workspaceMemberRepository;
 
     private BoardService boardService;
 
@@ -50,7 +52,8 @@ class BoardWorkspaceTest {
     @BeforeEach
     void setUp() {
         boardService = new BoardService(boardRepository, memberRepository, userRepository,
-                accessPolicy, subtaskRepository, commentRepository, cardAssigneeRepository, cardRepository);
+                accessPolicy, subtaskRepository, commentRepository, cardAssigneeRepository, cardRepository,
+                workspaceMemberRepository);
 
         userId      = UUID.randomUUID();
         boardId     = UUID.randomUUID();
@@ -69,6 +72,7 @@ class BoardWorkspaceTest {
 
     @Test
     void createBoard_withWorkspaceId_setsWorkspaceIdOnBoard() {
+        when(workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)).thenReturn(true);
         when(boardRepository.save(any())).thenAnswer(inv -> {
             Board b = inv.getArgument(0);
             setField(b, "id", boardId);
