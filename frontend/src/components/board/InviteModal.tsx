@@ -9,9 +9,10 @@ import MemberList from './MemberList'
 interface Props {
   boardId: string
   onClose: () => void
+  currentUserRole?: string
 }
 
-export default function InviteModal({ boardId, onClose }: Props) {
+export default function InviteModal({ boardId, onClose, currentUserRole }: Props) {
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<InvitationResponse | null>(null)
@@ -170,7 +171,7 @@ export default function InviteModal({ boardId, onClose }: Props) {
           <div style={{ borderTop: `1px solid ${T.cardBorder}` }} />
 
           {/* Members */}
-          <MemberList boardId={boardId} />
+          <MemberList boardId={boardId} currentUserRole={currentUserRole} />
         </div>
       </div>
     </div>

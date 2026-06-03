@@ -15,6 +15,7 @@ import com.kanban.repository.LabelRepository;
 import com.kanban.repository.SubtaskRepository;
 import com.kanban.security.AuthenticatedUser;
 import com.kanban.security.BoardAccessPolicy;
+import com.kanban.security.Role;
 import com.kanban.service.BoardService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -91,6 +92,16 @@ public class BoardController {
         return ResponseEntity.ok(boardService.getMembers(boardId, user.id()));
     }
 
+    @PatchMapping("/{boardId}/members/{userId}/role")
+    public ResponseEntity<Void> updateMemberRole(@PathVariable UUID boardId,
+                                                 @PathVariable UUID userId,
+                                                 @RequestBody Map<String, String> body,
+                                                 @AuthenticationPrincipal AuthenticatedUser user) {
+        Role newRole = Role.valueOf(body.get("role"));
+        boardService.updateBoardMemberRole(boardId, user.id(), userId, newRole);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{boardId}/cards/search")
     public ResponseEntity<List<CardResponse>> searchCards(
             @PathVariable UUID boardId,
@@ -118,7 +129,8 @@ public class BoardController {
             List<UUID> assignees = assigneeMap.getOrDefault(c.getId(), List.of());
             return new CardResponse(c.getId(), c.getColumn().getId(), c.getTitle(), c.getDescription(),
                     c.getPosition(), c.getStartDate(), c.getDueDate(), c.getPriority(),
-                    labels, assignees, sc[0], sc[1], cc, c.getCreatedAt(), c.getUpdatedAt());
+                    labels, assignees, sc[0], sc[1], cc, c.getCreatedAt(), c.getUpdatedAt(), c.getColor(),
+                    List.of());
         }).toList());
     }
 }

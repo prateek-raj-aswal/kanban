@@ -37,6 +37,9 @@ public class Card {
     @Column(nullable = false, length = 10)
     private String priority = "NONE";
 
+    @Column(name = "color", length = 7)
+    private String color;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -72,6 +75,8 @@ public class Card {
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
     public String getPriority() { return priority; }
     public void setPriority(String priority) { this.priority = priority; }
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
     public Instant getCreatedAt() { return createdAt; }

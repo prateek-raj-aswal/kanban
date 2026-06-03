@@ -119,7 +119,7 @@ public class AttachmentService {
 
         boolean isUploader = attachment.getUploaderId().equals(requestingUserId);
         boolean isAdmin = memberRepository.findByBoardIdAndUserId(boardId, requestingUserId)
-                .map(m -> "ADMIN".equals(m.getRole()) || "OWNER".equals(m.getRole()))
+                .map(m -> m.getRole() != null && m.getRole().ordinal() >= com.kanban.security.Role.ADMIN.ordinal())
                 .orElse(false);
         boolean isBoardOwner = attachment.getCard().getColumn().getBoard().getOwnerId().equals(requestingUserId);
 

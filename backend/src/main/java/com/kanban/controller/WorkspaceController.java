@@ -6,6 +6,7 @@ import com.kanban.dto.request.UpdateWorkspaceRequest;
 import com.kanban.dto.response.WorkspaceMemberResponse;
 import com.kanban.dto.response.WorkspaceResponse;
 import com.kanban.security.AuthenticatedUser;
+import com.kanban.security.Role;
 import com.kanban.service.WorkspaceService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -71,6 +73,16 @@ public class WorkspaceController {
                                           @AuthenticationPrincipal AuthenticatedUser user) {
         workspaceService.addMember(workspaceId, req, user.id());
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PatchMapping("/{workspaceId}/members/{userId}/role")
+    public ResponseEntity<Void> updateMemberRole(@PathVariable UUID workspaceId,
+                                                 @PathVariable UUID userId,
+                                                 @RequestBody Map<String, String> body,
+                                                 @AuthenticationPrincipal AuthenticatedUser user) {
+        Role newRole = Role.valueOf(body.get("role"));
+        workspaceService.updateMemberRole(workspaceId, user.id(), userId, newRole);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{workspaceId}/members/{userId}")

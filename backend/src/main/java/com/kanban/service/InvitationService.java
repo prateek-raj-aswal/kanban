@@ -95,7 +95,7 @@ public class InvitationService {
             BoardMember member = new BoardMember();
             member.setBoardId(invitation.getBoardId());
             member.setUserId(requestingUserId);
-            member.setRole("MEMBER");
+            member.setRole(com.kanban.security.Role.MEMBER);
             memberRepository.save(member);
         }
 
@@ -104,7 +104,8 @@ public class InvitationService {
 
         return boardRepository.findActiveById(invitation.getBoardId())
                 .map(b -> new BoardResponse(b.getId(), b.getName(), b.getOwnerId(), "MEMBER",
-                        b.getCreatedAt(), b.getWorkspaceId(), 0, null))
+                        b.getCreatedAt(), b.getWorkspaceId(), 0, null, b.getDescription(),
+                        b.getGroupBy() != null ? b.getGroupBy() : "NONE"))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"));
     }
 

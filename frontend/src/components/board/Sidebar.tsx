@@ -10,6 +10,7 @@ import NotificationPanel from '@/components/ui/NotificationPanel'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { useAuthStore } from '@/store/authStore'
+import { getRefreshToken } from '@/lib/auth'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { useSidebarStore } from '@/store/sidebarStore'
 
@@ -26,8 +27,10 @@ export default function Sidebar({ currentBoardId }: Props) {
   const { workspaces, activeWorkspaceId, setWorkspaces } = useWorkspaceStore()
 
   function handleLogout() {
+    const rt = getRefreshToken()
     logout()
     router.push('/login')
+    if (rt) api.post('/api/v1/auth/logout', { refreshToken: rt }).catch(() => {})
   }
   const [boards, setBoards] = useState<BoardResponse[]>([])
   const [starredBoards, setStarredBoards] = useState<BoardResponse[]>([])

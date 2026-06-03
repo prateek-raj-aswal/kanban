@@ -28,9 +28,9 @@ export default function BoardList() {
 
   useEffect(() => { load() }, [])
 
-  async function handleCreate(name: string) {
+  async function handleCreate(name: string, description?: string) {
     try {
-      const board = await api.post<BoardResponse>('/api/v1/boards', { name })
+      const board = await api.post<BoardResponse>('/api/v1/boards', { name, description })
       setBoards(prev => [...prev, board])
       setShowModal(false)
     } catch (err) {

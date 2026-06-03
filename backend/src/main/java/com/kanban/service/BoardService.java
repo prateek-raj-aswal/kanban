@@ -7,6 +7,7 @@ import com.kanban.dto.response.CardResponse;
 import com.kanban.dto.response.ColumnResponse;
 import com.kanban.dto.response.LabelResponse;
 import com.kanban.dto.response.MemberResponse;
+import com.kanban.dto.response.ModuleResponse;
 import com.kanban.exception.ApiException;
 import com.kanban.model.Board;
 import com.kanban.model.Card;
@@ -15,6 +16,7 @@ import com.kanban.model.User;
 import com.kanban.repository.BoardMemberRepository;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.CardAssigneeRepository;
+import com.kanban.repository.CardModuleRepository;
 import com.kanban.repository.CardRepository;
 import com.kanban.repository.CommentRepository;
 import com.kanban.repository.SubtaskRepository;
@@ -45,6 +47,7 @@ public class BoardService {
     private final SubtaskRepository subtaskRepository;
     private final CommentRepository commentRepository;
     private final CardAssigneeRepository cardAssigneeRepository;
+    private final CardModuleRepository cardModuleRepository;
     private final CardRepository cardRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
 
@@ -55,6 +58,7 @@ public class BoardService {
                         SubtaskRepository subtaskRepository,
                         CommentRepository commentRepository,
                         CardAssigneeRepository cardAssigneeRepository,
+                        CardModuleRepository cardModuleRepository,
                         CardRepository cardRepository,
                         WorkspaceMemberRepository workspaceMemberRepository) {
         this.boardRepository = boardRepository;
@@ -64,6 +68,7 @@ public class BoardService {
         this.subtaskRepository = subtaskRepository;
         this.commentRepository = commentRepository;
         this.cardAssigneeRepository = cardAssigneeRepository;
+        this.cardModuleRepository = cardModuleRepository;
         this.cardRepository = cardRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
     }
@@ -78,15 +83,16 @@ public class BoardService {
         board.setName(request.name());
         board.setOwnerId(requestingUserId);
         board.setWorkspaceId(request.workspaceId());
+        board.setDescription(request.description());
         board = boardRepository.save(board);
 
         BoardMember member = new BoardMember();
         member.setBoardId(board.getId());
         member.setUserId(requestingUserId);
-        member.setRole("OWNER");
+        member.setRole(com.kanban.security.Role.OWNER);
         memberRepository.save(member);
 
-        return toBoardResponse(board, "OWNER", 0, false);
+        return toBoardResponse(board, com.kanban.security.Role.OWNER.name(), 0, false);
     }
 
     @Transactional(readOnly = true)
@@ -99,7 +105,7 @@ public class BoardService {
         return boards.stream()
                 .map(b -> {
                     String role = memberRepository.findByBoardIdAndUserId(b.getId(), userId)
-                            .map(BoardMember::getRole).orElse("MEMBER");
+                            .map(BoardMember::getRoleString).orElse(com.kanban.security.Role.MEMBER.name());
                     return toBoardResponse(b, role, taskCounts.getOrDefault(b.getId(), 0), false);
                 })
                 .toList();
@@ -111,7 +117,7 @@ public class BoardService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"));
         accessPolicy.assertMember(boardId, requestingUserId);
         String role = memberRepository.findByBoardIdAndUserId(boardId, requestingUserId)
-                .map(BoardMember::getRole).orElse("MEMBER");
+                .map(BoardMember::getRoleString).orElse(com.kanban.security.Role.MEMBER.name());
         return toBoardResponse(board, role, 0, true);
     }
 
@@ -120,10 +126,19 @@ public class BoardService {
         Board board = boardRepository.findActiveById(boardId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "Board not found"));
         accessPolicy.assertMember(boardId, requestingUserId);
+        if (request.groupBy() != null) {
+            String gb = request.groupBy().toUpperCase();
+            if (!gb.equals("NONE") && !gb.equals("ASSIGNEE") && !gb.equals("PRIORITY") && !gb.equals("MODULE")) {
+                throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_GROUP_BY",
+                        "groupBy must be one of NONE, ASSIGNEE, PRIORITY, MODULE");
+            }
+            board.setGroupBy(gb);
+        }
         board.setName(request.name());
+        board.setDescription(request.description());
         board = boardRepository.save(board);
         String role = memberRepository.findByBoardIdAndUserId(boardId, requestingUserId)
-                .map(BoardMember::getRole).orElse("MEMBER");
+                .map(BoardMember::getRoleString).orElse(com.kanban.security.Role.MEMBER.name());
         return toBoardResponse(board, role, 0, false);
     }
 
@@ -155,9 +170,23 @@ public class BoardService {
                     return new MemberResponse(m.getUserId(),
                             u != null ? u.getDisplayName() : "",
                             u != null ? u.getEmail() : "",
-                            m.getRole(), m.getJoinedAt());
+                            m.getRoleString(), m.getJoinedAt());
                 })
                 .toList();
+    }
+
+    @Transactional
+    public void updateBoardMemberRole(UUID boardId, UUID actorId, UUID targetUserId,
+                                      com.kanban.security.Role newRole) {
+        accessPolicy.assertRole(boardId, actorId, com.kanban.security.Role.ADMIN);
+        if (newRole == com.kanban.security.Role.OWNER) {
+            accessPolicy.assertRole(boardId, actorId, com.kanban.security.Role.OWNER);
+        }
+        BoardMember target = memberRepository.findByBoardIdAndUserId(boardId, targetUserId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
+                        "MEMBER_NOT_FOUND", "Member not found in board"));
+        target.setRole(newRole);
+        memberRepository.save(target);
     }
 
     public BoardResponse toBoardResponse(Board board, String role, boolean includeColumns) {
@@ -182,6 +211,14 @@ public class BoardService {
                         .collect(groupingBy(
                                 com.kanban.model.CardAssignee::getCardId,
                                 mapping(com.kanban.model.CardAssignee::getUserId, toList())));
+            Map<UUID, List<ModuleResponse>> moduleMap = cardIds.isEmpty() ? Map.of()
+                    : cardModuleRepository.findByCardIn(cardIds).stream()
+                        .collect(groupingBy(
+                                com.kanban.model.CardModule::getCard,
+                                mapping((com.kanban.model.CardModule cm) -> new ModuleResponse(
+                                        cm.getModuleEntity().getId(),
+                                        cm.getModuleEntity().getBoard().getId(),
+                                        cm.getModuleEntity().getName()), toList())));
 
             columns = board.getColumns().stream()
                     .filter(c -> c.getDeletedAt() == null)
@@ -192,6 +229,7 @@ public class BoardService {
                                     int[] sc = subtaskCounts.getOrDefault(card.getId(), new int[]{0, 0});
                                     int cc = commentCounts.getOrDefault(card.getId(), 0);
                                     List<UUID> assignees = assigneeMap.getOrDefault(card.getId(), List.of());
+                                    List<ModuleResponse> modules = moduleMap.getOrDefault(card.getId(), List.of());
                                     return new CardResponse(
                                             card.getId(), card.getColumn().getId(),
                                             card.getTitle(), card.getDescription(),
@@ -202,7 +240,8 @@ public class BoardService {
                                                     .toList(),
                                             assignees,
                                             sc[0], sc[1], cc,
-                                            card.getCreatedAt(), card.getUpdatedAt()
+                                            card.getCreatedAt(), card.getUpdatedAt(),
+                                            card.getColor(), modules
                                     );
                                 })
                                 .toList();
@@ -211,7 +250,9 @@ public class BoardService {
                     })
                     .toList();
         }
+        String groupBy = board.getGroupBy() != null ? board.getGroupBy() : "NONE";
         return new BoardResponse(board.getId(), board.getName(), board.getOwnerId(),
-                role, board.getCreatedAt(), board.getWorkspaceId(), taskCount, columns);
+                role, board.getCreatedAt(), board.getWorkspaceId(), taskCount, columns,
+                board.getDescription(), groupBy);
     }
 }

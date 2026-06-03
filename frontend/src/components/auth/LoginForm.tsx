@@ -8,7 +8,7 @@ import { T } from '@/lib/theme'
 
 export default function LoginForm() {
   const router = useRouter()
-  const storeSetToken = useAuthStore(s => s.setToken)
+  const storeSetTokenPair = useAuthStore(s => s.setTokenPair)
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -19,7 +19,7 @@ export default function LoginForm() {
     setLoading(true)
     try {
       const res = await api.post<LoginResponse>('/api/v1/auth/login', form)
-      storeSetToken(res.accessToken)
+      storeSetTokenPair(res.accessToken, res.refreshToken, res.expiresIn)
       router.push('/boards')
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message)

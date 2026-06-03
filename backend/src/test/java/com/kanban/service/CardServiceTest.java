@@ -9,6 +9,7 @@ import com.kanban.model.BoardColumn;
 import com.kanban.model.Card;
 import com.kanban.model.Label;
 import com.kanban.repository.CardAssigneeRepository;
+import com.kanban.repository.CardModuleRepository;
 import com.kanban.repository.CardRepository;
 import com.kanban.repository.ColumnRepository;
 import com.kanban.repository.CommentRepository;
@@ -44,6 +45,7 @@ class CardServiceTest {
     @Mock SubtaskRepository subtaskRepository;
     @Mock CommentRepository commentRepository;
     @Mock CardAssigneeRepository cardAssigneeRepository;
+    @Mock CardModuleRepository cardModuleRepository;
     @Mock BoardAccessPolicy accessPolicy;
     @Mock EventBroadcastService eventBroadcastService;
     @Mock ActivityLogService activityLogService;
@@ -155,7 +157,7 @@ class CardServiceTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        UpdateCardRequest req = new UpdateCardRequest("Updated title", null, null, null, null, null);
+        UpdateCardRequest req = new UpdateCardRequest("Updated title", null, null, null, null, null, null);
         CardResponse res = cardService.updateCard(cardId, req, userId);
 
         assertThat(res.title()).isEqualTo("Updated title");
@@ -167,7 +169,7 @@ class CardServiceTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null);
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, null);
         cardService.updateCard(cardId, req, userId);
 
         ArgumentCaptor<Card> captor = ArgumentCaptor.forClass(Card.class);
@@ -187,7 +189,7 @@ class CardServiceTest {
         when(labelRepository.findAllById(List.of(labelId))).thenReturn(List.of(label));
         when(cardRepository.save(any())).thenReturn(card);
 
-        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, List.of(labelId));
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, List.of(labelId), null);
         CardResponse res = cardService.updateCard(cardId, req, userId);
 
         assertThat(res.labels()).hasSize(1);
@@ -199,7 +201,7 @@ class CardServiceTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        UpdateCardRequest req = new UpdateCardRequest("New title", null, null, null, null, null);
+        UpdateCardRequest req = new UpdateCardRequest("New title", null, null, null, null, null, null);
         cardService.updateCard(cardId, req, userId);
 
         verify(labelRepository, never()).findAllById(any());
@@ -211,7 +213,7 @@ class CardServiceTest {
         when(cardRepository.save(any())).thenReturn(card);
 
         LocalDate start = LocalDate.of(2026, 6, 1);
-        UpdateCardRequest req = new UpdateCardRequest(null, null, start, null, null, null);
+        UpdateCardRequest req = new UpdateCardRequest(null, null, start, null, null, null, null);
         cardService.updateCard(cardId, req, userId);
 
         ArgumentCaptor<Card> captor = ArgumentCaptor.forClass(Card.class);
@@ -225,7 +227,7 @@ class CardServiceTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null);
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, null);
         cardService.updateCard(cardId, req, userId);
 
         ArgumentCaptor<Card> captor = ArgumentCaptor.forClass(Card.class);

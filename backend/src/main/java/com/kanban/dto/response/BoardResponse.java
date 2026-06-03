@@ -12,5 +12,7 @@ public record BoardResponse(
         Instant createdAt,
         UUID workspaceId,
         int taskCount,
-        List<ColumnResponse> columns
+        List<ColumnResponse> columns,
+        String description,
+        String groupBy
 ) {}

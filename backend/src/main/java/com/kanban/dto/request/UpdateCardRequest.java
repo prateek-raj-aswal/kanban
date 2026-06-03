@@ -10,5 +10,6 @@ public record UpdateCardRequest(
         LocalDate startDate,
         LocalDate dueDate,
         String priority,
-        List<UUID> labelIds
+        List<UUID> labelIds,
+        String color
 ) {}

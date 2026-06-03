@@ -9,6 +9,7 @@ import com.kanban.model.BoardColumn;
 import com.kanban.model.Card;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.CardAssigneeRepository;
+import com.kanban.repository.CardModuleRepository;
 import com.kanban.repository.CardRepository;
 import com.kanban.repository.ColumnRepository;
 import com.kanban.repository.CommentRepository;
@@ -40,6 +41,7 @@ class BroadcastTest {
     @Mock SubtaskRepository subtaskRepository;
     @Mock CommentRepository commentRepository;
     @Mock CardAssigneeRepository cardAssigneeRepository;
+    @Mock CardModuleRepository cardModuleRepository;
     @Mock BoardRepository boardRepository;
     @Mock BoardAccessPolicy accessPolicy;
     @Mock EventBroadcastService eventBroadcastService;
@@ -60,7 +62,7 @@ class BroadcastTest {
     @BeforeEach
     void setUp() {
         cardService = new CardService(cardRepository, columnRepository, labelRepository,
-                subtaskRepository, commentRepository, cardAssigneeRepository, accessPolicy,
+                subtaskRepository, commentRepository, cardAssigneeRepository, cardModuleRepository, accessPolicy,
                 eventBroadcastService, activityLogService, notificationService);
         columnService = new ColumnService(columnRepository, boardRepository,
                 accessPolicy, eventBroadcastService);
@@ -113,7 +115,7 @@ class BroadcastTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        cardService.updateCard(cardId, new UpdateCardRequest("New title", null, null, null, null, null), userId);
+        cardService.updateCard(cardId, new UpdateCardRequest("New title", null, null, null, null, null, null), userId);
 
         ArgumentCaptor<BoardEventPayload> captor = ArgumentCaptor.forClass(BoardEventPayload.class);
         verify(eventBroadcastService).broadcastBoardEvent(eq(boardId), captor.capture());

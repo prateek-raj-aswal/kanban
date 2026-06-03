@@ -6,6 +6,13 @@ import com.kanban.exception.ApiException;
 import com.kanban.model.Board;
 import com.kanban.model.BoardMember;
 import com.kanban.repository.BoardMemberRepository;
+import com.kanban.repository.CardAssigneeRepository;
+import com.kanban.repository.CardModuleRepository;
+import com.kanban.repository.CardRepository;
+import com.kanban.repository.CommentRepository;
+import com.kanban.repository.SubtaskRepository;
+import com.kanban.repository.WorkspaceMemberRepository;
+import com.kanban.security.Role;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.UserRepository;
 import com.kanban.security.BoardAccessPolicy;
@@ -33,6 +40,12 @@ class BoardServiceTest {
     @Mock BoardMemberRepository memberRepository;
     @Mock UserRepository userRepository;
     @Mock BoardAccessPolicy accessPolicy;
+    @Mock SubtaskRepository subtaskRepository;
+    @Mock CommentRepository commentRepository;
+    @Mock CardAssigneeRepository cardAssigneeRepository;
+    @Mock CardModuleRepository cardModuleRepository;
+    @Mock CardRepository cardRepository;
+    @Mock WorkspaceMemberRepository workspaceMemberRepository;
 
     @InjectMocks BoardService boardService;
 
@@ -54,7 +67,7 @@ class BoardServiceTest {
         boardMember = new BoardMember();
         boardMember.setBoardId(boardId);
         boardMember.setUserId(userId);
-        boardMember.setRole("OWNER");
+        boardMember.setRole(Role.OWNER);
     }
 
     @Test
@@ -63,7 +76,7 @@ class BoardServiceTest {
         when(boardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(memberRepository.findByBoardIdAndUserId(boardId, userId)).thenReturn(Optional.of(boardMember));
 
-        UpdateBoardRequest req = new UpdateBoardRequest("New Name");
+        UpdateBoardRequest req = new UpdateBoardRequest("New Name", null, null);
         BoardResponse res = boardService.updateBoard(boardId, req, userId);
 
         assertThat(res.name()).isEqualTo("New Name");
@@ -81,7 +94,7 @@ class BoardServiceTest {
         when(boardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(memberRepository.findByBoardIdAndUserId(boardId, userId)).thenReturn(Optional.of(boardMember));
 
-        boardService.updateBoard(boardId, new UpdateBoardRequest("X"), userId);
+        boardService.updateBoard(boardId, new UpdateBoardRequest("X", null, null), userId);
 
         verify(accessPolicy).assertMember(boardId, userId);
     }
@@ -91,7 +104,7 @@ class BoardServiceTest {
         when(boardRepository.findActiveById(boardId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-            boardService.updateBoard(boardId, new UpdateBoardRequest("X"), userId)
+            boardService.updateBoard(boardId, new UpdateBoardRequest("X", null, null), userId)
         ).isInstanceOf(ApiException.class)
          .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
 
@@ -105,7 +118,7 @@ class BoardServiceTest {
             .when(accessPolicy).assertMember(boardId, userId);
 
         assertThatThrownBy(() ->
-            boardService.updateBoard(boardId, new UpdateBoardRequest("X"), userId)
+            boardService.updateBoard(boardId, new UpdateBoardRequest("X", null, null), userId)
         ).isInstanceOf(ApiException.class)
          .hasFieldOrPropertyWithValue("status", HttpStatus.FORBIDDEN);
 
@@ -118,7 +131,7 @@ class BoardServiceTest {
         when(boardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(memberRepository.findByBoardIdAndUserId(boardId, userId)).thenReturn(Optional.empty());
 
-        BoardResponse res = boardService.updateBoard(boardId, new UpdateBoardRequest("X"), userId);
+        BoardResponse res = boardService.updateBoard(boardId, new UpdateBoardRequest("X", null, null), userId);
 
         assertThat(res.role()).isEqualTo("MEMBER");
     }

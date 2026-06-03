@@ -4,6 +4,8 @@ import { T } from '@/lib/theme'
 import Icon from './Icon'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { useAuthStore } from '@/store/authStore'
+import { getRefreshToken } from '@/lib/auth'
+import { api } from '@/lib/api'
 
 const TABS = [
   { id: 'board',    icon: 'grid'     as const, label: 'Board',    href: '/boards' },
@@ -19,8 +21,10 @@ export default function BottomNav() {
   const logout = useAuthStore(s => s.logout)
 
   function handleLogout() {
+    const rt = getRefreshToken()
     logout()
     router.push('/login')
+    if (rt) api.post('/api/v1/auth/logout', { refreshToken: rt }).catch(() => {})
   }
 
   if (!isMobile) return null

@@ -1,4 +1,9 @@
-import { getToken, clearToken } from './auth'
+import {
+  getToken, setToken,
+  getRefreshToken, setRefreshToken,
+  getTokenExpiry, setTokenExpiry,
+} from './auth'
+import { useAuthStore } from '@/store/authStore'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
 
@@ -9,7 +14,47 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit, skipContentType = false): Promise<T> {
+// Shared promise so concurrent 401s share one refresh call, not N independent ones
+let pendingRefresh: Promise<boolean> | null = null
+
+async function attemptTokenRefresh(): Promise<boolean> {
+  if (pendingRefresh) return pendingRefresh
+  pendingRefresh = (async () => {
+    const refreshToken = getRefreshToken()
+    if (!refreshToken) return false
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      })
+      if (!res.ok) return false
+      const data = await res.json()
+      setToken(data.accessToken)
+      setRefreshToken(data.refreshToken)
+      setTokenExpiry(Date.now() + data.expiresIn * 1000)
+      return true
+    } catch {
+      return false
+    }
+  })().finally(() => { pendingRefresh = null })
+  return pendingRefresh
+}
+
+function isTokenNearExpiry(): boolean {
+  const expiry = getTokenExpiry()
+  if (!expiry) return false
+  return Date.now() >= expiry - 60_000
+}
+
+async function request<T>(path: string, init?: RequestInit, skipContentType = false, _retried = false): Promise<T> {
+  const isAuthPath = path.startsWith('/api/v1/auth/')
+
+  // Proactive pre-expiry refresh before sending the request
+  if (!isAuthPath && !_retried && isTokenNearExpiry()) {
+    await attemptTokenRefresh()
+  }
+
   const token = getToken()
   const headers: Record<string, string> = {
     ...(!skipContentType ? { 'Content-Type': 'application/json' } : {}),
@@ -19,15 +64,21 @@ async function request<T>(path: string, init?: RequestInit, skipContentType = fa
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
   if (!res.ok) {
-    if (res.status === 401) {
-      // Auth endpoints return 401 for wrong credentials — don't treat as expired session
-      if (!path.startsWith('/api/v1/auth/')) {
-        clearToken()
-        window.dispatchEvent(new CustomEvent('kanban:unauthorized'))
-      }
+    if (res.status === 401 && isAuthPath) {
       const body = await res.json().catch(() => ({}))
-      const msg = body.error ?? (path.startsWith('/api/v1/auth/') ? 'Invalid email or password' : 'Session expired')
-      throw new ApiError(401, 'UNAUTHORIZED', msg)
+      throw new ApiError(401, 'UNAUTHORIZED', body.error ?? 'Invalid email or password')
+    }
+    if (res.status === 401 && !_retried) {
+      const refreshed = await attemptTokenRefresh()
+      if (refreshed) {
+        return request<T>(path, init, skipContentType, true)
+      }
+    }
+    if (res.status === 401) {
+      // Refresh failed or already retried — clear state and redirect to login
+      useAuthStore.getState().logout()
+      window.dispatchEvent(new CustomEvent('kanban:unauthorized'))
+      throw new ApiError(401, 'UNAUTHORIZED', 'Session expired')
     }
     const body = await res.json().catch(() => ({}))
     throw new ApiError(res.status, body.code ?? 'UNKNOWN', body.error ?? 'Request failed', body.fields)

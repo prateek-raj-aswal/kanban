@@ -28,6 +28,8 @@ function headerTextColors(hex: string | undefined) {
   }
 }
 
+const HEX_RE = /^#[0-9A-Fa-f]{6}$/
+
 function ColorPalette({
   tokens,
   colorHexMap,
@@ -42,6 +44,7 @@ function ColorPalette({
   onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const [hexInput, setHexInput] = useState('')
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -96,6 +99,26 @@ function ColorPalette({
           )
         })}
       </div>
+      <input
+        type="text"
+        placeholder="#ff0000"
+        value={hexInput}
+        maxLength={7}
+        onChange={e => setHexInput(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && HEX_RE.test(hexInput)) {
+            onSelect(hexInput)
+            setHexInput('')
+          }
+        }}
+        style={{
+          width: '100%', padding: '4px 8px', fontSize: 12,
+          background: T.card, border: `1px solid ${T.cardBorder}`,
+          borderRadius: 5, color: T.text, outline: 'none',
+          fontFamily: 'monospace', marginBottom: 6,
+          boxSizing: 'border-box',
+        }}
+      />
       <button
         onClick={() => onSelect(null)}
         style={{
@@ -225,7 +248,10 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
 
   const colorHexMap = useConfigStore(s => s.columnColorMap)
   const colorTokens = useConfigStore(s => s.columnColors)
-  const activeHex = column.headerColor && colorHexMap[column.headerColor] ? colorHexMap[column.headerColor] : undefined
+  // Support both token names ('red') and raw hex values ('#ff0000')
+  const activeHex = column.headerColor
+    ? (column.headerColor.startsWith('#') ? column.headerColor : colorHexMap[column.headerColor])
+    : undefined
   const hc = headerTextColors(activeHex)
   const board = useBoardStore(s => s.board)
   const updateColumnColor = useBoardStore(s => s.updateColumnColor)
@@ -326,9 +352,7 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
         display: 'flex', alignItems: 'center', gap: 8,
         flexShrink: 0,
         borderRadius: '8px 8px 0 0',
-        backgroundColor: column.headerColor && colorHexMap[column.headerColor]
-          ? colorHexMap[column.headerColor]
-          : undefined,
+        backgroundColor: activeHex ?? undefined,
         position: 'relative',
       }}>
         {/* Drag handle */}

@@ -12,6 +12,7 @@ import { T } from '@/lib/theme'
 import Icon from '@/components/ui/Icon'
 import Sidebar from './Sidebar'
 import ColumnList from './ColumnList'
+import SwimlaneView, { type GroupBy } from './SwimlaneView'
 import CardModal from './CardModal'
 import InviteModal from './InviteModal'
 import ChatSidebar from './ChatSidebar'
@@ -40,7 +41,7 @@ export default function BoardView({ boardId }: Props) {
   const [filterAssigneeId, setFilterAssigneeId] = useState('')
   const [members, setMembers] = useState<MemberResponse[]>([])
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
-  const [swimlanes, setSwimlanes] = useState(false)
+  const [groupBy, setGroupBy] = useState<GroupBy | 'NONE'>('NONE')
   const [activeColIdx, setActiveColIdx] = useState(0)
   const [starred, setStarred] = useState(false)
   const [editingBoardName, setEditingBoardName] = useState(false)
@@ -52,7 +53,12 @@ export default function BoardView({ boardId }: Props) {
   useEffect(() => {
     setBoard(null)
     api.get<import('@/types/api').BoardResponse>(`/api/v1/boards/${boardId}`)
-      .then(setBoard)
+      .then(b => {
+        setBoard(b)
+        const validGroups: Array<GroupBy | 'NONE'> = ['NONE', 'ASSIGNEE', 'PRIORITY', 'MODULE']
+        const incoming = b.groupBy as GroupBy | 'NONE' | undefined
+        if (incoming && validGroups.includes(incoming)) setGroupBy(incoming)
+      })
       .catch(err => { if (err instanceof ApiError) setError(err.message) })
     api.get<MemberResponse[]>(`/api/v1/boards/${boardId}/members`)
       .then(setMembers)
@@ -316,21 +322,32 @@ export default function BoardView({ boardId }: Props) {
             })}
           </div>
           {viewMode === 'board' && (
-            <button
-              onClick={() => setSwimlanes(s => !s)}
-              style={{
-                height: 32, padding: '0 10px',
-                background: swimlanes ? T.accentSoft : T.card,
-                color: swimlanes ? T.accent : T.textMuted,
-                border: `1px solid ${swimlanes ? T.accent : T.cardBorder}`,
-                borderRadius: 6, fontSize: 12, fontWeight: 500,
-                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontFamily: 'inherit',
-              }}
-            >
-              <Icon name="list" size={12} sw={1.7} />
-              Swimlanes
-            </button>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <Icon name="list" size={12} sw={1.7} style={{ color: T.textMuted }} />
+              <select
+                value={groupBy}
+                onChange={async e => {
+                  const next = e.target.value as GroupBy | 'NONE'
+                  setGroupBy(next)
+                  try {
+                    await api.patch(`/api/v1/boards/${boardId}`, { groupBy: next })
+                  } catch { /* ignore — local state already updated */ }
+                }}
+                style={{
+                  height: 30, padding: '0 6px',
+                  border: `1px solid ${groupBy !== 'NONE' ? T.accent : T.cardBorder}`,
+                  borderRadius: 6, fontSize: 12,
+                  background: groupBy !== 'NONE' ? T.accentSoft : T.card,
+                  color: groupBy !== 'NONE' ? T.accent : T.textMuted,
+                  cursor: 'pointer', outline: 'none', fontFamily: 'inherit',
+                }}
+              >
+                <option value="NONE">Group by: None</option>
+                <option value="ASSIGNEE">Group by: Assignee</option>
+                <option value="PRIORITY">Group by: Priority</option>
+                <option value="MODULE">Group by: Module</option>
+              </select>
+            </div>
           )}
           </div>
         </div>
@@ -530,6 +547,17 @@ export default function BoardView({ boardId }: Props) {
                 </div>
               ))}
             </div>
+          ) : groupBy !== 'NONE' ? (
+            <SwimlaneView
+              boardId={boardId}
+              columns={columns}
+              groupBy={groupBy as GroupBy}
+              members={members}
+              onSelectCard={handleSelectCard}
+              onCardMoved={card => { updateCard(card); moveCard(card) }}
+              onDeleteColumn={deleteColumnHandler}
+              onAddCard={addCard}
+            />
           ) : (
             <ColumnList
               boardId={boardId}
@@ -538,7 +566,6 @@ export default function BoardView({ boardId }: Props) {
               onSelectCard={handleSelectCard}
               onAddCard={addCard}
               onCardMoved={moveCard}
-              swimlanes={swimlanes}
             />
           )}
         </div>
@@ -547,7 +574,7 @@ export default function BoardView({ boardId }: Props) {
       {chatOpen && <ChatSidebar isOpen={chatOpen} />}
 
       {inviteOpen && (
-        <InviteModal boardId={boardId} onClose={() => setInviteOpen(false)} />
+        <InviteModal boardId={boardId} onClose={() => setInviteOpen(false)} currentUserRole={board?.role} />
       )}
 
       {selectedCard && (

@@ -5,6 +5,7 @@ import com.kanban.dto.response.BoardResponse;
 import com.kanban.model.Board;
 import com.kanban.model.BoardMember;
 import com.kanban.repository.BoardMemberRepository;
+import com.kanban.security.Role;
 import com.kanban.repository.BoardRepository;
 import com.kanban.repository.CardAssigneeRepository;
 import com.kanban.repository.CardRepository;
@@ -52,7 +53,7 @@ class BoardWorkspaceTest {
     @BeforeEach
     void setUp() {
         boardService = new BoardService(boardRepository, memberRepository, userRepository,
-                accessPolicy, subtaskRepository, commentRepository, cardAssigneeRepository, cardRepository,
+                accessPolicy, subtaskRepository, commentRepository, cardAssigneeRepository, null, cardRepository,
                 workspaceMemberRepository);
 
         userId      = UUID.randomUUID();
@@ -67,7 +68,7 @@ class BoardWorkspaceTest {
         boardMember = new BoardMember();
         boardMember.setBoardId(boardId);
         boardMember.setUserId(userId);
-        boardMember.setRole("OWNER");
+        boardMember.setRole(Role.OWNER);
     }
 
     @Test
@@ -80,7 +81,7 @@ class BoardWorkspaceTest {
         });
         when(memberRepository.save(any())).thenReturn(boardMember);
 
-        BoardResponse res = boardService.createBoard(new CreateBoardRequest("New Board", workspaceId), userId);
+        BoardResponse res = boardService.createBoard(new CreateBoardRequest("New Board", workspaceId, null), userId);
 
         assertThat(res.workspaceId()).isEqualTo(workspaceId);
 
@@ -98,7 +99,7 @@ class BoardWorkspaceTest {
         });
         when(memberRepository.save(any())).thenReturn(boardMember);
 
-        BoardResponse res = boardService.createBoard(new CreateBoardRequest("New Board", null), userId);
+        BoardResponse res = boardService.createBoard(new CreateBoardRequest("New Board", null, null), userId);
 
         assertThat(res.workspaceId()).isNull();
     }

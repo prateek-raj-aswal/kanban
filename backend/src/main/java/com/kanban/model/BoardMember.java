@@ -1,5 +1,6 @@
 package com.kanban.model;
 
+import com.kanban.security.Role;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
@@ -18,8 +19,9 @@ public class BoardMember {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String role = "MEMBER";
+    private Role role = Role.MEMBER;
 
     @Column(name = "joined_at", nullable = false, updatable = false)
     private Instant joinedAt = Instant.now();
@@ -29,7 +31,9 @@ public class BoardMember {
     public void setBoardId(UUID boardId) { this.boardId = boardId; }
     public UUID getUserId() { return userId; }
     public void setUserId(UUID userId) { this.userId = userId; }
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
+    /** Convenience for callers that need the String name (e.g. DTO responses). */
+    public String getRoleString() { return role != null ? role.name() : null; }
     public Instant getJoinedAt() { return joinedAt; }
 }

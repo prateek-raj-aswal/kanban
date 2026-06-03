@@ -18,7 +18,7 @@ import { useAuthStore } from '@/store/authStore'
 describe('authStore', () => {
   beforeEach(() => {
     localStorageMock.clear()
-    useAuthStore.setState({ token: null })
+    useAuthStore.setState({ token: null, refreshToken: null })
   })
 
   it('starts with null token', () => {
@@ -46,5 +46,22 @@ describe('authStore', () => {
     expect(useAuthStore.getState().token).toBeNull()
     expect(localStorageMock.getItem('kanban_token')).toBeNull()
     expect(useAuthStore.getState().isAuthenticated()).toBe(false)
+  })
+
+  it('setTokenPair stores access + refresh tokens and expiry', () => {
+    useAuthStore.getState().setTokenPair('access.jwt', 'refresh-uuid', 900)
+    expect(useAuthStore.getState().token).toBe('access.jwt')
+    expect(useAuthStore.getState().refreshToken).toBe('refresh-uuid')
+    expect(localStorageMock.getItem('kanban_token')).toBe('access.jwt')
+    expect(localStorageMock.getItem('kanban_refresh_token')).toBe('refresh-uuid')
+  })
+
+  it('logout clears both tokens and refresh token from localStorage', () => {
+    useAuthStore.getState().setTokenPair('access.jwt', 'refresh-uuid', 900)
+    useAuthStore.getState().logout()
+    expect(useAuthStore.getState().token).toBeNull()
+    expect(useAuthStore.getState().refreshToken).toBeNull()
+    expect(localStorageMock.getItem('kanban_token')).toBeNull()
+    expect(localStorageMock.getItem('kanban_refresh_token')).toBeNull()
   })
 })

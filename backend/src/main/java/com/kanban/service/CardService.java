@@ -5,11 +5,13 @@ import com.kanban.dto.request.MoveCardRequest;
 import com.kanban.dto.request.UpdateCardRequest;
 import com.kanban.dto.response.CardResponse;
 import com.kanban.dto.response.LabelResponse;
+import com.kanban.dto.response.ModuleResponse;
 import com.kanban.exception.ApiException;
 import com.kanban.model.BoardColumn;
 import com.kanban.model.Card;
 import com.kanban.model.Label;
 import com.kanban.repository.CardAssigneeRepository;
+import com.kanban.repository.CardModuleRepository;
 import com.kanban.repository.CardRepository;
 import com.kanban.repository.ColumnRepository;
 import com.kanban.repository.CommentRepository;
@@ -35,6 +37,7 @@ public class CardService {
     private final SubtaskRepository subtaskRepository;
     private final CommentRepository commentRepository;
     private final CardAssigneeRepository cardAssigneeRepository;
+    private final CardModuleRepository cardModuleRepository;
     private final BoardAccessPolicy accessPolicy;
     private final EventBroadcastService eventBroadcastService;
     private final ActivityLogService activityLogService;
@@ -43,6 +46,7 @@ public class CardService {
     public CardService(CardRepository cardRepository, ColumnRepository columnRepository,
                        LabelRepository labelRepository, SubtaskRepository subtaskRepository,
                        CommentRepository commentRepository, CardAssigneeRepository cardAssigneeRepository,
+                       CardModuleRepository cardModuleRepository,
                        BoardAccessPolicy accessPolicy, EventBroadcastService eventBroadcastService,
                        ActivityLogService activityLogService, NotificationService notificationService) {
         this.cardRepository = cardRepository;
@@ -51,6 +55,7 @@ public class CardService {
         this.subtaskRepository = subtaskRepository;
         this.commentRepository = commentRepository;
         this.cardAssigneeRepository = cardAssigneeRepository;
+        this.cardModuleRepository = cardModuleRepository;
         this.accessPolicy = accessPolicy;
         this.eventBroadcastService = eventBroadcastService;
         this.activityLogService = activityLogService;
@@ -105,6 +110,12 @@ public class CardService {
         card.setStartDate(request.startDate());
         card.setDueDate(request.dueDate());
         if (request.priority() != null) card.setPriority(request.priority());
+
+        if (request.color() != null && !request.color().matches("^#[0-9A-Fa-f]{6}$")) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_COLOR",
+                    "Color must be a valid hex value (e.g. #ff0000)");
+        }
+        card.setColor(request.color());
 
         if (request.labelIds() != null) {
             List<Label> labels = labelRepository.findAllById(request.labelIds());
@@ -186,10 +197,16 @@ public class CardService {
         int commentCount = (int) commentRepository.findByCardIdOrderByCreatedAtAsc(card.getId()).size();
         List<UUID> assignees = cardAssigneeRepository.findByCardId(card.getId()).stream()
                 .map(com.kanban.model.CardAssignee::getUserId).toList();
+        List<ModuleResponse> modules = cardModuleRepository.findByCard(card.getId()).stream()
+                .map(cm -> new ModuleResponse(
+                        cm.getModuleEntity().getId(),
+                        cm.getModuleEntity().getBoard().getId(),
+                        cm.getModuleEntity().getName()))
+                .toList();
         return new CardResponse(card.getId(), card.getColumn().getId(),
                 card.getTitle(), card.getDescription(), card.getPosition(),
                 card.getStartDate(), card.getDueDate(), card.getPriority(), labels, assignees,
                 subtaskTotal, subtaskDone, commentCount,
-                card.getCreatedAt(), card.getUpdatedAt());
+                card.getCreatedAt(), card.getUpdatedAt(), card.getColor(), modules);
     }
 }

@@ -6,6 +6,9 @@ const THEME_LABELS: Record<ThemeName, string> = {
   light: 'Light',
   midnight: 'Midnight',
   graphite: 'Graphite',
+  ocean: 'Ocean',
+  sunset: 'Sunset',
+  forest: 'Forest',
 }
 
 export default function ThemeSwitcher() {

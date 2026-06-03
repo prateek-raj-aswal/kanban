@@ -70,7 +70,7 @@ public class BoardStarService {
                 .filter(b -> b != null)
                 .map(b -> {
                     String role = memberRepository.findByBoardIdAndUserId(b.getId(), userId)
-                            .map(m -> m.getRole()).orElse("MEMBER");
+                            .map(m -> m.getRoleString()).orElse(com.kanban.security.Role.MEMBER.name());
                     return boardService.toBoardResponse(b, role, false);
                 })
                 .toList();

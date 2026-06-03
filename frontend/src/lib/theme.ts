@@ -24,6 +24,11 @@ export const T = {
   selectedText:  'var(--selected-text)',
 } as const
 
+export type CanvasBackground =
+  | string
+  | { gradient: string }
+  | { texture: string; fallback?: string }
+
 type ThemeTokens = {
   canvas: string; sidebar: string; sidebarBorder: string
   topbar: string; topbarBorder: string
@@ -33,9 +38,10 @@ type ThemeTokens = {
   danger: string; warn: string; ok: string
   hover: string; chipBg: string; chipText: string
   selectedBg: string; selectedText: string
+  canvasBackground?: CanvasBackground
 }
 
-export type ThemeName = 'light' | 'midnight' | 'graphite'
+export type ThemeName = 'light' | 'midnight' | 'graphite' | 'ocean' | 'sunset' | 'forest'
 
 export const THEMES: Record<ThemeName, ThemeTokens> = {
   light: {
@@ -113,12 +119,103 @@ export const THEMES: Record<ThemeName, ThemeTokens> = {
     selectedBg:    '#312e81',
     selectedText:  '#a5b4fc',
   },
+  ocean: {
+    canvas:        '#0a1628',
+    sidebar:       '#0d1f3c',
+    sidebarBorder: '#162847',
+    topbar:        '#0d1f3c',
+    topbarBorder:  '#162847',
+    column:        '#112240',
+    card:          '#1a3358',
+    cardBorder:    '#1e3d66',
+    cardShadow:    '0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3)',
+    text:          '#ccd6f6',
+    textMuted:     '#8892b0',
+    textFaint:     '#495670',
+    accent:        '#64ffda',
+    accentSoft:    '#0d3a2e',
+    accentText:    '#0a1628',
+    danger:        '#ff6b6b',
+    warn:          '#ffd166',
+    ok:            '#06d6a0',
+    hover:         '#162847',
+    chipBg:        '#1e3d66',
+    chipText:      '#8892b0',
+    selectedBg:    '#0d3a2e',
+    selectedText:  '#64ffda',
+    canvasBackground: {
+      gradient: 'linear-gradient(160deg, #0a1628 0%, #0d1f3c 40%, #0a2a4a 70%, #051020 100%)',
+    },
+  },
+  sunset: {
+    canvas:        '#1a0a0a',
+    sidebar:       '#2a1010',
+    sidebarBorder: '#3d1a1a',
+    topbar:        '#2a1010',
+    topbarBorder:  '#3d1a1a',
+    column:        '#321414',
+    card:          '#3d1c1c',
+    cardBorder:    '#4a2020',
+    cardShadow:    '0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3)',
+    text:          '#fde8d8',
+    textMuted:     '#c4956a',
+    textFaint:     '#7a5040',
+    accent:        '#ff7043',
+    accentSoft:    '#4a1a0a',
+    accentText:    '#ffffff',
+    danger:        '#ff5252',
+    warn:          '#ffca28',
+    ok:            '#69f0ae',
+    hover:         '#3d1c1c',
+    chipBg:        '#4a2020',
+    chipText:      '#c4956a',
+    selectedBg:    '#4a1a0a',
+    selectedText:  '#ff8a65',
+    canvasBackground: {
+      gradient: 'linear-gradient(160deg, #1a0a0a 0%, #2a1005 30%, #3d1500 60%, #2a0a00 100%)',
+    },
+  },
+  forest: {
+    canvas:        '#0d1a0f',
+    sidebar:       '#122016',
+    sidebarBorder: '#1a2e1e',
+    topbar:        '#122016',
+    topbarBorder:  '#1a2e1e',
+    column:        '#162819',
+    card:          '#1e3422',
+    cardBorder:    '#253d28',
+    cardShadow:    '0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3)',
+    text:          '#d4e8d0',
+    textMuted:     '#7aad80',
+    textFaint:     '#3d6642',
+    accent:        '#4caf50',
+    accentSoft:    '#1a3d1e',
+    accentText:    '#ffffff',
+    danger:        '#ef5350',
+    warn:          '#ffb74d',
+    ok:            '#66bb6a',
+    hover:         '#1e3422',
+    chipBg:        '#253d28',
+    chipText:      '#7aad80',
+    selectedBg:    '#1a3d1e',
+    selectedText:  '#81c784',
+    canvasBackground: {
+      gradient: 'linear-gradient(160deg, #0d1a0f 0%, #122016 35%, #0a1f0d 65%, #081508 100%)',
+    },
+  },
+}
+
+function resolveCanvas(t: ThemeTokens): string {
+  if (t.canvasBackground === undefined) return t.canvas
+  if (typeof t.canvasBackground === 'string') return t.canvasBackground
+  if ('gradient' in t.canvasBackground) return t.canvasBackground.gradient
+  return t.canvasBackground.texture
 }
 
 export function applyTheme(name: ThemeName) {
   const t = THEMES[name]
   const r = document.documentElement
-  r.style.setProperty('--canvas',        t.canvas)
+  r.style.setProperty('--canvas',        resolveCanvas(t))
   r.style.setProperty('--sidebar',       t.sidebar)
   r.style.setProperty('--sidebar-border',t.sidebarBorder)
   r.style.setProperty('--topbar',        t.topbar)

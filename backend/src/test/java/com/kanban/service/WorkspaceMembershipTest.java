@@ -7,6 +7,8 @@ import com.kanban.model.WorkspaceMember;
 import com.kanban.repository.UserRepository;
 import com.kanban.repository.WorkspaceMemberRepository;
 import com.kanban.repository.WorkspaceRepository;
+import com.kanban.security.Role;
+import com.kanban.security.WorkspaceAccessPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +33,7 @@ class WorkspaceMembershipTest {
     @Mock WorkspaceRepository workspaceRepository;
     @Mock WorkspaceMemberRepository memberRepository;
     @Mock UserRepository userRepository;
+    @Mock WorkspaceAccessPolicy accessPolicy;
 
     @InjectMocks WorkspaceService workspaceService;
 
@@ -56,7 +59,7 @@ class WorkspaceMembershipTest {
         ownerMember = new WorkspaceMember();
         setField(ownerMember, "workspaceId", workspaceId);
         setField(ownerMember, "userId", ownerId);
-        setField(ownerMember, "role", "OWNER");
+        setField(ownerMember, "role", Role.OWNER);
         setField(ownerMember, "joinedAt", Instant.now());
     }
 
@@ -65,8 +68,6 @@ class WorkspaceMembershipTest {
     @Test
     void addMember_savesMemberWithDefaultRole() {
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, ownerId))
-                .thenReturn(Optional.of(ownerMember));
         when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetUserId)).thenReturn(false);
 
         workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetUserId, null), ownerId);
@@ -75,28 +76,24 @@ class WorkspaceMembershipTest {
         verify(memberRepository).save(captor.capture());
         assertThat(captor.getValue().getWorkspaceId()).isEqualTo(workspaceId);
         assertThat(captor.getValue().getUserId()).isEqualTo(targetUserId);
-        assertThat(captor.getValue().getRole()).isEqualTo("MEMBER");
+        assertThat(captor.getValue().getRole()).isEqualTo(Role.MEMBER);
     }
 
     @Test
     void addMember_savesMemberWithExplicitRole() {
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, ownerId))
-                .thenReturn(Optional.of(ownerMember));
         when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetUserId)).thenReturn(false);
 
         workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetUserId, "ADMIN"), ownerId);
 
         ArgumentCaptor<WorkspaceMember> captor = ArgumentCaptor.forClass(WorkspaceMember.class);
         verify(memberRepository).save(captor.capture());
-        assertThat(captor.getValue().getRole()).isEqualTo("ADMIN");
+        assertThat(captor.getValue().getRole()).isEqualTo(Role.ADMIN);
     }
 
     @Test
     void addMember_throwsConflictWhenAlreadyMember() {
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, ownerId))
-                .thenReturn(Optional.of(ownerMember));
         when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetUserId)).thenReturn(true);
 
         assertThatThrownBy(() ->
@@ -108,15 +105,10 @@ class WorkspaceMembershipTest {
 
     @Test
     void addMember_throwsForbiddenWhenCallerIsRegularMember() {
-        WorkspaceMember regularMember = new WorkspaceMember();
-        setField(regularMember, "workspaceId", workspaceId);
-        setField(regularMember, "userId", ownerId);
-        setField(regularMember, "role", "MEMBER");
-        setField(regularMember, "joinedAt", Instant.now());
-
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, ownerId))
-                .thenReturn(Optional.of(regularMember));
+        doThrow(new ApiException(HttpStatus.FORBIDDEN, "NOT_WORKSPACE_ADMIN",
+                "Only workspace OWNER or ADMIN can perform this action"))
+                .when(accessPolicy).assertAdminOrOwner(workspaceId, ownerId);
 
         assertThatThrownBy(() ->
                 workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetUserId, null), ownerId))
@@ -141,12 +133,10 @@ class WorkspaceMembershipTest {
         WorkspaceMember targetMember = new WorkspaceMember();
         setField(targetMember, "workspaceId", workspaceId);
         setField(targetMember, "userId", targetUserId);
-        setField(targetMember, "role", "MEMBER");
+        setField(targetMember, "role", Role.MEMBER);
         setField(targetMember, "joinedAt", Instant.now());
 
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, ownerId))
-                .thenReturn(Optional.of(ownerMember));
         when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, targetUserId))
                 .thenReturn(Optional.of(targetMember));
 
@@ -160,12 +150,10 @@ class WorkspaceMembershipTest {
         WorkspaceMember ownerTarget = new WorkspaceMember();
         setField(ownerTarget, "workspaceId", workspaceId);
         setField(ownerTarget, "userId", targetUserId);
-        setField(ownerTarget, "role", "OWNER");
+        setField(ownerTarget, "role", Role.OWNER);
         setField(ownerTarget, "joinedAt", Instant.now());
 
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, ownerId))
-                .thenReturn(Optional.of(ownerMember));
         when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, targetUserId))
                 .thenReturn(Optional.of(ownerTarget));
 

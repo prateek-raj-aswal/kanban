@@ -4,6 +4,7 @@ import { T } from '@/lib/theme'
 import Icon from '@/components/ui/Icon'
 import type { WorkspaceResponse } from '@/types/api'
 import { useWorkspaceStore } from '@/store/workspaceStore'
+import WorkspaceManageModal from './WorkspaceManageModal'
 
 interface Props {
   onWorkspaceChange?: () => void
@@ -12,6 +13,7 @@ interface Props {
 export default function WorkspaceSwitcher({ onWorkspaceChange }: Props) {
   const { workspaces, activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore()
   const [open, setOpen] = useState(false)
+  const [manageWorkspace, setManageWorkspace] = useState<WorkspaceResponse | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   const active = workspaces.find(w => w.id === activeWorkspaceId)
@@ -75,18 +77,44 @@ export default function WorkspaceSwitcher({ onWorkspaceChange }: Props) {
           {workspaces.map(w => (
             <div
               key={w.id}
-              onClick={() => select(w.id)}
               style={{
-                padding: '7px 12px', fontSize: 13, cursor: 'pointer',
-                color: activeWorkspaceId === w.id ? T.accent : T.text,
-                fontWeight: activeWorkspaceId === w.id ? 600 : 400,
+                display: 'flex', alignItems: 'center',
                 background: activeWorkspaceId === w.id ? T.accentSoft : 'transparent',
               }}
             >
-              {w.name}
+              <div
+                onClick={() => select(w.id)}
+                style={{
+                  flex: 1, padding: '7px 12px', fontSize: 13, cursor: 'pointer',
+                  color: activeWorkspaceId === w.id ? T.accent : T.text,
+                  fontWeight: activeWorkspaceId === w.id ? 600 : 400,
+                }}
+              >
+                {w.name}
+              </div>
+              <button
+                onClick={e => { e.stopPropagation(); setOpen(false); setManageWorkspace(w) }}
+                title="Manage workspace"
+                aria-label={`Manage ${w.name}`}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '4px 8px', color: T.textFaint, display: 'flex', alignItems: 'center',
+                }}
+              >
+                <Icon name="cog" size={12} />
+              </button>
             </div>
           ))}
         </div>
+      )}
+
+      {manageWorkspace && (
+        <WorkspaceManageModal
+          workspace={manageWorkspace}
+          onClose={() => setManageWorkspace(null)}
+          onUpdated={() => { setManageWorkspace(null); onWorkspaceChange?.() }}
+          onDeleted={() => { setManageWorkspace(null); onWorkspaceChange?.() }}
+        />
       )}
     </div>
   )

@@ -23,6 +23,12 @@ public class Board {
     @Column(name = "workspace_id")
     private UUID workspaceId;
 
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "group_by", length = 20)
+    private String groupBy = "NONE";
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -46,6 +52,10 @@ public class Board {
     public void setOwnerId(UUID ownerId) { this.ownerId = ownerId; }
     public UUID getWorkspaceId() { return workspaceId; }
     public void setWorkspaceId(UUID workspaceId) { this.workspaceId = workspaceId; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getGroupBy() { return groupBy; }
+    public void setGroupBy(String groupBy) { this.groupBy = groupBy; }
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
     public Instant getCreatedAt() { return createdAt; }

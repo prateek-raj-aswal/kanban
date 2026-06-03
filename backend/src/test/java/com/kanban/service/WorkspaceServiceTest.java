@@ -5,8 +5,11 @@ import com.kanban.dto.response.WorkspaceResponse;
 import com.kanban.exception.ApiException;
 import com.kanban.model.Workspace;
 import com.kanban.model.WorkspaceMember;
+import com.kanban.repository.UserRepository;
 import com.kanban.repository.WorkspaceMemberRepository;
 import com.kanban.repository.WorkspaceRepository;
+import com.kanban.security.Role;
+import com.kanban.security.WorkspaceAccessPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +34,8 @@ class WorkspaceServiceTest {
 
     @Mock WorkspaceRepository workspaceRepository;
     @Mock WorkspaceMemberRepository memberRepository;
+    @Mock UserRepository userRepository;
+    @Mock WorkspaceAccessPolicy accessPolicy;
 
     @InjectMocks WorkspaceService workspaceService;
 
@@ -75,7 +80,7 @@ class WorkspaceServiceTest {
         verify(memberRepository).save(memberCaptor.capture());
         assertThat(memberCaptor.getValue().getWorkspaceId()).isEqualTo(workspaceId);
         assertThat(memberCaptor.getValue().getUserId()).isEqualTo(userId);
-        assertThat(memberCaptor.getValue().getRole()).isEqualTo("OWNER");
+        assertThat(memberCaptor.getValue().getRole()).isEqualTo(Role.OWNER);
     }
 
     @Test
@@ -103,7 +108,7 @@ class WorkspaceServiceTest {
         WorkspaceMember ownerMember = new WorkspaceMember();
         setField(ownerMember, "workspaceId", workspaceId);
         setField(ownerMember, "userId", userId);
-        setField(ownerMember, "role", "OWNER");
+        setField(ownerMember, "role", Role.OWNER);
         setField(ownerMember, "joinedAt", Instant.now());
 
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
@@ -144,7 +149,7 @@ class WorkspaceServiceTest {
         WorkspaceMember member = new WorkspaceMember();
         setField(member, "workspaceId", workspaceId);
         setField(member, "userId", userId);
-        setField(member, "role", "MEMBER");
+        setField(member, "role", Role.MEMBER);
         setField(member, "joinedAt", Instant.now());
 
         when(workspaceRepository.findAllByMemberUserId(userId)).thenReturn(List.of(workspace));

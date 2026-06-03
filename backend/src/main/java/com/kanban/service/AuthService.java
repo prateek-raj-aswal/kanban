@@ -18,12 +18,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                       JwtTokenProvider jwtTokenProvider) {
+                       JwtTokenProvider jwtTokenProvider, RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Transactional
@@ -40,8 +42,8 @@ public class AuthService {
         return new AuthResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.getCreatedAt());
     }
 
-    @Transactional(readOnly = true)
-    public String login(LoginRequest request) {
+    @Transactional
+    public RefreshTokenService.TokenPair login(LoginRequest request) {
         User user = userRepository.findActiveByEmail(request.email())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS",
                         "Invalid email or password"));
@@ -49,6 +51,8 @@ public class AuthService {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS",
                     "Invalid email or password");
         }
-        return jwtTokenProvider.generateToken(user.getId(), user.getEmail());
+        String accessToken = jwtTokenProvider.generateToken(user.getId(), user.getEmail());
+        String refreshToken = refreshTokenService.issue(user);
+        return new RefreshTokenService.TokenPair(accessToken, refreshToken);
     }
 }

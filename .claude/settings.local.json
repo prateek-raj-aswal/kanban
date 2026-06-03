@@ -185,7 +185,18 @@
       "Bash(docker save *)",
       "Bash(gzip)",
       "Bash(docker tag *)",
-      "Bash(docker push *)"
+      "Bash(docker push *)",
+      "Bash(dir D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\frontend\\\\public *)",
+      "PowerShell(takeown *)",
+      "Bash(xxd \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\\\\frontend\\\\public\\\\favicon.ico\")",
+      "Bash(./gradlew dependencies *)",
+      "Bash(Select-Object -First 10)",
+      "Bash(./gradlew clean *)",
+      "Bash(xargs grep -l \"logout\\\\|Logout\")",
+      "Bash(cat vite.config.ts)",
+      "Bash(cat vitest.config.ts)",
+      "Bash(cat vite.config.js)",
+      "Bash(./gradlew compileTestJava -x javadoc)"
     ]
   }
 }

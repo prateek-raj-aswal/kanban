@@ -4,6 +4,7 @@ import { api, ApiError } from '@/lib/api'
 import { T, darkenHex } from '@/lib/theme'
 import { useIsMobile } from '@/lib/useIsMobile'
 import type { CardResponse, LabelResponse, Priority, SubtaskResponse, CommentResponse, ActivityLogResponse, MemberResponse, AttachmentResponse } from '@/types/api'
+import IssuesPanel from '@/components/board/IssuesPanel'
 import Icon from '@/components/ui/Icon'
 
 const PRIORITIES: Priority[] = ['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT']
@@ -103,6 +104,8 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [copyDone, setCopyDone] = useState(false)
+  const [cardColor, setCardColor] = useState<string | null>(card.color ?? null)
+  const [cardColorInput, setCardColorInput] = useState(card.color ?? '')
 
   const isOverdue = dueDate ? new Date(dueDate) < new Date() : false
 
@@ -281,6 +284,15 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
     } catch (err) {
       if (err instanceof ApiError) alert(err.message)
       setDeleting(false)
+    }
+  }
+
+  async function handleCardColor(hex: string | null) {
+    setCardColor(hex)
+    try {
+      await api.patch(`/api/v1/cards/${card.id}`, { color: hex })
+    } catch {
+      setCardColor(cardColor) // rollback
     }
   }
 
@@ -594,6 +606,11 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
             </div>
 
             <div>
+              <SectionLabel>Issues</SectionLabel>
+              <IssuesPanel filterByCardId={card.id} attachToCardId={card.id} />
+            </div>
+
+            <div>
               <SectionLabel>Comments {comments.length > 0 ? `(${comments.length})` : ''}</SectionLabel>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>
                 {comments.map(c => (
@@ -809,6 +826,36 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
                   outline: 'none', fontFamily: 'inherit', cursor: 'pointer',
                 }}
               />
+            </PropRow>
+
+            <PropRow label="Card color">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: 4, flexShrink: 0,
+                  background: cardColor ?? 'transparent',
+                  border: cardColor ? 'none' : `1.5px dashed ${T.cardBorder}`,
+                }} />
+                <input
+                  type="text"
+                  placeholder="#ff0000"
+                  value={cardColorInput}
+                  maxLength={7}
+                  onChange={e => setCardColorInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const v = cardColorInput.trim()
+                      if (/^#[0-9A-Fa-f]{6}$/.test(v)) handleCardColor(v)
+                      else if (v === '') handleCardColor(null)
+                    }
+                  }}
+                  style={{
+                    width: 90, padding: '3px 7px', fontSize: 12,
+                    background: T.card, border: `1px solid ${T.cardBorder}`,
+                    borderRadius: 5, color: T.text, outline: 'none',
+                    fontFamily: 'monospace',
+                  }}
+                />
+              </div>
             </PropRow>
 
             <PropRow label="Assignees">

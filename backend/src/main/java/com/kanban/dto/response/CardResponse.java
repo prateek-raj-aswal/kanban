@@ -20,5 +20,7 @@ public record CardResponse(
         int subtaskDone,
         int commentCount,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        String color,
+        List<ModuleResponse> modules
 ) {}

@@ -16,6 +16,10 @@ public class BoardAccessPolicy {
         this.memberRepository = memberRepository;
     }
 
+    /**
+     * Assert that {@code userId} has at least the given {@code action} on {@code boardId}.
+     * VIEWER may only READ; MEMBER/ADMIN/OWNER may WRITE.
+     */
     public void assertAccess(UUID boardId, UUID userId, BoardAction action) {
         if (action == BoardAction.READ) {
             if (!memberRepository.existsByBoardIdAndUserId(boardId, userId)) {
@@ -23,9 +27,19 @@ public class BoardAccessPolicy {
             }
         } else {
             memberRepository.findByBoardIdAndUserId(boardId, userId)
-                    .filter(member -> !member.getRole().equals("VIEWER"))
+                    .filter(member -> member.getRole() != null && member.getRole().ordinal() >= Role.MEMBER.ordinal())
                     .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Access denied"));
         }
+    }
+
+    /**
+     * Assert that {@code userId} has at least {@code minimumRole} on {@code boardId}.
+     * Uses enum ordinal ordering: VIEWER(0) < MEMBER(1) < ADMIN(2) < OWNER(3).
+     */
+    public void assertRole(UUID boardId, UUID userId, Role minimumRole) {
+        memberRepository.findByBoardIdAndUserId(boardId, userId)
+                .filter(member -> member.getRole() != null && member.getRole().ordinal() >= minimumRole.ordinal())
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Access denied"));
     }
 
     @Deprecated

@@ -6,5 +6,6 @@ import java.util.UUID;
 
 public record CreateBoardRequest(
         @NotBlank @Size(min = 1, max = 255) String name,
-        UUID workspaceId
+        UUID workspaceId,
+        String description
 ) {}

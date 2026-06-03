@@ -11,6 +11,8 @@ import com.kanban.model.WorkspaceMember;
 import com.kanban.repository.UserRepository;
 import com.kanban.repository.WorkspaceMemberRepository;
 import com.kanban.repository.WorkspaceRepository;
+import com.kanban.security.Role;
+import com.kanban.security.WorkspaceAccessPolicy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,13 +26,16 @@ public class WorkspaceService {
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final WorkspaceAccessPolicy accessPolicy;
 
     public WorkspaceService(WorkspaceRepository workspaceRepository,
                             WorkspaceMemberRepository memberRepository,
-                            UserRepository userRepository) {
+                            UserRepository userRepository,
+                            WorkspaceAccessPolicy accessPolicy) {
         this.workspaceRepository = workspaceRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
+        this.accessPolicy = accessPolicy;
     }
 
     @Transactional
@@ -43,10 +48,10 @@ public class WorkspaceService {
         WorkspaceMember owner = new WorkspaceMember();
         owner.setWorkspaceId(ws.getId());
         owner.setUserId(actorId);
-        owner.setRole("OWNER");
+        owner.setRole(Role.OWNER);
         memberRepository.save(owner);
 
-        return toResponse(ws, "OWNER");
+        return toResponse(ws, Role.OWNER.name());
     }
 
     @Transactional(readOnly = true)
@@ -54,7 +59,7 @@ public class WorkspaceService {
         return workspaceRepository.findAllByMemberUserId(userId).stream()
                 .map(ws -> {
                     String role = memberRepository.findByWorkspaceIdAndUserId(ws.getId(), userId)
-                            .map(WorkspaceMember::getRole).orElse("MEMBER");
+                            .map(WorkspaceMember::getRoleString).orElse(Role.MEMBER.name());
                     return toResponse(ws, role);
                 })
                 .toList();
@@ -66,17 +71,17 @@ public class WorkspaceService {
         WorkspaceMember member = memberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
                         "NOT_WORKSPACE_MEMBER", "You are not a member of this workspace"));
-        return toResponse(ws, member.getRole());
+        return toResponse(ws, member.getRoleString());
     }
 
     @Transactional
     public WorkspaceResponse updateWorkspace(UUID workspaceId, UpdateWorkspaceRequest req, UUID actorId) {
         Workspace ws = findOrThrow(workspaceId);
-        assertAdminOrOwner(workspaceId, actorId);
+        accessPolicy.assertAdminOrOwner(workspaceId, actorId);
         ws.setName(req.name());
         ws = workspaceRepository.save(ws);
         String role = memberRepository.findByWorkspaceIdAndUserId(workspaceId, actorId)
-                .map(WorkspaceMember::getRole).orElse("MEMBER");
+                .map(WorkspaceMember::getRoleString).orElse(Role.MEMBER.name());
         return toResponse(ws, role);
     }
 
@@ -93,7 +98,7 @@ public class WorkspaceService {
     @Transactional(readOnly = true)
     public List<WorkspaceMemberResponse> listMembers(UUID workspaceId, UUID actorId) {
         findOrThrow(workspaceId);
-        assertMember(workspaceId, actorId);
+        accessPolicy.assertMember(workspaceId, actorId);
 
         List<WorkspaceMember> members = memberRepository.findByWorkspaceId(workspaceId);
         List<UUID> userIds = members.stream().map(WorkspaceMember::getUserId).toList();
@@ -109,7 +114,7 @@ public class WorkspaceService {
                             m.getUserId(),
                             u != null ? u.getEmail() : "",
                             u != null ? u.getDisplayName() : null,
-                            m.getRole(),
+                            m.getRoleString(),
                             m.getJoinedAt()
                     );
                 })
@@ -119,7 +124,7 @@ public class WorkspaceService {
     @Transactional
     public void addMember(UUID workspaceId, AddWorkspaceMemberRequest req, UUID actorId) {
         findOrThrow(workspaceId);
-        assertAdminOrOwner(workspaceId, actorId);
+        accessPolicy.assertAdminOrOwner(workspaceId, actorId);
 
         if (memberRepository.existsByWorkspaceIdAndUserId(workspaceId, req.userId())) {
             throw new ApiException(HttpStatus.CONFLICT,
@@ -129,20 +134,35 @@ public class WorkspaceService {
         WorkspaceMember member = new WorkspaceMember();
         member.setWorkspaceId(workspaceId);
         member.setUserId(req.userId());
-        member.setRole(req.role() != null ? req.role() : "MEMBER");
+        // Parse the role string from the request; default to MEMBER
+        Role role = req.role() != null ? Role.valueOf(req.role()) : Role.MEMBER;
+        member.setRole(role);
         memberRepository.save(member);
+    }
+
+    @Transactional
+    public void updateMemberRole(UUID workspaceId, UUID actorId, UUID targetUserId, Role newRole) {
+        accessPolicy.assertAdminOrOwner(workspaceId, actorId);
+        if (newRole == Role.OWNER) {
+            accessPolicy.assertOwner(workspaceId, actorId);
+        }
+        WorkspaceMember target = memberRepository.findByWorkspaceIdAndUserId(workspaceId, targetUserId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
+                        "MEMBER_NOT_FOUND", "Member not found in workspace"));
+        target.setRole(newRole);
+        memberRepository.save(target);
     }
 
     @Transactional
     public void removeMember(UUID workspaceId, UUID targetUserId, UUID actorId) {
         Workspace ws = findOrThrow(workspaceId);
-        assertAdminOrOwner(workspaceId, actorId);
+        accessPolicy.assertAdminOrOwner(workspaceId, actorId);
 
         WorkspaceMember target = memberRepository.findByWorkspaceIdAndUserId(workspaceId, targetUserId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
                         "MEMBER_NOT_FOUND", "Member not found in workspace"));
 
-        if ("OWNER".equals(target.getRole())) {
+        if (target.getRole() == Role.OWNER) {
             throw new ApiException(HttpStatus.FORBIDDEN,
                     "CANNOT_REMOVE_OWNER", "Cannot remove the workspace owner");
         }
@@ -155,23 +175,6 @@ public class WorkspaceService {
         return workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
                         "WORKSPACE_NOT_FOUND", "Workspace not found"));
-    }
-
-    private void assertMember(UUID workspaceId, UUID userId) {
-        if (!memberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)) {
-            throw new ApiException(HttpStatus.FORBIDDEN,
-                    "NOT_WORKSPACE_MEMBER", "You are not a member of this workspace");
-        }
-    }
-
-    private void assertAdminOrOwner(UUID workspaceId, UUID userId) {
-        WorkspaceMember m = memberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
-                        "NOT_WORKSPACE_MEMBER", "You are not a member of this workspace"));
-        if (!"OWNER".equals(m.getRole()) && !"ADMIN".equals(m.getRole())) {
-            throw new ApiException(HttpStatus.FORBIDDEN,
-                    "NOT_WORKSPACE_ADMIN", "Only workspace OWNER or ADMIN can perform this action");
-        }
     }
 
     private WorkspaceResponse toResponse(Workspace ws, String role) {

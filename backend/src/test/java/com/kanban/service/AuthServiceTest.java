@@ -7,6 +7,7 @@ import com.kanban.exception.ApiException;
 import com.kanban.model.User;
 import com.kanban.repository.UserRepository;
 import com.kanban.security.JwtTokenProvider;
+import com.kanban.service.RefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,7 @@ class AuthServiceTest {
     @Mock UserRepository userRepository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock JwtTokenProvider jwtTokenProvider;
+    @Mock RefreshTokenService refreshTokenService;
 
     @InjectMocks AuthService authService;
 
@@ -74,14 +76,17 @@ class AuthServiceTest {
     }
 
     @Test
-    void login_returnsTokenForValidCredentials() {
+    void login_returnsTokenPairForValidCredentials() {
         when(userRepository.findActiveByEmail("alice@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("secret123", "hashed")).thenReturn(true);
         when(jwtTokenProvider.generateToken(userId, "alice@example.com")).thenReturn("jwt.token.here");
+        when(refreshTokenService.issue(user)).thenReturn("raw-refresh-uuid");
 
-        String token = authService.login(new LoginRequest("alice@example.com", "secret123"));
+        RefreshTokenService.TokenPair pair = authService.login(new LoginRequest("alice@example.com", "secret123"));
 
-        assertThat(token).isEqualTo("jwt.token.here");
+        assertThat(pair.accessToken()).isEqualTo("jwt.token.here");
+        assertThat(pair.refreshToken()).isEqualTo("raw-refresh-uuid");
+        verify(refreshTokenService).issue(user);
     }
 
     @Test

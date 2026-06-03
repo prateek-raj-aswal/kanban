@@ -7,6 +7,7 @@ export interface AuthResponse {
 
 export interface LoginResponse {
   accessToken: string
+  refreshToken: string
   tokenType: string
   expiresIn: number
 }
@@ -20,6 +21,14 @@ export interface BoardResponse {
   workspaceId?: string | null
   taskCount?: number
   columns?: ColumnResponse[]
+  groupBy?: string
+}
+
+export interface ModuleResponse {
+  id: string
+  boardId: string
+  name: string
+  color?: string | null
 }
 
 export interface WorkspaceResponse {
@@ -80,6 +89,7 @@ export interface CardResponse {
   commentCount?: number
   createdAt?: string
   updatedAt?: string
+  modules?: ModuleResponse[]
 }
 
 export interface AttachmentResponse {
@@ -160,4 +170,16 @@ export interface ApiError {
   error: string
   code: string
   fields?: { field: string; message: string }[]
+}
+
+export type IssueStatus = 'OPEN' | 'IN_PROGRESS' | 'CLOSED'
+
+export interface IssueResponse {
+  id: string
+  title: string
+  description: string | null
+  status: IssueStatus
+  parentCardId: string | null
+  createdAt: string
+  updatedAt: string
 }
