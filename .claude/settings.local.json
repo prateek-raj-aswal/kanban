@@ -196,7 +196,18 @@
       "Bash(cat vite.config.ts)",
       "Bash(cat vitest.config.ts)",
       "Bash(cat vite.config.js)",
-      "Bash(./gradlew compileTestJava -x javadoc)"
+      "Bash(./gradlew compileTestJava -x javadoc)",
+      "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\Claude-workspace\\\\Kanaban\" -Recurse -Directory -Depth 2)",
+      "Bash(xargs grep -l \"enum Role\\\\|Role\\\\|Swimlane\\\\|swimlane\\\\|GroupBy\\\\|groupBy\")",
+      "Bash(xargs grep -l \"US-1404\\\\|US-1411\\\\|US-1302\")",
+      "Bash(./gradlew cleanTest test --tests \"com.kanban.service.WorkspaceMembershipTest\")",
+      "Bash(./gradlew cleanTest test --tests \"com.kanban.service.WorkspaceMembershipTest\" --info)",
+      "Bash(./gradlew cleanTest test --tests \"com.kanban.service.*\")",
+      "Bash(xargs grep -l -i \"aws\\\\|deploy\\\\|production\\\\|ec2\")",
+      "Read(//c/Users/Prateek/.ssh/**)",
+      "Read(//c/Users/Prateek/.ssh//**)",
+      "Bash(docker version *)",
+      "Bash(curl -s -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')"
     ]
   }
 }
