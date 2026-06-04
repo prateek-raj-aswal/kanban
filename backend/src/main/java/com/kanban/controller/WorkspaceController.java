@@ -68,11 +68,11 @@ public class WorkspaceController {
     }
 
     @PostMapping("/{workspaceId}/members")
-    public ResponseEntity<Void> addMember(@PathVariable UUID workspaceId,
-                                          @Valid @RequestBody AddWorkspaceMemberRequest req,
-                                          @AuthenticationPrincipal AuthenticatedUser user) {
-        workspaceService.addMember(workspaceId, req, user.id());
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+    public ResponseEntity<WorkspaceMemberResponse> addMember(@PathVariable UUID workspaceId,
+                                                             @Valid @RequestBody AddWorkspaceMemberRequest req,
+                                                             @AuthenticationPrincipal AuthenticatedUser user) {
+        WorkspaceMemberResponse member = workspaceService.addMember(workspaceId, req, user.id());
+        return ResponseEntity.status(HttpStatus.CREATED).body(member);
     }
 
     @PatchMapping("/{workspaceId}/members/{userId}/role")

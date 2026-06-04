@@ -346,8 +346,8 @@ describe('TC-SL05: BoardView renders ColumnList when groupBy is NONE', () => {
   it('does not render swimlane-view when groupBy is NONE', async () => {
     render(<BoardView boardId="board-1" />)
 
-    // Wait for the board to load (board name should appear)
-    await screen.findByText('Test Board')
+    // Wait for the board to load (board name should appear — multiple occurrences are fine)
+    await screen.findAllByText('Test Board')
 
     // SwimlaneView should NOT be present
     expect(screen.queryByTestId('swimlane-view')).toBeNull()

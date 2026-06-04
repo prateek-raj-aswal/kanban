@@ -122,22 +122,42 @@ public class WorkspaceService {
     }
 
     @Transactional
-    public void addMember(UUID workspaceId, AddWorkspaceMemberRequest req, UUID actorId) {
+    public WorkspaceMemberResponse addMember(UUID workspaceId, AddWorkspaceMemberRequest req, UUID actorId) {
         findOrThrow(workspaceId);
         accessPolicy.assertAdminOrOwner(workspaceId, actorId);
 
-        if (memberRepository.existsByWorkspaceIdAndUserId(workspaceId, req.userId())) {
+        com.kanban.model.User target = userRepository.findActiveByEmail(req.email())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
+                        "USER_NOT_FOUND", "No user found with the provided email"));
+
+        if (memberRepository.existsByWorkspaceIdAndUserId(workspaceId, target.getId())) {
             throw new ApiException(HttpStatus.CONFLICT,
                     "ALREADY_MEMBER", "User is already a member of this workspace");
         }
 
+        Role role;
+        try {
+            role = req.role() != null ? Role.valueOf(req.role().toUpperCase()) : Role.MEMBER;
+        } catch (IllegalArgumentException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_ROLE", "Provided role is not valid");
+        }
+        if (role == Role.OWNER) {
+            accessPolicy.assertOwner(workspaceId, actorId);
+        }
+
         WorkspaceMember member = new WorkspaceMember();
         member.setWorkspaceId(workspaceId);
-        member.setUserId(req.userId());
-        // Parse the role string from the request; default to MEMBER
-        Role role = req.role() != null ? Role.valueOf(req.role()) : Role.MEMBER;
+        member.setUserId(target.getId());
         member.setRole(role);
         memberRepository.save(member);
+
+        return new WorkspaceMemberResponse(
+                target.getId(),
+                target.getEmail(),
+                target.getDisplayName(),
+                role.name(),
+                member.getJoinedAt()
+        );
     }
 
     @Transactional

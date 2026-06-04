@@ -1,7 +1,9 @@
 package com.kanban.service;
 
 import com.kanban.dto.request.AddWorkspaceMemberRequest;
+import com.kanban.dto.response.WorkspaceMemberResponse;
 import com.kanban.exception.ApiException;
+import com.kanban.model.User;
 import com.kanban.model.Workspace;
 import com.kanban.model.WorkspaceMember;
 import com.kanban.repository.UserRepository;
@@ -40,6 +42,8 @@ class WorkspaceMembershipTest {
     private UUID ownerId;
     private UUID workspaceId;
     private UUID targetUserId;
+    private String targetEmail;
+    private User targetUser;
     private Workspace workspace;
     private WorkspaceMember ownerMember;
 
@@ -48,6 +52,13 @@ class WorkspaceMembershipTest {
         ownerId       = UUID.randomUUID();
         workspaceId   = UUID.randomUUID();
         targetUserId  = UUID.randomUUID();
+        targetEmail   = "target@example.com";
+
+        targetUser = new User();
+        setField(targetUser, "id", targetUserId);
+        setField(targetUser, "email", targetEmail);
+        setField(targetUser, "displayName", "Target User");
+        setField(targetUser, "passwordHash", "hash");
 
         workspace = new Workspace();
         setField(workspace, "id", workspaceId);
@@ -68,23 +79,29 @@ class WorkspaceMembershipTest {
     @Test
     void addMember_savesMemberWithDefaultRole() {
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+        when(userRepository.findActiveByEmail(targetEmail)).thenReturn(Optional.of(targetUser));
         when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetUserId)).thenReturn(false);
 
-        workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetUserId, null), ownerId);
+        WorkspaceMemberResponse result = workspaceService.addMember(
+                workspaceId, new AddWorkspaceMemberRequest(targetEmail, null), ownerId);
 
         ArgumentCaptor<WorkspaceMember> captor = ArgumentCaptor.forClass(WorkspaceMember.class);
         verify(memberRepository).save(captor.capture());
         assertThat(captor.getValue().getWorkspaceId()).isEqualTo(workspaceId);
         assertThat(captor.getValue().getUserId()).isEqualTo(targetUserId);
         assertThat(captor.getValue().getRole()).isEqualTo(Role.MEMBER);
+        assertThat(result.userId()).isEqualTo(targetUserId);
+        assertThat(result.email()).isEqualTo(targetEmail);
+        assertThat(result.role()).isEqualTo("MEMBER");
     }
 
     @Test
     void addMember_savesMemberWithExplicitRole() {
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+        when(userRepository.findActiveByEmail(targetEmail)).thenReturn(Optional.of(targetUser));
         when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetUserId)).thenReturn(false);
 
-        workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetUserId, "ADMIN"), ownerId);
+        workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetEmail, "ADMIN"), ownerId);
 
         ArgumentCaptor<WorkspaceMember> captor = ArgumentCaptor.forClass(WorkspaceMember.class);
         verify(memberRepository).save(captor.capture());
@@ -92,12 +109,25 @@ class WorkspaceMembershipTest {
     }
 
     @Test
+    void addMember_throwsNotFoundWhenEmailUnknown() {
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+        when(userRepository.findActiveByEmail(targetEmail)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetEmail, null), ownerId))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+        verify(memberRepository, never()).save(any());
+    }
+
+    @Test
     void addMember_throwsConflictWhenAlreadyMember() {
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+        when(userRepository.findActiveByEmail(targetEmail)).thenReturn(Optional.of(targetUser));
         when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetUserId)).thenReturn(true);
 
         assertThatThrownBy(() ->
-                workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetUserId, null), ownerId))
+                workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetEmail, null), ownerId))
                 .isInstanceOf(ApiException.class)
                 .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
         verify(memberRepository, never()).save(any());
@@ -111,7 +141,7 @@ class WorkspaceMembershipTest {
                 .when(accessPolicy).assertAdminOrOwner(workspaceId, ownerId);
 
         assertThatThrownBy(() ->
-                workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetUserId, null), ownerId))
+                workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetEmail, null), ownerId))
                 .isInstanceOf(ApiException.class)
                 .hasFieldOrPropertyWithValue("status", HttpStatus.FORBIDDEN);
     }
@@ -121,9 +151,38 @@ class WorkspaceMembershipTest {
         when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-                workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetUserId, null), ownerId))
+                workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetEmail, null), ownerId))
                 .isInstanceOf(ApiException.class)
                 .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void addMember_throwsBadRequestWhenRoleStringIsInvalid() {
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+        when(userRepository.findActiveByEmail(targetEmail)).thenReturn(Optional.of(targetUser));
+        when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetUserId)).thenReturn(false);
+
+        assertThatThrownBy(() ->
+                workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetEmail, "SUPERADMIN"), ownerId))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.BAD_REQUEST);
+        verify(memberRepository, never()).save(any());
+    }
+
+    @Test
+    void addMember_throwsForbiddenWhenAdminAttemptsToAddOwner() {
+        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace));
+        when(userRepository.findActiveByEmail(targetEmail)).thenReturn(Optional.of(targetUser));
+        when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetUserId)).thenReturn(false);
+        doThrow(new ApiException(HttpStatus.FORBIDDEN, "NOT_WORKSPACE_OWNER",
+                "Only the workspace owner can grant OWNER role"))
+                .when(accessPolicy).assertOwner(workspaceId, ownerId);
+
+        assertThatThrownBy(() ->
+                workspaceService.addMember(workspaceId, new AddWorkspaceMemberRequest(targetEmail, "OWNER"), ownerId))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.FORBIDDEN);
+        verify(memberRepository, never()).save(any());
     }
 
     // ── removeMember ──────────────────────────────────────────────────────────

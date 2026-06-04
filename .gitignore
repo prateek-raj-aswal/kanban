@@ -36,6 +36,7 @@ pnpm-debug.log*
 .env.*
 !.env.example
 !.env.local.example
+!.env.prod.example
 
 # ---- Docker ----
 .docker/
