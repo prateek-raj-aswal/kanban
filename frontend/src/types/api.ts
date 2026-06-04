@@ -84,6 +84,7 @@ export interface CardResponse {
   priority: Priority
   labels: LabelResponse[]
   assignees: string[]
+  color?: string | null
   subtaskTotal?: number
   subtaskDone?: number
   commentCount?: number
