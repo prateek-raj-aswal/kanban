@@ -6,7 +6,7 @@ export default function IssuesPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: T.bg,
+      background: T.canvas,
       padding: '24px 20px 80px',
       maxWidth: 720,
       margin: '0 auto',
