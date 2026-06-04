@@ -6,7 +6,7 @@ WORKDIR /app
 COPY build.gradle settings.gradle ./
 COPY gradle gradle
 COPY gradlew ./
-RUN sed -i 's/\r$//' gradlew
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 
 # Pre-fetch dependencies before copying source (cache layer)
 RUN ./gradlew dependencies --no-daemon -q
