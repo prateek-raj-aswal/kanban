@@ -269,6 +269,7 @@ export const ICONS = {
   palette:  'M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8ZM5 8h.01M8 5h.01M11 8h.01M8 11h.01',
   grip:     'M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01',
   logout:   'M10 3H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h4M13 8H6M11 5l3 3-3 3',
+  x:        'M4 4l8 8M12 4l-8 8',
 } as const
 
 export type IconKey = keyof typeof ICONS
