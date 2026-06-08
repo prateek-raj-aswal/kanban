@@ -12,6 +12,7 @@ const TABS = [
   { id: 'today',    icon: 'clock'    as const, label: 'Today',    href: '/today' },
   { id: 'timeline', icon: 'timeline' as const, label: 'Timeline', href: '/boards' },
   { id: 'inbox',    icon: 'msg'      as const, label: 'Inbox',    href: '/inbox' },
+  { id: 'issues',   icon: 'alert'    as const, label: 'Issues',   href: '/issues' },
 ]
 
 export default function BottomNav() {
@@ -32,6 +33,7 @@ export default function BottomNav() {
   function isActive(tab: typeof TABS[number]): boolean {
     if (tab.id === 'board') return pathname.startsWith('/boards') && !pathname.includes('/timeline') && !pathname.includes('/calendar')
     if (tab.id === 'timeline') return pathname.includes('/timeline')
+    if (tab.id === 'issues') return pathname === '/issues'
     return pathname.startsWith(tab.href) && tab.href !== '/boards'
   }
 
@@ -50,6 +52,7 @@ export default function BottomNav() {
           <a
             key={tab.id}
             href={tab.href}
+            aria-current={active ? 'page' : undefined}
             style={{
               flex: 1, display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 3,

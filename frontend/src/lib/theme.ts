@@ -270,6 +270,7 @@ export const ICONS = {
   grip:     'M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01',
   logout:   'M10 3H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h4M13 8H6M11 5l3 3-3 3',
   x:        'M4 4l8 8M12 4l-8 8',
+  alert:    'M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2ZM8 5.5v3.5M8 11h.01',
 } as const
 
 export type IconKey = keyof typeof ICONS

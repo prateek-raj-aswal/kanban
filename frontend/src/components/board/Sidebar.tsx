@@ -214,6 +214,8 @@ export default function Sidebar({ currentBoardId }: Props) {
           active={pathname === '/today'} href="/today" />
         <NavItem icon="cal" label="Upcoming" count={upcomingCount}
           active={pathname === '/upcoming'} href="/upcoming" />
+        <NavItem icon="alert" label="Issues"
+          active={pathname === '/issues'} href="/issues" />
 
         {/* Starred boards — US-602 */}
         {starredBoards.length > 0 && (

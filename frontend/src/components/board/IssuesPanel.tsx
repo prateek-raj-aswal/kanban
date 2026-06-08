@@ -9,6 +9,8 @@ interface Props {
   attachToCardId?: string
   /** When set, only shows issues attached to this card */
   filterByCardId?: string
+  /** When set, only shows issues with this status ('ALL' shows everything) */
+  statusFilter?: IssueStatus | 'ALL'
 }
 
 const STATUS_COLOR: Record<IssueStatus, string> = {
@@ -17,7 +19,7 @@ const STATUS_COLOR: Record<IssueStatus, string> = {
   CLOSED: '#94a3b8',
 }
 
-export default function IssuesPanel({ attachToCardId, filterByCardId }: Props) {
+export default function IssuesPanel({ attachToCardId, filterByCardId, statusFilter }: Props) {
   const [issues, setIssues] = useState<IssueResponse[]>([])
   const [newTitle, setNewTitle] = useState('')
   const [creating, setCreating] = useState(false)
@@ -70,14 +72,18 @@ export default function IssuesPanel({ attachToCardId, filterByCardId }: Props) {
     } catch { /* ignore */ }
   }
 
+  const visibleIssues = statusFilter && statusFilter !== 'ALL'
+    ? issues.filter(i => i.status === statusFilter)
+    : issues
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Issue list */}
-      {issues.length === 0 ? (
+      {visibleIssues.length === 0 ? (
         <div style={{ fontSize: 12, color: T.textFaint }}>No issues yet.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {issues.map(issue => (
+          {visibleIssues.map(issue => (
             <div
               key={issue.id}
               style={{
