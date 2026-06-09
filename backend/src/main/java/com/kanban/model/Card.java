@@ -40,6 +40,12 @@ public class Card {
     @Column(name = "color", length = 7)
     private String color;
 
+    @Column(nullable = false, length = 10)
+    private String type = "STORY";
+
+    @Column(name = "readable_id", length = 20)
+    private String readableId;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -77,6 +83,10 @@ public class Card {
     public void setPriority(String priority) { this.priority = priority; }
     public String getColor() { return color; }
     public void setColor(String color) { this.color = color; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+    public String getReadableId() { return readableId; }
+    public void setReadableId(String readableId) { this.readableId = readableId; }
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
     public Instant getCreatedAt() { return createdAt; }

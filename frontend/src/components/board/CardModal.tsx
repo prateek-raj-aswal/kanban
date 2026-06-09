@@ -73,7 +73,7 @@ function PropRow({ label, children }: { label: string; children: React.ReactNode
 
 export default function CardModal({ card, columnName, boardId, onClose, onUpdate, onDelete }: Props) {
   const isMobile = useIsMobile()
-  const shortId = card.id.slice(0, 8).toUpperCase()
+  const shortId = card.readableId ?? card.id.slice(0, 8).toUpperCase()
 
   const [title, setTitle] = useState(card.title)
   const [description, setDescription] = useState(card.description ?? '')

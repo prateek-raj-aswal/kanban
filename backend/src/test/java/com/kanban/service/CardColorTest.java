@@ -45,6 +45,7 @@ class CardColorTest {
     @Mock EventBroadcastService eventBroadcastService;
     @Mock ActivityLogService activityLogService;
     @Mock NotificationService notificationService;
+    @Mock ReadableIdService readableIdService;
 
     @InjectMocks CardService cardService;
 
@@ -82,7 +83,7 @@ class CardColorTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, "#ff0000");
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, "#ff0000", null);
         CardResponse res = cardService.updateCard(cardId, req, userId);
 
         ArgumentCaptor<Card> captor = ArgumentCaptor.forClass(Card.class);
@@ -98,7 +99,7 @@ class CardColorTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, null);
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, null, null);
         CardResponse res = cardService.updateCard(cardId, req, userId);
 
         ArgumentCaptor<Card> captor = ArgumentCaptor.forClass(Card.class);
@@ -112,7 +113,7 @@ class CardColorTest {
     void updateCard_invalidHexString_throws422() {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
 
-        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, "notahex");
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, "notahex", null);
 
         assertThatThrownBy(() -> cardService.updateCard(cardId, req, userId))
                 .isInstanceOf(ApiException.class)
@@ -124,7 +125,7 @@ class CardColorTest {
     void updateCard_invalidHexChars_throws422() {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
 
-        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, "#gggggg");
+        UpdateCardRequest req = new UpdateCardRequest(null, null, null, null, null, null, "#gggggg", null);
 
         assertThatThrownBy(() -> cardService.updateCard(cardId, req, userId))
                 .isInstanceOf(ApiException.class)

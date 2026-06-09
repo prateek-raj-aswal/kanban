@@ -11,5 +11,7 @@ public record IssueResponse(
         UUID parentCardId,
         UUID createdBy,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        String type,
+        String readableId
 ) {}

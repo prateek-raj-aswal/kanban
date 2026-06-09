@@ -151,7 +151,7 @@ export default function CardItem({ card, onClick }: Props) {
         position: 'absolute', top: 6, right: 8,
         fontSize: 9.5, color: T.textFaint,
         fontVariantNumeric: 'tabular-nums', fontWeight: 500, letterSpacing: '.04em',
-      }}>{card.id.slice(0, 8).toUpperCase()}</span>
+      }}>{card.readableId ?? card.id.slice(0, 8).toUpperCase()}</span>
     </div>
   )
 }

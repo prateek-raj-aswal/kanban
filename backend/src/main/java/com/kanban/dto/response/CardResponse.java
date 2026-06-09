@@ -22,5 +22,7 @@ public record CardResponse(
         Instant createdAt,
         Instant updatedAt,
         String color,
-        List<ModuleResponse> modules
+        List<ModuleResponse> modules,
+        String type,
+        String readableId
 ) {}

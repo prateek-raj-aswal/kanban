@@ -7,5 +7,6 @@ public record CreateCardRequest(
         @NotBlank String title,
         String description,
         LocalDate dueDate,
-        String priority
+        String priority,
+        String type
 ) {}

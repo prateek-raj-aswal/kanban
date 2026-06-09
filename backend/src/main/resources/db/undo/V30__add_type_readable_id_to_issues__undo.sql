@@ -1,0 +1,3 @@
+-- US-1603 undo
+ALTER TABLE issues DROP COLUMN IF EXISTS readable_id;
+ALTER TABLE issues DROP COLUMN IF EXISTS type;

@@ -6,5 +6,7 @@ import java.util.UUID;
 public record CreateIssueRequest(
         @NotBlank String title,
         String description,
-        UUID parentCardId
+        UUID parentCardId,
+        String type,
+        UUID workspaceId
 ) {}

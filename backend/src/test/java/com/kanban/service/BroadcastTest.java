@@ -47,6 +47,7 @@ class BroadcastTest {
     @Mock EventBroadcastService eventBroadcastService;
     @Mock ActivityLogService activityLogService;
     @Mock NotificationService notificationService;
+    @Mock ReadableIdService readableIdService;
 
     private CardService cardService;
     private ColumnService columnService;
@@ -63,7 +64,7 @@ class BroadcastTest {
     void setUp() {
         cardService = new CardService(cardRepository, columnRepository, labelRepository,
                 subtaskRepository, commentRepository, cardAssigneeRepository, cardModuleRepository, accessPolicy,
-                eventBroadcastService, activityLogService, notificationService);
+                eventBroadcastService, activityLogService, notificationService, readableIdService);
         columnService = new ColumnService(columnRepository, boardRepository,
                 accessPolicy, eventBroadcastService);
 
@@ -99,7 +100,7 @@ class BroadcastTest {
             return c;
         });
 
-        cardService.createCard(columnId, new CreateCardRequest("Title", null, null, null), userId);
+        cardService.createCard(columnId, new CreateCardRequest("Title", null, null, null, null), userId);
 
         ArgumentCaptor<BoardEventPayload> captor = ArgumentCaptor.forClass(BoardEventPayload.class);
         verify(eventBroadcastService).broadcastBoardEvent(eq(boardId), captor.capture());
@@ -115,7 +116,7 @@ class BroadcastTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.of(card));
         when(cardRepository.save(any())).thenReturn(card);
 
-        cardService.updateCard(cardId, new UpdateCardRequest("New title", null, null, null, null, null, null), userId);
+        cardService.updateCard(cardId, new UpdateCardRequest("New title", null, null, null, null, null, null, null), userId);
 
         ArgumentCaptor<BoardEventPayload> captor = ArgumentCaptor.forClass(BoardEventPayload.class);
         verify(eventBroadcastService).broadcastBoardEvent(eq(boardId), captor.capture());

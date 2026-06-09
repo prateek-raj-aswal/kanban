@@ -73,6 +73,8 @@ export interface ColumnResponse {
 
 export type Priority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
+export type ItemType = 'STORY' | 'FEATURE' | 'BUG'
+
 export interface CardResponse {
   id: string
   columnId: string
@@ -91,6 +93,8 @@ export interface CardResponse {
   createdAt?: string
   updatedAt?: string
   modules?: ModuleResponse[]
+  type?: ItemType
+  readableId?: string
 }
 
 export interface AttachmentResponse {
@@ -183,4 +187,6 @@ export interface IssueResponse {
   parentCardId: string | null
   createdAt: string
   updatedAt: string
+  type?: ItemType
+  readableId?: string
 }

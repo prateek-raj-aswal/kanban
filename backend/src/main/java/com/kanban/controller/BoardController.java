@@ -130,7 +130,7 @@ public class BoardController {
             return new CardResponse(c.getId(), c.getColumn().getId(), c.getTitle(), c.getDescription(),
                     c.getPosition(), c.getStartDate(), c.getDueDate(), c.getPriority(),
                     labels, assignees, sc[0], sc[1], cc, c.getCreatedAt(), c.getUpdatedAt(), c.getColor(),
-                    List.of());
+                    List.of(), c.getType(), c.getReadableId());
         }).toList());
     }
 }

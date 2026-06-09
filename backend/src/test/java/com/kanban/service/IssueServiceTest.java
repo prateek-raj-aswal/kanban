@@ -4,6 +4,8 @@ import com.kanban.dto.request.CreateIssueRequest;
 import com.kanban.dto.request.UpdateIssueRequest;
 import com.kanban.dto.response.IssueResponse;
 import com.kanban.exception.ApiException;
+import com.kanban.model.Board;
+import com.kanban.model.BoardColumn;
 import com.kanban.model.Card;
 import com.kanban.model.Issue;
 import com.kanban.model.User;
@@ -44,28 +46,38 @@ class IssueServiceTest {
     @Mock IssueRepository issueRepository;
     @Mock CardRepository  cardRepository;
     @Mock UserRepository  userRepository;
+    @Mock ReadableIdService readableIdService;
 
     @InjectMocks IssueService issueService;
 
     private UUID userId;
     private UUID cardId;
     private UUID issueId;
+    private UUID workspaceId;
     private Card card;
     private User user;
     private Issue issue;
 
     @BeforeEach
     void setUp() {
-        userId  = UUID.randomUUID();
-        cardId  = UUID.randomUUID();
-        issueId = UUID.randomUUID();
+        userId      = UUID.randomUUID();
+        cardId      = UUID.randomUUID();
+        issueId     = UUID.randomUUID();
+        workspaceId = UUID.randomUUID();
 
         user = new User();
         setField(user, "id", userId);
 
+        Board board = new Board();
+        board.setWorkspaceId(workspaceId);
+        BoardColumn col = new BoardColumn();
+        col.setBoard(board);
         card = new Card();
+        card.setColumn(col);
         setField(card, "id", cardId);
         setField(card, "title", "Story card");
+
+        lenient().when(readableIdService.allocate(any(), any())).thenReturn("BUG-001");
 
         issue = new Issue();
         setField(issue, "id", issueId);
@@ -86,7 +98,7 @@ class IssueServiceTest {
             return saved;
         });
 
-        CreateIssueRequest req = new CreateIssueRequest("Bug in login", "Steps to reproduce", null);
+        CreateIssueRequest req = new CreateIssueRequest("Bug in login", "Steps to reproduce", null, null, workspaceId);
         IssueResponse res = issueService.createIssue(req, userId);
 
         assertThat(res.id()).isEqualTo(issueId);
@@ -111,7 +123,7 @@ class IssueServiceTest {
             return saved;
         });
 
-        CreateIssueRequest req = new CreateIssueRequest("Bug in login", null, cardId);
+        CreateIssueRequest req = new CreateIssueRequest("Bug in login", null, cardId, null, null);
         IssueResponse res = issueService.createIssue(req, userId);
 
         assertThat(res.parentCardId()).isEqualTo(cardId);
@@ -127,7 +139,7 @@ class IssueServiceTest {
         when(cardRepository.findActiveById(cardId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-            issueService.createIssue(new CreateIssueRequest("X", null, cardId), userId)
+            issueService.createIssue(new CreateIssueRequest("X", null, cardId, null, null), userId)
         ).isInstanceOf(ApiException.class)
          .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }

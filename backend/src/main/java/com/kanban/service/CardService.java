@@ -26,10 +26,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class CardService {
+
+    private static final Set<String> VALID_TYPES = Set.of("STORY", "FEATURE", "BUG");
 
     private final CardRepository cardRepository;
     private final ColumnRepository columnRepository;
@@ -42,13 +45,15 @@ public class CardService {
     private final EventBroadcastService eventBroadcastService;
     private final ActivityLogService activityLogService;
     private final NotificationService notificationService;
+    private final ReadableIdService readableIdService;
 
     public CardService(CardRepository cardRepository, ColumnRepository columnRepository,
                        LabelRepository labelRepository, SubtaskRepository subtaskRepository,
                        CommentRepository commentRepository, CardAssigneeRepository cardAssigneeRepository,
                        CardModuleRepository cardModuleRepository,
                        BoardAccessPolicy accessPolicy, EventBroadcastService eventBroadcastService,
-                       ActivityLogService activityLogService, NotificationService notificationService) {
+                       ActivityLogService activityLogService, NotificationService notificationService,
+                       ReadableIdService readableIdService) {
         this.cardRepository = cardRepository;
         this.columnRepository = columnRepository;
         this.labelRepository = labelRepository;
@@ -60,6 +65,7 @@ public class CardService {
         this.eventBroadcastService = eventBroadcastService;
         this.activityLogService = activityLogService;
         this.notificationService = notificationService;
+        this.readableIdService = readableIdService;
     }
 
     @Transactional
@@ -68,6 +74,12 @@ public class CardService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "COLUMN_NOT_FOUND", "Column not found"));
         accessPolicy.assertAccess(column.getBoard().getId(), requestingUserId, BoardAction.WRITE);
 
+        String cardType = request.type() != null ? request.type() : "STORY";
+        if (!VALID_TYPES.contains(cardType)) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_TYPE",
+                    "type must be one of: STORY, FEATURE, BUG");
+        }
+
         double maxPos = cardRepository.findMaxPositionByColumnId(columnId).orElse(0.0);
         Card card = new Card();
         card.setColumn(column);
@@ -75,7 +87,14 @@ public class CardService {
         card.setDescription(request.description());
         card.setDueDate(request.dueDate());
         if (request.priority() != null) card.setPriority(request.priority());
+        card.setType(cardType);
         card.setPosition(maxPos + 1000.0);
+
+        UUID workspaceId = column.getBoard().getWorkspaceId();
+        if (workspaceId != null) {
+            card.setReadableId(readableIdService.allocate(workspaceId, cardType));
+        }
+
         card = cardRepository.save(card);
 
         UUID boardId = column.getBoard().getId();
@@ -116,6 +135,14 @@ public class CardService {
                     "Color must be a valid hex value (e.g. #ff0000)");
         }
         card.setColor(request.color());
+
+        if (request.type() != null) {
+            if (!VALID_TYPES.contains(request.type())) {
+                throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_TYPE",
+                        "type must be one of: STORY, FEATURE, BUG");
+            }
+            card.setType(request.type());
+        }
 
         if (request.labelIds() != null) {
             List<Label> labels = labelRepository.findAllById(request.labelIds());
@@ -207,6 +234,7 @@ public class CardService {
                 card.getTitle(), card.getDescription(), card.getPosition(),
                 card.getStartDate(), card.getDueDate(), card.getPriority(), labels, assignees,
                 subtaskTotal, subtaskDone, commentCount,
-                card.getCreatedAt(), card.getUpdatedAt(), card.getColor(), modules);
+                card.getCreatedAt(), card.getUpdatedAt(), card.getColor(), modules,
+                card.getType(), card.getReadableId());
     }
 }

@@ -21,6 +21,12 @@ public class Issue {
     @Column(nullable = false, length = 20)
     private String status = "OPEN";
 
+    @Column(nullable = false, length = 10)
+    private String type = "BUG";
+
+    @Column(name = "readable_id", length = 20)
+    private String readableId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_card_id")
     private Card parentCard;
@@ -45,6 +51,10 @@ public class Issue {
     public void setDescription(String description) { this.description = description; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+    public String getReadableId() { return readableId; }
+    public void setReadableId(String readableId) { this.readableId = readableId; }
     public Card getParentCard() { return parentCard; }
     public void setParentCard(Card parentCard) { this.parentCard = parentCard; }
     public User getCreatedBy() { return createdBy; }

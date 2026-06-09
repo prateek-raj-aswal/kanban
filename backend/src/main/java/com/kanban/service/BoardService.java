@@ -241,7 +241,8 @@ public class BoardService {
                                             assignees,
                                             sc[0], sc[1], cc,
                                             card.getCreatedAt(), card.getUpdatedAt(),
-                                            card.getColor(), modules
+                                            card.getColor(), modules,
+                                            card.getType(), card.getReadableId()
                                     );
                                 })
                                 .toList();

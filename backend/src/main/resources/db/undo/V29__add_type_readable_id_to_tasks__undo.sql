@@ -1,0 +1,3 @@
+-- US-1602 undo
+ALTER TABLE tasks DROP COLUMN IF EXISTS readable_id;
+ALTER TABLE tasks DROP COLUMN IF EXISTS type;

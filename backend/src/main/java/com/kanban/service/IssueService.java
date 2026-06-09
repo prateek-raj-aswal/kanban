@@ -23,17 +23,21 @@ import java.util.UUID;
 public class IssueService {
 
     private static final Set<String> VALID_STATUSES = Set.of("OPEN", "IN_PROGRESS", "CLOSED");
+    private static final Set<String> VALID_TYPES   = Set.of("STORY", "FEATURE", "BUG");
 
     private final IssueRepository issueRepository;
     private final CardRepository  cardRepository;
     private final UserRepository  userRepository;
+    private final ReadableIdService readableIdService;
 
     public IssueService(IssueRepository issueRepository,
                         CardRepository cardRepository,
-                        UserRepository userRepository) {
+                        UserRepository userRepository,
+                        ReadableIdService readableIdService) {
         this.issueRepository = issueRepository;
         this.cardRepository  = cardRepository;
         this.userRepository  = userRepository;
+        this.readableIdService = readableIdService;
     }
 
     @Transactional
@@ -48,10 +52,28 @@ public class IssueService {
                             "Parent card not found"));
         }
 
+        String issueType = request.type() != null ? request.type() : "BUG";
+        if (!VALID_TYPES.contains(issueType)) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_TYPE",
+                    "type must be one of: STORY, FEATURE, BUG");
+        }
+
+        UUID workspaceId;
+        if (parentCard != null) {
+            workspaceId = parentCard.getColumn().getBoard().getWorkspaceId();
+        } else {
+            workspaceId = request.workspaceId();
+            if (workspaceId == null) {
+                throw new IllegalArgumentException("workspaceId is required for standalone issues");
+            }
+        }
+
         Issue issue = new Issue();
         issue.setTitle(request.title());
         issue.setDescription(request.description());
         issue.setStatus("OPEN");
+        issue.setType(issueType);
+        issue.setReadableId(readableIdService.allocate(workspaceId, issueType));
         issue.setParentCard(parentCard);
         issue.setCreatedBy(creator);
 
@@ -125,7 +147,9 @@ public class IssueService {
                 parentCardId,
                 createdById,
                 issue.getCreatedAt(),
-                issue.getUpdatedAt()
+                issue.getUpdatedAt(),
+                issue.getType(),
+                issue.getReadableId()
         );
     }
 }

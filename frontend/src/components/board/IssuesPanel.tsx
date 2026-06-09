@@ -22,6 +22,7 @@ const STATUS_COLOR: Record<IssueStatus, string> = {
 export default function IssuesPanel({ attachToCardId, filterByCardId, statusFilter }: Props) {
   const [issues, setIssues] = useState<IssueResponse[]>([])
   const [newTitle, setNewTitle] = useState('')
+  const [newType, setNewType] = useState('BUG')
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
@@ -41,10 +42,12 @@ export default function IssuesPanel({ attachToCardId, filterByCardId, statusFilt
     try {
       const created = await api.post<IssueResponse>('/api/v1/issues', {
         title,
+        type: newType,
         ...(filterByCardId ? { parentCardId: filterByCardId } : {}),
       })
       setIssues(prev => [...prev, created])
       setNewTitle('')
+      setNewType('BUG')
     } catch { /* ignore */ } finally {
       setCreating(false)
     }
@@ -93,6 +96,18 @@ export default function IssuesPanel({ attachToCardId, filterByCardId, statusFilt
                 fontSize: 12,
               }}
             >
+              {/* Readable ID badge */}
+              {issue.readableId && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: '.04em',
+                  padding: '2px 5px', borderRadius: 4,
+                  background: T.chipBg, color: T.textMuted,
+                  flexShrink: 0, fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {issue.readableId}
+                </span>
+              )}
+
               {/* Status badge */}
               <span style={{
                 fontSize: 10, fontWeight: 700, letterSpacing: '.04em',
@@ -164,18 +179,32 @@ export default function IssuesPanel({ attachToCardId, filterByCardId, statusFilt
       )}
 
       {/* Create form */}
-      <form onSubmit={handleCreate} style={{ display: 'flex', gap: 6 }}>
+      <form onSubmit={handleCreate} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         <input
           value={newTitle}
           onChange={e => setNewTitle(e.target.value)}
           placeholder="New issue title…"
           style={{
-            flex: 1, height: 28, padding: '0 8px',
+            flex: 1, minWidth: 0, height: 28, padding: '0 8px',
             fontSize: 12, border: `1px solid ${T.cardBorder}`,
             borderRadius: 5, background: T.card, color: T.text,
             outline: 'none', fontFamily: 'inherit',
           }}
         />
+        <select
+          value={newType}
+          onChange={e => setNewType(e.target.value)}
+          style={{
+            height: 28, padding: '0 6px',
+            fontSize: 11, border: `1px solid ${T.cardBorder}`,
+            borderRadius: 5, background: T.card, color: T.text,
+            fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0,
+          }}
+        >
+          <option value="STORY">Story</option>
+          <option value="FEATURE">Feature</option>
+          <option value="BUG">Bug</option>
+        </select>
         <button
           type="submit"
           disabled={!newTitle.trim() || creating}

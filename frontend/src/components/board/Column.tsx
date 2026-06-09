@@ -239,6 +239,7 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
   const cards = column.cards ?? []
   const [showAdd, setShowAdd] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [newType, setNewType] = useState('STORY')
   const [submitting, setSubmitting] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [renameVal, setRenameVal] = useState(column.name)
@@ -315,9 +316,10 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
     if (!title) return
     setSubmitting(true)
     try {
-      const card = await api.post<CardResponse>(`/api/v1/columns/${column.id}/cards`, { title })
+      const card = await api.post<CardResponse>(`/api/v1/columns/${column.id}/cards`, { title, type: newType })
       onAddCard?.(column.id, card)
       setNewTitle('')
+      setNewType('STORY')
       setShowAdd(false)
     } catch (err) {
       if (err instanceof ApiError) alert(err.message)
@@ -510,6 +512,20 @@ export default function Column({ column, onDeleteColumn, onRenameColumn, onSelec
                 }}
               />
               <div style={{ display: 'flex', gap: 6 }}>
+                <select
+                  value={newType}
+                  onChange={e => setNewType(e.target.value)}
+                  style={{
+                    height: 28, padding: '0 6px',
+                    fontSize: 11, border: `1px solid ${T.cardBorder}`,
+                    borderRadius: 6, background: T.card, color: T.text,
+                    fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0,
+                  }}
+                >
+                  <option value="STORY">Story</option>
+                  <option value="FEATURE">Feature</option>
+                  <option value="BUG">Bug</option>
+                </select>
                 <button
                   type="submit"
                   disabled={!newTitle.trim() || submitting}
