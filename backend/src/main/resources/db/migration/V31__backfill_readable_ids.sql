@@ -20,6 +20,7 @@ BEGIN
         JOIN columns  c ON c.id = t.column_id
         JOIN boards   b ON b.id = c.board_id
         WHERE t.readable_id IS NULL
+          AND b.workspace_id IS NOT NULL
     )
     UPDATE tasks
     SET readable_id = CASE rt.type
@@ -73,11 +74,13 @@ BEGIN
     END IF;
 
     -- ── Sync workspace_id_counters for tasks ─────────────────────────────────
+    -- Filter NULL workspace_id: boards created before the workspace feature are skipped.
     INSERT INTO workspace_id_counters (workspace_id, item_type, last_counter)
     SELECT b.workspace_id, t.type, COUNT(*)::INT
     FROM tasks  t
     JOIN columns c ON c.id = t.column_id
     JOIN boards  b ON b.id = c.board_id
+    WHERE b.workspace_id IS NOT NULL
     GROUP BY b.workspace_id, t.type
     ON CONFLICT (workspace_id, item_type)
         DO UPDATE SET last_counter = GREATEST(workspace_id_counters.last_counter, EXCLUDED.last_counter);
@@ -89,6 +92,7 @@ BEGIN
     JOIN tasks   pc ON pc.id = i.parent_card_id
     JOIN columns c  ON c.id  = pc.column_id
     JOIN boards  b  ON b.id  = c.board_id
+    WHERE b.workspace_id IS NOT NULL
     GROUP BY b.workspace_id, i.type
     ON CONFLICT (workspace_id, item_type)
         DO UPDATE SET last_counter = GREATEST(workspace_id_counters.last_counter, EXCLUDED.last_counter);
