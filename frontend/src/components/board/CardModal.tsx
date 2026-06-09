@@ -6,6 +6,8 @@ import { useIsMobile } from '@/lib/useIsMobile'
 import type { CardResponse, LabelResponse, Priority, SubtaskResponse, CommentResponse, ActivityLogResponse, MemberResponse, AttachmentResponse } from '@/types/api'
 import IssuesPanel from '@/components/board/IssuesPanel'
 import Icon from '@/components/ui/Icon'
+import { ColorPalette } from '@/components/ui/ColorPalette'
+import { useConfigStore } from '@/store/configStore'
 
 const PRIORITIES: Priority[] = ['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT']
 const PRIORITY_COLOR: Record<Priority, string> = {
@@ -105,7 +107,9 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [copyDone, setCopyDone] = useState(false)
   const [cardColor, setCardColor] = useState<string | null>(card.color ?? null)
-  const [cardColorInput, setCardColorInput] = useState(card.color ?? '')
+  const [colorPaletteOpen, setColorPaletteOpen] = useState(false)
+  const colorTokens = useConfigStore(s => s.columnColors)
+  const colorHexMap = useConfigStore(s => s.columnColorMap)
 
   const isOverdue = dueDate ? new Date(dueDate) < new Date() : false
 
@@ -829,32 +833,29 @@ export default function CardModal({ card, columnName, boardId, onClose, onUpdate
             </PropRow>
 
             <PropRow label="Card color">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{
-                  width: 20, height: 20, borderRadius: 4, flexShrink: 0,
-                  background: cardColor ?? 'transparent',
-                  border: cardColor ? 'none' : `1.5px dashed ${T.cardBorder}`,
-                }} />
-                <input
-                  type="text"
-                  placeholder="#ff0000"
-                  value={cardColorInput}
-                  maxLength={7}
-                  onChange={e => setCardColorInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      const v = cardColorInput.trim()
-                      if (/^#[0-9A-Fa-f]{6}$/.test(v)) handleCardColor(v)
-                      else if (v === '') handleCardColor(null)
-                    }
-                  }}
+              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                <button
+                  title="Set card color"
+                  onClick={() => setColorPaletteOpen(o => !o)}
                   style={{
-                    width: 90, padding: '3px 7px', fontSize: 12,
-                    background: T.card, border: `1px solid ${T.cardBorder}`,
-                    borderRadius: 5, color: T.text, outline: 'none',
-                    fontFamily: 'monospace',
+                    width: 22, height: 22, borderRadius: 4, flexShrink: 0,
+                    background: (() => {
+                      if (!cardColor) return 'transparent'
+                      return cardColor.startsWith('#') ? cardColor : (colorHexMap[cardColor] ?? 'transparent')
+                    })(),
+                    border: cardColor ? 'none' : `1.5px dashed ${T.cardBorder}`,
+                    cursor: 'pointer', padding: 0,
                   }}
                 />
+                {colorPaletteOpen && (
+                  <ColorPalette
+                    tokens={colorTokens}
+                    colorHexMap={colorHexMap}
+                    currentColor={cardColor}
+                    onSelect={(v) => { handleCardColor(v); setColorPaletteOpen(false) }}
+                    onClose={() => setColorPaletteOpen(false)}
+                  />
+                )}
               </div>
             </PropRow>
 

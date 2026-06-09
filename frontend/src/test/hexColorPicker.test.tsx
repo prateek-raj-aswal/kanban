@@ -241,10 +241,10 @@ describe('TC-3: Invalid hex in column picker does not call api.patch', () => {
 })
 
 // ---------------------------------------------------------------------------
-// TC-4: CardModal renders color picker with hex input
+// TC-4: CardModal renders color trigger button for card color
 // ---------------------------------------------------------------------------
 describe('TC-4: Card color picker renders in CardModal', () => {
-  it('shows a hex color input in the card modal properties panel', () => {
+  it('shows a Card color section and a trigger button to open the picker', () => {
     const card = makeCard()
 
     render(
@@ -261,17 +261,16 @@ describe('TC-4: Card color picker renders in CardModal', () => {
     // Should render a "Card color" section label
     expect(screen.getByText(/card color/i)).toBeInTheDocument()
 
-    // Should have a hex text input
-    const hexInput = screen.getByPlaceholderText(/^#[0-9a-fA-F]{0,6}$|hex/i)
-    expect(hexInput).toBeInTheDocument()
+    // Should have a trigger button to open the color palette
+    expect(screen.getByTitle(/set card color/i)).toBeInTheDocument()
   })
 })
 
 // ---------------------------------------------------------------------------
-// TC-5: Setting card color calls api.patch for card color
+// TC-5: Setting card color via popup hex input calls api.patch
 // ---------------------------------------------------------------------------
 describe('TC-5: Card color picker calls api.patch', () => {
-  it('calls api.patch with the typed hex for card color', async () => {
+  it('calls api.patch with the typed hex when palette is open and Enter pressed', async () => {
     const card = makeCard()
 
     render(
@@ -285,7 +284,10 @@ describe('TC-5: Card color picker calls api.patch', () => {
       />
     )
 
-    const hexInput = screen.getByPlaceholderText(/^#[0-9a-fA-F]{0,6}$|hex/i)
+    // Open the color palette popup
+    fireEvent.click(screen.getByTitle(/set card color/i))
+
+    const hexInput = screen.getByPlaceholderText('#ff0000')
     fireEvent.change(hexInput, { target: { value: '#3b82f6' } })
     fireEvent.keyDown(hexInput, { key: 'Enter' })
 
