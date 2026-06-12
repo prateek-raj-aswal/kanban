@@ -1,6 +1,7 @@
 ---
 name: clarify
 description: Stage 1 of the SDLC. Two modes — INTERROGATE (adversarial alignment of a raw idea, emits ALIGNED/NEEDS_CLARIFICATION/REJECT) and PLAN (convert aligned requirements into PRD + vertical phases + user stories + tracker INIT). No design or implementation.
+model: opus
 tools: Read, Write, Edit, Grep, Glob
 ---
 

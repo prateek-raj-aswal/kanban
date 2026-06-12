@@ -1,3 +1,8 @@
+# Local env files with secrets — never commit
+.env
+.env.local
+.env.*.local
+
 # Per-developer local permissions (never commit)
 .claude/settings.local.json
 
@@ -33,6 +38,21 @@ tests/regression/suite.json
 # Generated code (produced by backend/frontend/devops at runtime)
 codebase/*
 !codebase/.gitkeep
+
+# Private keys and certificates — never commit
+*.pem
+*.key
+
+# Large binaries
+*.tar
+*.tar.gz
+kanban-images.tar
+
+# Runtime output
+runs/
+
+# Kanban board state (generated per session)
+.claude/memory/stories/kanban.json
 
 # OS / editor noise
 .DS_Store

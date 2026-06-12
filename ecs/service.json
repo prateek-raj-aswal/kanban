@@ -1,0 +1,45 @@
+{
+  "cluster": "kanban-cluster",
+  "serviceName": "kanban-service",
+  "taskDefinition": "kanban",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "platformVersion": "LATEST",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "SUBNET_ID_1",
+        "SUBNET_ID_2"
+      ],
+      "securityGroups": [
+        "SECURITY_GROUP_ID"
+      ],
+      "assignPublicIp": "ENABLED"
+    }
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:REGION:ACCOUNT_ID:targetgroup/kanban-frontend/TARGET_GROUP_ID",
+      "containerName": "frontend",
+      "containerPort": 3000
+    }
+  ],
+  "healthCheckGracePeriodSeconds": 60,
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100,
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    }
+  },
+  "deploymentController": {
+    "type": "ECS"
+  },
+  "enableExecuteCommand": false,
+  "tags": [
+    { "key": "Project",     "value": "kanban" },
+    { "key": "Environment", "value": "production" },
+    { "key": "ManagedBy",   "value": "github-actions" }
+  ]
+}

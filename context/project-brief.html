@@ -11,31 +11,29 @@
     th, td { border: 1px solid #ccc; padding: .5rem .75rem; text-align: left; }
     th { background: #f5f5f5; }
     code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 3px; font-size: .9em; }
-    .placeholder { color: #999; font-style: italic; }
     .required { color: #c00; font-size: .8em; font-weight: bold; }
-    ul.placeholder li { color: #999; font-style: italic; }
   </style>
 </head>
 <body>
 
 <h1>Project Brief</h1>
-<p>
-  High-level context that anchors all agents. The <code>clarify</code> and <code>architect</code>
-  agents read this file. Fill it in before running <code>/clarify</code>.
-</p>
 
 <!-- ─── OVERVIEW ──────────────────────────────────────────────────── -->
 <h2>Overview <span class="required">REQUIRED</span></h2>
-<p class="placeholder">
-  One paragraph. What is this product, who is it for, and what problem does it solve?
+<p>
+  <strong>Kanban</strong> is a collaborative project management platform for individuals and small-to-medium software teams.
+  It provides visual Kanban boards, issue tracking, real-time collaboration, and flexible workflows — positioned as a
+  lightweight Jira alternative that avoids enterprise complexity while remaining scalable. Built with a Java Spring Boot
+  backend, Next.js frontend, PostgreSQL, and WebSocket real-time sync.
 </p>
 
 <!-- ─── GOALS ─────────────────────────────────────────────────────── -->
 <h2>Goals</h2>
 <ul>
-  <li class="placeholder">Primary goal: what does success look like at launch?</li>
-  <li class="placeholder">Secondary goal (optional)</li>
-  <li class="placeholder">Anti-goal: what is explicitly out of scope for this project?</li>
+  <li><strong>Primary:</strong> Ship a fully functional MVP (auth, workspaces, projects, Kanban boards, drag-and-drop tasks, issues, real-time) by 2026-06-30.</li>
+  <li><strong>Secondary:</strong> Beta release with comments, notifications, advanced filtering by 2026-08-15.</li>
+  <li><strong>GA:</strong> Production-ready with RBAC, observability, and security hardening by 2026-10-01.</li>
+  <li><strong>Anti-goal:</strong> No AI sprint planning, no Gantt charts, no native mobile apps, no plugin marketplace, no time tracking/billing in v1.</li>
 </ul>
 
 <!-- ─── USERS / PERSONAS ──────────────────────────────────────────── -->
@@ -43,14 +41,19 @@
 <table>
   <tr><th>Persona</th><th>Description</th><th>Primary needs</th></tr>
   <tr>
-    <td class="placeholder">e.g. Admin</td>
-    <td class="placeholder">Internal staff managing the platform</td>
-    <td class="placeholder">Dashboard, user management, reporting</td>
+    <td>Solo Developer / Freelancer</td>
+    <td>Independent developers managing personal or client projects; high tech literacy; daily usage</td>
+    <td>Fast task creation, simple drag-and-drop, minimal setup friction, lightweight issue tracking</td>
   </tr>
   <tr>
-    <td class="placeholder">e.g. End User</td>
-    <td class="placeholder">Customers interacting with the product</td>
-    <td class="placeholder">Core feature set</td>
+    <td>Agile Development Team</td>
+    <td>Small-to-medium software teams using Agile/Kanban; high tech literacy; multiple times daily</td>
+    <td>Smooth real-time collaboration, reliable workflow tracking, customizable boards and issue states</td>
+  </tr>
+  <tr>
+    <td>Project Manager / Team Lead</td>
+    <td>Managers overseeing multiple teams; medium tech literacy; daily usage</td>
+    <td>Clear project insights, easy issue prioritization, workflow automation and reporting</td>
   </tr>
 </table>
 
@@ -58,55 +61,65 @@
 <h2>Scale &amp; Constraints</h2>
 <table>
   <tr><th>Item</th><th>Value</th><th>Notes</th></tr>
-  <tr><td>Expected users (launch)</td><td class="placeholder">e.g. 100 / 10 000 / 1M</td><td></td></tr>
-  <tr><td>Peak RPS estimate</td><td class="placeholder">e.g. 50 rps / 5 000 rps</td><td></td></tr>
-  <tr><td>Data sensitivity</td><td class="placeholder">e.g. PII / financial / public</td><td></td></tr>
-  <tr><td>Compliance requirements</td><td class="placeholder">e.g. GDPR / HIPAA / SOC2 / none</td><td></td></tr>
-  <tr><td>Availability target</td><td class="placeholder">e.g. 99.9% / best-effort</td><td></td></tr>
-  <tr><td>Deadline / milestone</td><td class="placeholder">e.g. 2026-09-01 MVP</td><td></td></tr>
+  <tr><td>Expected users (launch)</td><td>100</td><td>Scale to 10K at 6 months, 100K at 18 months</td></tr>
+  <tr><td>Peak RPS estimate</td><td>1000 RPS target</td><td>20K req/day at launch; 2M at 6 months</td></tr>
+  <tr><td>Data sensitivity</td><td>Non-PII project data</td><td>GDPR + CCPA applicable</td></tr>
+  <tr><td>Compliance requirements</td><td>GDPR, CCPA</td><td>SOC2 deferred to future; no HIPAA/PCI</td></tr>
+  <tr><td>Availability target</td><td>99.9%</td><td></td></tr>
+  <tr><td>Deadline / milestone</td><td>2026-06-30 MVP (hard)</td><td>Beta: 2026-08-15 (soft); GA: 2026-10-01 (hard)</td></tr>
+  <tr><td>Budget</td><td>$100/month cloud; $0 third-party SaaS; solo developer</td><td>Prefer free-tier friendly architecture</td></tr>
 </table>
 
 <!-- ─── EXISTING SYSTEMS ──────────────────────────────────────────── -->
 <h2>Existing Systems &amp; Integrations</h2>
 <table>
   <tr><th>System</th><th>Integration type</th><th>Notes</th></tr>
-  <tr>
-    <td class="placeholder">e.g. Stripe</td>
-    <td class="placeholder">Payment processing via REST API</td>
-    <td class="placeholder">Webhook for payment events</td>
-  </tr>
-  <tr>
-    <td class="placeholder">e.g. Auth0 / Cognito</td>
-    <td class="placeholder">Identity provider</td>
-    <td class="placeholder">OIDC / OAuth 2.0</td>
-  </tr>
+  <tr><td>Ollama</td><td>Local AI/LLM service</td><td>Sidecar container on port 11434; used via agent service</td></tr>
+  <tr><td>Agent service</td><td>Internal Python microservice</td><td>Port 8001; bridges Ollama and backend</td></tr>
+  <tr><td>GitHub Actions</td><td>CI/CD</td><td>Mandatory</td></tr>
 </table>
 
 <!-- ─── NON-FUNCTIONAL REQUIREMENTS ──────────────────────────────── -->
 <h2>Non-Functional Requirements</h2>
 <ul>
-  <li class="placeholder">Performance: e.g. P99 API response &lt; 200ms</li>
-  <li class="placeholder">Security: e.g. OWASP Top 10 compliance, no PII in logs</li>
-  <li class="placeholder">Observability: e.g. structured JSON logs, OpenTelemetry traces</li>
-  <li class="placeholder">Accessibility: e.g. WCAG 2.1 AA for all public pages</li>
+  <li><strong>Performance:</strong> API P50 &lt; 100ms, P95 &lt; 500ms, P99 &lt; 2s; board interaction latency &lt; 100ms; real-time sync delay &lt; 500ms; page load &lt; 2s.</li>
+  <li><strong>Security:</strong> OAuth 2.0 + JWT; RBAC (Owner/Admin/Member/Viewer); AES-256 at rest; TLS 1.2+; Trivy/Snyk in CI; OWASP Top 10 compliance.</li>
+  <li><strong>Observability:</strong> Structured JSON logs mandatory; Prometheus + Grafana metrics; health endpoints on all services; distributed tracing planned.</li>
+  <li><strong>Accessibility:</strong> WCAG 2.1 Level AA target for all public pages.</li>
+  <li><strong>Browser support:</strong> Chrome/Firefox/Edge/Safari latest 2 versions; responsive web mandatory.</li>
 </ul>
 
 <!-- ─── KEY DECISIONS ALREADY MADE ───────────────────────────────── -->
 <h2>Key Decisions Already Made</h2>
-<p>
-  List any architectural or product decisions that are <em>not up for debate</em>.
-  Agents will check here before making contradictory choices.
-</p>
 <ul>
-  <li class="placeholder">e.g. We use PostgreSQL — not negotiable due to existing data.</li>
-  <li class="placeholder">e.g. All API routes must be versioned under /api/v1/.</li>
+  <li>PostgreSQL as primary DB — not negotiable.</li>
+  <li>All API routes versioned under <code>/api/v1/</code>.</li>
+  <li>Java Spring Boot backend — not negotiable.</li>
+  <li>Next.js (App Router, client-rendered) frontend — not negotiable.</li>
+  <li>No paid UI component libraries.</li>
+  <li>Flyway for migrations (currently at V32); next migration is V33.</li>
+  <li>Short-lived JWT access tokens + rotating refresh tokens (refresh_tokens table in PostgreSQL, Redis-swappable later).</li>
+  <li>RBAC with roles: Owner, Admin, Member, Viewer — enforced via central policy per workspace and per board.</li>
+  <li>Readable IDs (PREFIX-NNN format: US-NNN, FEAT-NNN, BUG-NNN) assigned to all cards and issues at creation via workspace-scoped atomic counter (workspace_id_counters table, SELECT FOR UPDATE).</li>
+  <li>Card color (hex) and column header color supported; ColorPalette is a shared UI component.</li>
+  <li>Modules/tags (board-scoped), swimlane group-by (none/assignee/priority/module), and issues as child entities of story-cards are all implemented.</li>
 </ul>
 
 <!-- ─── OUT OF SCOPE ──────────────────────────────────────────────── -->
-<h2>Out of Scope (for this phase)</h2>
+<h2>Out of Scope (for current phase)</h2>
 <ul>
-  <li class="placeholder">e.g. Mobile app — web only for v1.</li>
-  <li class="placeholder">e.g. Multi-tenancy — single tenant for now.</li>
+  <li>AI sprint planning and AI-powered task summarization.</li>
+  <li>Gantt charts and calendar view.</li>
+  <li>Native mobile apps (iOS/Android) — web-first.</li>
+  <li>Plugin/marketplace ecosystem.</li>
+  <li>Time tracking and billing.</li>
+  <li>Video/audio calls.</li>
+  <li>Advanced analytics dashboards.</li>
+  <li>Multi-region deployments and multi-tenant enterprise isolation.</li>
+  <li>GitHub/GitLab and Slack/Discord integrations.</li>
+  <li>Workflow automation engine.</li>
+  <li>Sprint planning and burndown charts.</li>
+  <li>Redis caching layer (PostgreSQL-backed until traffic warrants it).</li>
 </ul>
 
 </body>

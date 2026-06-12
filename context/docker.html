@@ -12,7 +12,6 @@
     th { background: #f5f5f5; }
     code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 3px; font-size: .9em; }
     pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; }
-    .placeholder { color: #999; font-style: italic; }
     .note { background: #fff8e1; border-left: 3px solid #f9a825; padding: .5rem .75rem; margin: 1rem 0; }
   </style>
 </head>
@@ -20,23 +19,26 @@
 
 <h1>Docker Desktop — Local Development Context</h1>
 <p>
-  This file tells agents how Docker Desktop is used in this project for local development,
-  running services, and E2E testing. Agents (<code>backend</code>, <code>frontend</code>,
-  <code>qa</code>, <code>devops</code>) read this alongside <code>tech-stack.html</code>.
+  Kanban runs entirely via Docker Compose. The compose files are at the repo root.
+  All services are containerized; local development uses <code>docker-compose.dev.yml</code>
+  as an override for hot-reload mounts.
 </p>
 
 <div class="note">
   <strong>Prerequisite:</strong> Docker Desktop must be running before executing any
-  <code>docker</code> or <code>docker compose</code> commands.
+  <code>docker</code> or <code>docker compose</code> commands. On Windows 11, Docker Desktop
+  uses WSL2 backend.
 </div>
 
 <!-- ─── COMPOSE SETUP ─────────────────────────────────────────────── -->
 <h2>Docker Compose Setup</h2>
 <table>
   <tr><th>Item</th><th>Value</th></tr>
-  <tr><td>Compose file</td><td class="placeholder"><code>docker-compose.yml</code> at repo root</td></tr>
-  <tr><td>Dev override</td><td class="placeholder"><code>docker-compose.override.yml</code> (hot-reload mounts)</td></tr>
-  <tr><td>Start services</td><td><code>docker compose up -d</code></td></tr>
+  <tr><td>Primary compose file</td><td><code>docker-compose.yml</code> at repo root</td></tr>
+  <tr><td>Dev override</td><td><code>docker-compose.dev.yml</code> (hot-reload mounts)</td></tr>
+  <tr><td>Prod override</td><td><code>docker-compose.prod.yml</code></td></tr>
+  <tr><td>Start services (dev)</td><td><code>docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d</code></td></tr>
+  <tr><td>Start services (default)</td><td><code>docker compose up -d</code></td></tr>
   <tr><td>Stop services</td><td><code>docker compose down</code></td></tr>
   <tr><td>View logs</td><td><code>docker compose logs -f [service]</code></td></tr>
   <tr><td>Rebuild after code change</td><td><code>docker compose up -d --build [service]</code></td></tr>
@@ -45,112 +47,109 @@
 <!-- ─── SERVICES ──────────────────────────────────────────────────── -->
 <h2>Services Defined in Compose</h2>
 <table>
-  <tr><th>Service name</th><th>Image / build</th><th>Port mapping</th><th>Purpose</th></tr>
+  <tr><th>Service name</th><th>Image / build</th><th>Port mapping</th><th>Health check</th><th>Purpose</th></tr>
   <tr>
-    <td class="placeholder">api</td>
-    <td class="placeholder">build: ./backend</td>
-    <td class="placeholder">8080:8080</td>
-    <td class="placeholder">Backend API server</td>
+    <td><code>postgres</code></td>
+    <td>postgres:16-alpine</td>
+    <td>5432:5432</td>
+    <td><code>pg_isready -U kanban -d kanban</code></td>
+    <td>Primary PostgreSQL database; data persisted to <code>./data/postgres</code></td>
   </tr>
   <tr>
-    <td class="placeholder">web</td>
-    <td class="placeholder">build: ./frontend</td>
-    <td class="placeholder">3000:3000</td>
-    <td class="placeholder">Frontend dev server</td>
+    <td><code>backend</code></td>
+    <td>build: <code>./codebase/backend</code></td>
+    <td>8080:8080</td>
+    <td><code>GET /api/v1/health</code></td>
+    <td>Spring Boot API; depends on postgres healthy</td>
   </tr>
   <tr>
-    <td class="placeholder">db</td>
-    <td class="placeholder">postgres:16-alpine</td>
-    <td class="placeholder">5432:5432</td>
-    <td class="placeholder">PostgreSQL database</td>
+    <td><code>frontend</code></td>
+    <td>build: <code>./codebase/frontend</code></td>
+    <td>3000:3000</td>
+    <td>HTTP 200 on <code>/</code></td>
+    <td>Next.js app; depends on backend healthy</td>
   </tr>
   <tr>
-    <td class="placeholder">cache</td>
-    <td class="placeholder">redis:7-alpine</td>
-    <td class="placeholder">6379:6379</td>
-    <td class="placeholder">Redis cache</td>
+    <td><code>ollama</code></td>
+    <td>build: <code>./ollama</code></td>
+    <td>127.0.0.1:11434:11434</td>
+    <td><code>GET /api/tags</code></td>
+    <td>Local LLM service; start_period 60s</td>
+  </tr>
+  <tr>
+    <td><code>agent</code></td>
+    <td>build: <code>./agent</code></td>
+    <td>8001:8001</td>
+    <td><code>GET /health</code> via urllib</td>
+    <td>Python AI agent bridging Ollama and backend; depends on backend + ollama healthy</td>
   </tr>
 </table>
 
-<!-- ─── E2E TESTING WITH BROWSER ──────────────────────────────────── -->
-<h2>E2E Browser Testing via Docker</h2>
-<p>
-  The <code>qa</code> agent runs Playwright (or Cypress) tests against the locally running
-  Docker Compose stack. Services must be healthy before tests run.
-</p>
+<!-- ─── ENVIRONMENT VARIABLES ─────────────────────────────────────── -->
+<h2>Required Environment Variables</h2>
+<p>Copy <code>.env.example</code> to <code>.env</code> and fill in the values before running compose.</p>
+<table>
+  <tr><th>Variable</th><th>Service</th><th>Notes</th></tr>
+  <tr><td><code>POSTGRES_PASSWORD</code></td><td>postgres, backend</td><td>Required — no default</td></tr>
+  <tr><td><code>JWT_SECRET</code></td><td>backend</td><td>Required — min 32 chars</td></tr>
+  <tr><td><code>POSTGRES_DB</code></td><td>postgres, backend</td><td>Default: <code>kanban</code></td></tr>
+  <tr><td><code>POSTGRES_USER</code></td><td>postgres, backend</td><td>Default: <code>kanban</code></td></tr>
+  <tr><td><code>JWT_EXPIRY_MS</code></td><td>backend</td><td>Default: 3600000 (1h)</td></tr>
+  <tr><td><code>NEXT_PUBLIC_API_URL</code></td><td>frontend</td><td>Default: <code>http://localhost:8080</code></td></tr>
+  <tr><td><code>NEXT_PUBLIC_WS_URL</code></td><td>frontend</td><td>Default: <code>http://localhost:8080/ws</code></td></tr>
+  <tr><td><code>NEXT_PUBLIC_AGENT_URL</code></td><td>frontend</td><td>Default: <code>http://agent:8001</code></td></tr>
+</table>
 
-<h3>Running E2E tests locally</h3>
+<!-- ─── E2E TESTING ────────────────────────────────────────────────── -->
+<h2>E2E Browser Testing</h2>
 <pre>
-# 1. Ensure Docker Desktop is running and services are up
+# 1. Start all services
 docker compose up -d
 
 # 2. Wait for services to be healthy
-docker compose ps   # all services should show "healthy" or "running"
+docker compose ps
 
-# 3. Run E2E tests (adjust to your test framework)
-npx playwright test           # Playwright
-npx cypress run               # Cypress
+# 3. Run Playwright E2E tests (from codebase/frontend)
+cd codebase/frontend
+npx playwright test
 </pre>
 
-<h3>Running E2E tests inside Docker (CI parity)</h3>
-<pre>
-# Playwright in Docker (no display needed — runs headless)
-docker run --rm --network host -v $(pwd):/app -w /app \
-  mcr.microsoft.com/playwright:v1.x.x-jammy \
-  npx playwright test
-</pre>
-
-<div class="note">
-  The <code>qa</code> agent will use the run commands from <code>tech-stack.html</code>
-  (E2E / browser row). For browser-headed runs on Windows, Playwright uses the system
-  Chrome/Chromium installed by Docker Desktop or the local Node install.
-</div>
-
-<!-- ─── DATABASE MIGRATIONS IN DOCKER ────────────────────────────── -->
+<!-- ─── DATABASE MIGRATIONS ────────────────────────────────────────── -->
 <h2>Database Migrations</h2>
 <pre>
-# Run migrations against the Docker Compose db service
-docker compose exec api &lt;migration-command&gt;
+# Flyway runs automatically on backend startup.
+# To run manually:
+docker compose exec backend ./gradlew flywayMigrate
 
-# Examples by framework:
-# Flyway:     docker compose exec api ./mvnw flyway:migrate
-# Alembic:    docker compose exec api alembic upgrade head
-# Prisma:     docker compose exec api npx prisma migrate deploy
-# Raw SQL:    docker compose exec db psql -U postgres -d mydb -f /migrations/V001__init.sql
+# To check migration status:
+docker compose exec backend ./gradlew flywayInfo
+
+# Current migration version: V32
+# Next migration must be: V33__&lt;description&gt;.sql
 </pre>
 
 <!-- ─── HEALTH CHECKS ──────────────────────────────────────────────── -->
 <h2>Health Check Conventions</h2>
 <table>
   <tr><th>Service</th><th>Health check endpoint / command</th></tr>
-  <tr><td class="placeholder">api</td><td class="placeholder"><code>GET /health</code> → <code>{"status":"ok"}</code></td></tr>
-  <tr><td class="placeholder">web</td><td class="placeholder"><code>GET /</code> → HTTP 200</td></tr>
-  <tr><td class="placeholder">db</td><td class="placeholder"><code>pg_isready -U postgres</code></td></tr>
+  <tr><td>backend</td><td><code>GET /api/v1/health</code> → HTTP 200</td></tr>
+  <tr><td>frontend</td><td><code>GET /</code> → HTTP 200</td></tr>
+  <tr><td>postgres</td><td><code>pg_isready -U kanban -d kanban</code></td></tr>
+  <tr><td>ollama</td><td><code>curl -sf http://localhost:11434/api/tags</code></td></tr>
+  <tr><td>agent</td><td><code>GET /health</code> → HTTP 200</td></tr>
 </table>
-<p>
-  The <code>devops</code> agent will generate matching <code>HEALTHCHECK</code> directives
-  in Dockerfiles and readiness/liveness probes in deployment manifests based on these conventions.
-</p>
-
-<!-- ─── IMAGE BUILD CONVENTIONS ──────────────────────────────────── -->
-<h2>Image Build Conventions</h2>
-<ul>
-  <li>All Dockerfiles are multi-stage: <code>builder</code> → <code>runtime</code>.</li>
-  <li>Runtime stage uses a minimal base image (e.g. <code>node:22-alpine</code>, <code>python:3.12-slim</code>).</li>
-  <li>Containers run as a non-root user — never as <code>root</code>.</li>
-  <li>No secrets baked into images. Use environment variables or secret mounts at runtime.</li>
-  <li>Images are tagged with git SHA (<code>:sha-abc1234</code>) — never <code>:latest</code>.</li>
-</ul>
 
 <!-- ─── COMMON TROUBLESHOOTING ────────────────────────────────────── -->
 <h2>Common Docker Troubleshooting</h2>
 <table>
   <tr><th>Symptom</th><th>Fix</th></tr>
   <tr><td>Port already in use</td><td><code>docker compose down</code> then restart</td></tr>
-  <tr><td>DB connection refused</td><td>Wait for db healthcheck: <code>docker compose ps</code></td></tr>
+  <tr><td>DB connection refused</td><td>Wait for postgres healthcheck: <code>docker compose ps</code></td></tr>
   <tr><td>Stale build cache</td><td><code>docker compose build --no-cache [service]</code></td></tr>
   <tr><td>Volume data persists unexpectedly</td><td><code>docker compose down -v</code> to clear volumes</td></tr>
-  <tr><td>Docker Desktop not running</td><td>Open Docker Desktop app; wait for the whale icon to stop animating</td></tr>
+  <tr><td>Docker Desktop not running</td><td>Open Docker Desktop app (Windows); wait for whale icon</td></tr>
+  <tr><td>Ollama slow to start</td><td>start_period is 60s; wait before running agent-dependent tests</td></tr>
+  <tr><td>Flyway migration fails</td><td>Check <code>docker compose logs backend</code>; ensure postgres is healthy first</td></tr>
 </table>
 
 </body>

@@ -2,8 +2,7 @@
   "permissions": {
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
-      "D:\\Personal\\Software Development\\Claude-workspace\\Personal",
-      "D:\\Personal\\Software Development\\Claude-workspace\\Agents"
+      "D:\\workspace\\Claude-workspace\\migration"
     ],
     "allow": [
       "Read",
@@ -19,7 +18,18 @@
       "Write(**)",
       "Edit(**)",
       "Glob(**)",
-      "Grep(**)"
+      "Grep(**)",
+      "Bash(git *)",
+      "Bash(docker *)",
+      "Bash(docker compose *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(./gradlew *)",
+      "Bash(node *)",
+      "Bash(java *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(curl *)"
     ]
   },
   "hooks": {

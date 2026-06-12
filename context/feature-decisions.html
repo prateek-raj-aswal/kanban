@@ -11,7 +11,6 @@
     th, td { border: 1px solid #ccc; padding: .5rem .75rem; text-align: left; vertical-align: top; }
     th { background: #f5f5f5; }
     code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 3px; font-size: .9em; }
-    .placeholder { color: #999; font-style: italic; }
     .status-planned    { background: #e3f2fd; color: #1565c0; font-weight: bold; padding: .2rem .5rem; border-radius: 3px; font-size: .85em; }
     .status-deferred   { background: #fff8e1; color: #f57f17; font-weight: bold; padding: .2rem .5rem; border-radius: 3px; font-size: .85em; }
     .status-rejected   { background: #fce4ec; color: #b71c1c; font-weight: bold; padding: .2rem .5rem; border-radius: 3px; font-size: .85em; }
@@ -24,142 +23,121 @@
 
 <h1>Feature Decisions &amp; Future Ideas</h1>
 <p>
-  Persistent record of every feature decision made during planning sessions — both what
-  was selected for implementation and what was deferred or rejected. Agents read this file
-  to avoid re-litigating decided questions. Updated by <code>clarify</code> during PLAN mode
-  and by <code>doc-writer</code> after each story completes.
+  Persistent record of every feature decision made during planning sessions.
+  Agents read this file to avoid re-litigating decided questions.
+  Rows are <strong>never removed</strong> — update status as work progresses.
 </p>
 
 <div class="note">
   <strong>Status key:</strong>
-  <span class="status-planned">PLANNED</span> = in the current backlog (has story IDs) &nbsp;|&nbsp;
-  <span class="status-inprogress">IN_PROGRESS</span> = story actively being built &nbsp;|&nbsp;
-  <span class="status-done">DONE</span> = story completed and shipped &nbsp;|&nbsp;
+  <span class="status-planned">PLANNED</span> = in the current backlog &nbsp;|&nbsp;
+  <span class="status-inprogress">IN_PROGRESS</span> = actively being built &nbsp;|&nbsp;
+  <span class="status-done">DONE</span> = completed and shipped &nbsp;|&nbsp;
   <span class="status-deferred">DEFERRED</span> = recognised, not in current scope &nbsp;|&nbsp;
   <span class="status-rejected">REJECTED</span> = explicitly ruled out with a reason
 </div>
 
 <!-- ─── SECTION 1: DECISIONS IN SCOPE ─────────────────────────────────── -->
-<h2>1. Decisions In Scope (Planned / In Progress / Done)</h2>
-<p>
-  Features and capabilities that have been decided and assigned to user stories.
-  The <code>clarify</code> agent appends rows here during every PLAN invocation.
-  Rows are <strong>never removed</strong> — update status as work progresses.
-</p>
+<h2>1. Decisions In Scope (Done)</h2>
 <table>
   <thead>
     <tr>
-      <th>ID</th>
-      <th>Feature / Capability</th>
-      <th>Decision Made</th>
-      <th>Story IDs</th>
-      <th>Status</th>
-      <th>ADR</th>
-      <th>Notes</th>
+      <th>ID</th><th>Feature / Capability</th><th>Decision Made</th><th>Story IDs</th><th>Status</th><th>Notes</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td class="placeholder">FD-001</td>
-      <td class="placeholder">e.g. User Authentication (login, signup, forgot-password, reset-password)</td>
-      <td class="placeholder">2026-06-04</td>
-      <td class="placeholder">US-001, US-002, US-003, US-004</td>
-      <td><span class="status-planned">PLANNED</span></td>
-      <td class="placeholder"><a href="../docs/adr/ADR-001-auth-strategy.html">ADR-001</a></td>
-      <td class="placeholder">Full auth journey — includes edit-profile and account deletion</td>
-    </tr>
+    <tr><td>FD-001</td><td>Auth: registration, login, JWT tokens (access + rotating refresh)</td><td>2026-04-01</td><td>US-001–US-003, US-1207–US-1210</td><td><span class="status-done">DONE</span></td><td>Stateless JWT; refresh_tokens in PostgreSQL</td></tr>
+    <tr><td>FD-002</td><td>Database schema: projects, boards, columns, tasks, issues, labels, modules, activity_log, comments</td><td>2026-04-01</td><td>US-004–US-007, US-1401, US-1405</td><td><span class="status-done">DONE</span></td><td>Flyway at V32</td></tr>
+    <tr><td>FD-003</td><td>Kanban board: drag-and-drop column reorder, card movement</td><td>2026-04-15</td><td>US-1202</td><td><span class="status-done">DONE</span></td><td></td></tr>
+    <tr><td>FD-004</td><td>UI: collapsible sidebar, mobile bottom nav, responsive layout, horizontal board scroll</td><td>2026-04-15</td><td>US-1201–US-1206</td><td><span class="status-done">DONE</span></td><td></td></tr>
+    <tr><td>FD-005</td><td>Theme system: flat + gradient/texture themes, theme token model</td><td>2026-04-20</td><td>US-1309, US-1310</td><td><span class="status-done">DONE</span></td><td>ColorPalette shared component</td></tr>
+    <tr><td>FD-006</td><td>Workspace management UI: create/rename/delete, member management</td><td>2026-05-01</td><td>US-1301–US-1304</td><td><span class="status-done">DONE</span></td><td></td></tr>
+    <tr><td>FD-007</td><td>Board description field</td><td>2026-05-01</td><td>US-1306–US-1308</td><td><span class="status-done">DONE</span></td><td></td></tr>
+    <tr><td>FD-008</td><td>Column color and card color: free-form hex picker</td><td>2026-05-01</td><td>US-1305, US-1311–US-1313, US-1701–US-1702</td><td><span class="status-done">DONE</span></td><td>ColorPalette extracted as shared component</td></tr>
+    <tr><td>FD-009</td><td>Modules/tags (board-scoped) CRUD + assign/unassign to cards</td><td>2026-05-10</td><td>US-1401–US-1402</td><td><span class="status-done">DONE</span></td><td></td></tr>
+    <tr><td>FD-010</td><td>Swimlanes: group-by none/assignee/priority/module with DnD assignment</td><td>2026-05-10</td><td>US-1403–US-1404</td><td><span class="status-done">DONE</span></td><td></td></tr>
+    <tr><td>FD-011</td><td>Issues: standalone and child-of-card; manual close; attach/detach UI</td><td>2026-05-10</td><td>US-1405–US-1407</td><td><span class="status-done">DONE</span></td><td>Parent card close does NOT auto-close children</td></tr>
+    <tr><td>FD-012</td><td>RBAC: Role enum (Owner/Admin/Member/Viewer), central authorization policy, role assignment API + UI</td><td>2026-05-15</td><td>US-1408–US-1411</td><td><span class="status-done">DONE</span></td><td></td></tr>
+    <tr><td>FD-013</td><td>Issues nav: desktop sidebar link + mobile bottom nav link + status filter tabs</td><td>2026-05-25</td><td>US-1501–US-1503</td><td><span class="status-done">DONE</span></td><td>Filter state lives in page, not IssuesPanel</td></tr>
+    <tr><td>FD-014</td><td>Readable IDs (PREFIX-NNN) for cards and issues; type field (STORY/FEATURE/BUG)</td><td>2026-06-01</td><td>US-1601–US-1616</td><td><span class="status-done">DONE</span></td><td>US-NNN, FEAT-NNN, BUG-NNN; workspace-scoped atomic counter via SELECT FOR UPDATE</td></tr>
+    <tr><td>FD-015</td><td>Timeline view (Gantt-style, live board data): swimlane groups, bars spanning startDate→dueDate, today-line, weekend shading, hover glow, click→CardModal</td><td>2026-06-12</td><td>US-1820 (+US-1800/1801/1802 startDate dependency)</td><td><span class="status-planned">PLANNED</span></td><td>Supersedes the prior REJECTED "Gantt charts" stance (FR-003) — user re-scoped IN (ASM-004). Distinct from Calendar view (FI-011, still deferred).</td></tr>
+    <tr><td>FD-016</td><td>14 premium glass themes (7 dark + 7 light across indigo/emerald/ocean/violet/sunset/rose/steel); ThemeName expansion to 20 themes</td><td>2026-06-12</td><td>US-1810</td><td><span class="status-planned">PLANNED</span></td><td>Token values ported verbatim from design bundle themes.js; existing 6 classic themes unchanged (ASM-009)</td></tr>
+    <tr><td>FD-017</td><td>AmbientBg layer (gradient + 3 blobs + dot-grid) and glassmorphism backdrop-filter surfaces for premium themes; no-op on classic themes</td><td>2026-06-12</td><td>US-1811, US-1812</td><td><span class="status-planned">PLANNED</span></td><td></td></tr>
+    <tr><td>FD-018</td><td>Density system (compact/comfortable/spacious) persisted client-side; unified SettingsModal with grouped 20-theme picker + density; mobile settings tab</td><td>2026-06-12</td><td>US-1813, US-1814, US-1821</td><td><span class="status-planned">PLANNED</span></td><td>Theme/density persist client-side only (ASM-005)</td></tr>
+    <tr><td>FD-019</td><td>Boot splash overlay + inline SVG data-URI favicon</td><td>2026-06-12</td><td>US-1815, US-1816</td><td><span class="status-planned">PLANNED</span></td><td>ASM-008</td></tr>
+    <tr><td>FD-020</td><td>CreateBoardModal enrichment: description + emoji picker (16 symbols) + 9 colour swatches + live preview; board emoji backend field</td><td>2026-06-12</td><td>US-1803, US-1804, US-1817</td><td><span class="status-planned">PLANNED</span></td><td>Board emoji new field (migration V34); description verified via US-1805</td></tr>
+    <tr><td>FD-021</td><td>Card colour accent bar (3px top stripe) + re-openable 24-swatch column colour picker</td><td>2026-06-12</td><td>US-1818, US-1819</td><td><span class="status-planned">PLANNED</span></td><td>Builds on prior FD-008 colour fields; verified via US-1806/US-1807</td></tr>
+    <tr><td>FD-022</td><td>Card startDate field (migration V33) + CardModal date control; powers Timeline bars</td><td>2026-06-12</td><td>US-1800, US-1801, US-1802</td><td><span class="status-planned">PLANNED</span></td><td>start_date DATE nullable; 422 START_DATE_AFTER_DUE_DATE guard</td></tr>
+    <tr><td>FD-023</td><td>Verification stories for previously-shipped backend (board description, column colour, card colour, Issue CRUD, starred boards)</td><td>2026-06-12</td><td>US-1805, US-1806, US-1807, US-1808, US-1809</td><td><span class="status-planned">PLANNED</span></td><td>Contingent: fix only if a gap is found, else close not-needed. Starred boards (US-1809) has no prior FD record — added per requirements backend item #4.</td></tr>
     <!-- clarify agent appends rows here during PLAN mode -->
   </tbody>
 </table>
 
 <!-- ─── SECTION 2: DEFERRED IDEAS ─────────────────────────────────────── -->
 <h2>2. Deferred Ideas (Future Scope)</h2>
-<p>
-  Features that were raised during planning but explicitly deferred to a future phase.
-  The <code>clarify</code> agent adds rows here when a feature is mentioned but excluded from
-  the current backlog. Preserving them prevents re-discovery work in future planning sessions.
-</p>
 <table>
   <thead>
     <tr>
-      <th>ID</th>
-      <th>Feature / Idea</th>
-      <th>Raised On</th>
-      <th>Why Deferred</th>
-      <th>Target Phase / Milestone</th>
-      <th>Status</th>
+      <th>ID</th><th>Feature / Idea</th><th>Raised On</th><th>Why Deferred</th><th>Target Phase / Milestone</th><th>Status</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td class="placeholder">FI-001</td>
-      <td class="placeholder">e.g. OAuth2 social login (Google, GitHub)</td>
-      <td class="placeholder">2026-06-04</td>
-      <td class="placeholder">v1 scope is email/password only — social login adds complexity</td>
-      <td class="placeholder">Phase 2 / post-MVP</td>
-      <td><span class="status-deferred">DEFERRED</span></td>
-    </tr>
+    <tr><td>FI-001</td><td>OAuth social login (Google, GitHub)</td><td>2026-04-01</td><td>v1 uses email/password only; social login adds complexity</td><td>Phase 2 / post-MVP</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-002</td><td>Redis caching layer</td><td>2026-04-01</td><td>PostgreSQL-backed refresh tokens sufficient for MVP scale; swappable later</td><td>Phase 3 / high-traffic</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-003</td><td>Comments on tasks</td><td>2026-04-01</td><td>Schema exists; UI not yet built</td><td>Beta / Phase 2</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-004</td><td>Notifications (in-app + email)</td><td>2026-04-01</td><td>Backend endpoints exist; full notification system is Beta scope</td><td>Beta</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-005</td><td>Global search across boards and issues</td><td>2026-04-01</td><td>Not in MVP; filter exists per board</td><td>Phase 2</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-006</td><td>WIP limits on columns</td><td>2026-04-15</td><td>MVP scope — future Kanban enhancement</td><td>Phase 2</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-007</td><td>Sprint planning and burndown charts</td><td>2026-04-01</td><td>Out of MVP scope</td><td>Phase 3</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-008</td><td>AI-powered task summarization</td><td>2026-04-01</td><td>Ollama sidecar exists but AI features are post-MVP</td><td>Phase 3+</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-009</td><td>GitHub/GitLab integration</td><td>2026-04-01</td><td>Post-MVP</td><td>Phase 3</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-010</td><td>Slack/Discord integration</td><td>2026-04-01</td><td>Post-MVP</td><td>Phase 3</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-011</td><td>Calendar view</td><td>2026-04-01</td><td>Post-MVP</td><td>Phase 3</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-012</td><td>Analytics dashboard</td><td>2026-04-01</td><td>Post-MVP</td><td>Phase 4</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-013</td><td>Presence tracking (who is viewing a board)</td><td>2026-05-01</td><td>WebSocket gateway exists; presence optional for MVP</td><td>Beta</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-014</td><td>Saved filters</td><td>2026-05-01</td><td>Post-MVP</td><td>Phase 2</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-015</td><td>Edit-board surface for the new emoji / colour fields (parity with enriched CreateBoardModal)</td><td>2026-06-12</td><td>US-1804 exposes emoji on PUT /boards/:id (backend ready); a dedicated edit-board UI for emoji/colour was not in the requirements story list for this polish pass — create flow only</td><td>PHASE-P3 / next polish pass</td><td><span class="status-deferred">DEFERRED</span></td></tr>
+    <tr><td>FI-016</td><td>Server-side persistence of theme + density preference (per-user)</td><td>2026-06-12</td><td>ASM-005 fixed theme/density as client-side only for this pass; cross-device sync deferred</td><td>Phase 2+</td><td><span class="status-deferred">DEFERRED</span></td></tr>
     <!-- clarify agent appends rows here for every deferred idea -->
   </tbody>
 </table>
 
 <!-- ─── SECTION 3: REJECTED IDEAS ─────────────────────────────────────── -->
 <h2>3. Rejected Ideas</h2>
-<p>
-  Features that were explicitly ruled out. Reasons are recorded so agents and humans
-  don't re-propose them without new justification.
-</p>
 <table>
   <thead>
     <tr>
-      <th>ID</th>
-      <th>Feature / Idea</th>
-      <th>Rejected On</th>
-      <th>Reason</th>
-      <th>Status</th>
+      <th>ID</th><th>Feature / Idea</th><th>Rejected On</th><th>Reason</th><th>Status</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td class="placeholder">FR-001</td>
-      <td class="placeholder">e.g. Mobile app (iOS/Android) for v1</td>
-      <td class="placeholder">2026-06-04</td>
-      <td class="placeholder">Web-only for v1 — mobile deferred until web is validated</td>
-      <td><span class="status-rejected">REJECTED</span></td>
-    </tr>
+    <tr><td>FR-001</td><td>Native mobile apps (iOS/Android) for v1</td><td>2026-04-01</td><td>Web-first; mobile deferred until web is validated</td><td><span class="status-rejected">REJECTED</span></td></tr>
+    <tr><td>FR-002</td><td>Paid UI component libraries (MUI, Chakra, etc.)</td><td>2026-04-01</td><td>Vanilla CSS + custom theme system chosen; no paid UI libs constraint</td><td><span class="status-rejected">REJECTED</span></td></tr>
+    <tr><td>FR-003</td><td>Gantt charts</td><td>2026-04-01</td><td>Not MVP scope; web-first Kanban focus</td><td><span class="status-rejected">REJECTED</span></td></tr>
+    <tr><td>FR-004</td><td>SSR data-fetching in Next.js (server components for app data)</td><td>2026-04-01</td><td>App Router used but pages are client-rendered; SSR for app data adds complexity and was explicitly ruled out for MVP</td><td><span class="status-rejected">REJECTED</span></td></tr>
+    <tr><td>FR-005</td><td>Plugin/marketplace ecosystem</td><td>2026-04-01</td><td>Too complex for v1; not in MVP</td><td><span class="status-rejected">REJECTED</span></td></tr>
+    <tr><td>FR-006</td><td>Video/audio calls</td><td>2026-04-01</td><td>Out of scope; entirely different product surface</td><td><span class="status-rejected">REJECTED</span></td></tr>
+    <tr><td>FR-007</td><td>Time tracking and billing</td><td>2026-04-01</td><td>Out of scope for initial iteration</td><td><span class="status-rejected">REJECTED</span></td></tr>
     <!-- clarify agent appends rows here for rejected ideas -->
   </tbody>
 </table>
 
 <!-- ─── SECTION 4: ARCHITECTURAL DECISIONS ────────────────────────────── -->
 <h2>4. Architectural Decisions</h2>
-<p>
-  Key architectural choices made during design. Each row that says "Yes" under ADR
-  has a corresponding file in <code>docs/adr/</code>. The <code>architect</code> and
-  <code>doc-writer</code> agents maintain this table.
-</p>
 <table>
   <thead>
     <tr>
-      <th>ID</th>
-      <th>Decision</th>
-      <th>Made On</th>
-      <th>Choice</th>
-      <th>Rationale</th>
-      <th>ADR</th>
-      <th>Status</th>
+      <th>ID</th><th>Decision</th><th>Made On</th><th>Choice</th><th>Rationale</th><th>Status</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td class="placeholder">AD-001</td>
-      <td class="placeholder">e.g. Database engine</td>
-      <td class="placeholder">2026-06-04</td>
-      <td class="placeholder">PostgreSQL 16</td>
-      <td class="placeholder">Strong JSON support, row-level security, team familiarity</td>
-      <td class="placeholder"><a href="../docs/adr/ADR-001-postgresql.html">ADR-001</a></td>
-      <td><span class="status-done">DONE</span></td>
-    </tr>
+    <tr><td>AD-001</td><td>Database engine</td><td>2026-04-01</td><td>PostgreSQL 16</td><td>Strong JSON support, row-level security, team familiarity, UUID PKs</td><td><span class="status-done">DONE</span></td></tr>
+    <tr><td>AD-002</td><td>Backend framework</td><td>2026-04-01</td><td>Java 21 + Spring Boot 3.3</td><td>Production-grade, team familiarity, WebSocket STOMP support</td><td><span class="status-done">DONE</span></td></tr>
+    <tr><td>AD-003</td><td>Frontend framework</td><td>2026-04-01</td><td>Next.js 14 App Router (client-rendered)</td><td>React ecosystem, TypeScript, Zustand for state; SSR for app data ruled out</td><td><span class="status-done">DONE</span></td></tr>
+    <tr><td>AD-004</td><td>Auth strategy</td><td>2026-04-01</td><td>Short-lived JWT + rotating refresh tokens</td><td>Stateless APIs; refresh_tokens table in PostgreSQL (Redis-swappable) — <a href="../docs/adr/ADR-001-jwt-refresh-token-rotation.html">ADR-001</a></td><td><span class="status-done">DONE</span></td></tr>
+    <tr><td>AD-005</td><td>Authorization model</td><td>2026-05-15</td><td>RBAC (Owner/Admin/Member/Viewer) enforced via central policy</td><td>Clear ownership boundaries; central policy avoids scattered auth checks — <a href="../docs/adr/ADR-002-rbac-role-hierarchy.html">ADR-002</a></td><td><span class="status-done">DONE</span></td></tr>
+    <tr><td>AD-006</td><td>Readable ID strategy</td><td>2026-06-01</td><td>PREFIX-NNN per workspace, SELECT FOR UPDATE counter</td><td>Human-readable IDs without UUID exposure; atomic allocation prevents duplicates — <a href="../docs/adr/ADR-003-readable-ids-select-for-update.html">ADR-003</a></td><td><span class="status-done">DONE</span></td></tr>
+    <tr><td>AD-007</td><td>Deployment model</td><td>2026-04-01</td><td>Modular monolith; Docker Compose in dev/prod; Kubernetes-ready boundaries</td><td>Simple ops for solo dev; microservice extraction deferred until warranted</td><td><span class="status-done">DONE</span></td></tr>
     <!-- architect and doc-writer append rows here -->
   </tbody>
 </table>

@@ -11,101 +11,102 @@
     th, td { border: 1px solid #ccc; padding: .5rem .75rem; text-align: left; }
     th { background: #f5f5f5; }
     code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 3px; font-size: .9em; }
-    .placeholder { color: #999; font-style: italic; }
     .required { color: #c00; font-size: .8em; font-weight: bold; }
   </style>
 </head>
 <body>
 
 <h1>Tech Stack</h1>
-<p>
-  This file is read by agents (<code>backend</code>, <code>frontend</code>, <code>qa</code>, <code>devops</code>) to
-  determine the frameworks, test runners, and deployment targets to use.
-  Fill in every section before running <code>/design</code> or <code>/build</code>.
-</p>
 
 <!-- ─── LANGUAGE & RUNTIME ─────────────────────────────────────────── -->
 <h2>Language &amp; Runtime <span class="required">REQUIRED</span></h2>
 <table>
   <tr><th>Layer</th><th>Language / Runtime</th><th>Version</th></tr>
-  <tr><td>Backend</td><td class="placeholder">e.g. Node.js 22 / Python 3.12 / Java 21 / Go 1.23</td><td class="placeholder">x.y.z</td></tr>
-  <tr><td>Frontend</td><td class="placeholder">e.g. TypeScript 5.x / JavaScript ES2024</td><td class="placeholder">x.y</td></tr>
+  <tr><td>Backend</td><td>Java</td><td>21 LTS</td></tr>
+  <tr><td>Frontend</td><td>TypeScript</td><td>5.x</td></tr>
 </table>
 
 <!-- ─── BACKEND FRAMEWORK ──────────────────────────────────────────── -->
 <h2>Backend Framework <span class="required">REQUIRED</span></h2>
 <table>
   <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
-  <tr><td>Framework</td><td class="placeholder">e.g. Express / FastAPI / Spring Boot / Gin</td><td></td></tr>
-  <tr><td>ORM / DB client</td><td class="placeholder">e.g. Prisma / SQLAlchemy / Hibernate / GORM</td><td></td></tr>
-  <tr><td>Auth library</td><td class="placeholder">e.g. Passport.js / FastAPI-JWT / Spring Security</td><td></td></tr>
+  <tr><td>Framework</td><td>Spring Boot 3.3.x</td><td>REST APIs + WebSocket (STOMP)</td></tr>
+  <tr><td>Build tool</td><td>Gradle 8.x</td><td></td></tr>
+  <tr><td>ORM / DB client</td><td>Spring Data JPA + Flyway 10.x</td><td>UUID PKs, soft deletes</td></tr>
+  <tr><td>Auth library</td><td>Spring Security + JWT</td><td>Stateless JWT; short-lived access + rotating refresh tokens</td></tr>
+  <tr><td>Real-time</td><td>WebSocket / STOMP</td><td>Board collaboration</td></tr>
+  <tr><td>API style</td><td>REST</td><td>URL-versioned <code>/api/v1</code></td></tr>
 </table>
 
 <!-- ─── FRONTEND FRAMEWORK ────────────────────────────────────────── -->
 <h2>Frontend Framework <span class="required">REQUIRED</span></h2>
 <table>
   <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
-  <tr><td>Framework</td><td class="placeholder">e.g. Next.js 15 / Vite+React / SvelteKit / Nuxt</td><td></td></tr>
-  <tr><td>Styling</td><td class="placeholder">e.g. Tailwind CSS / CSS Modules / MUI / shadcn/ui</td><td></td></tr>
-  <tr><td>State management</td><td class="placeholder">e.g. Zustand / Redux Toolkit / Jotai / Context only</td><td></td></tr>
-  <tr><td>HTTP client</td><td class="placeholder">e.g. fetch / Axios / TanStack Query</td><td></td></tr>
+  <tr><td>Framework</td><td>Next.js 14.x (App Router)</td><td>Pages are predominantly client-rendered; no SSR data-fetching for app data in MVP</td></tr>
+  <tr><td>Styling</td><td>Vanilla CSS</td><td>No paid UI libs; theme token system in lib/theme.ts</td></tr>
+  <tr><td>State management</td><td>Zustand 4.x</td><td>Board and auth state</td></tr>
+  <tr><td>HTTP client</td><td>fetch (native)</td><td>Silent token refresh interceptor wired in authStore</td></tr>
 </table>
 
 <!-- ─── DATABASE ──────────────────────────────────────────────────── -->
 <h2>Database <span class="required">REQUIRED</span></h2>
 <table>
   <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
-  <tr><td>Primary DB</td><td class="placeholder">e.g. PostgreSQL 16 / MySQL 8 / MongoDB 7 / SQLite</td><td></td></tr>
-  <tr><td>Cache</td><td class="placeholder">e.g. Redis 7 / Memcached / none</td><td></td></tr>
-  <tr><td>Migration tool</td><td class="placeholder">e.g. Flyway / Liquibase / Alembic / raw SQL versioned</td><td></td></tr>
+  <tr><td>Primary DB</td><td>PostgreSQL 16.x</td><td>UUID PKs, soft deletes, audit history on tasks</td></tr>
+  <tr><td>Cache</td><td>Redis 7.x</td><td>Deferred — refresh tokens currently PostgreSQL-backed; swappable to Redis later</td></tr>
+  <tr><td>Migration tool</td><td>Flyway 10.x</td><td>Versioned SQL migrations in <code>backend/src/main/resources/db/migration/</code>; currently at V32</td></tr>
 </table>
 
 <!-- ─── TEST FRAMEWORKS ───────────────────────────────────────────── -->
 <h2>Test Frameworks <span class="required">REQUIRED</span></h2>
 <table>
   <tr><th>Layer</th><th>Framework</th><th>Run command</th></tr>
-  <tr><td>Backend unit</td><td class="placeholder">e.g. Jest / pytest / JUnit 5 / go test</td><td class="placeholder">e.g. <code>npx jest</code></td></tr>
-  <tr><td>Frontend unit</td><td class="placeholder">e.g. Vitest / Jest + Testing Library</td><td class="placeholder">e.g. <code>npx vitest run</code></td></tr>
-  <tr><td>E2E / browser</td><td class="placeholder">e.g. Playwright / Cypress / Selenium</td><td class="placeholder">e.g. <code>npx playwright test</code></td></tr>
+  <tr><td>Backend unit</td><td>JUnit 5 + Mockito</td><td><code>./gradlew cleanTest test --no-daemon</code></td></tr>
+  <tr><td>Backend integration</td><td>Spring Boot Test + Testcontainers</td><td>Real DB via Docker</td></tr>
+  <tr><td>Frontend unit</td><td>Vitest + React Testing Library</td><td><code>npx vitest run</code></td></tr>
+  <tr><td>E2E / browser</td><td>Playwright</td><td><code>npx playwright test</code></td></tr>
 </table>
 
 <!-- ─── DEPLOYMENT TARGET ─────────────────────────────────────────── -->
 <h2>Deployment Target <span class="required">REQUIRED (for devops agent)</span></h2>
 <table>
   <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
-  <tr><td>Platform</td><td class="placeholder">e.g. Kubernetes (EKS/GKE/AKS) / ECS / Cloud Run / VMs / Docker Compose</td><td></td></tr>
-  <tr><td>Cloud provider</td><td class="placeholder">e.g. AWS / GCP / Azure / DigitalOcean / self-hosted</td><td></td></tr>
-  <tr><td>CI/CD platform</td><td class="placeholder">e.g. GitHub Actions / GitLab CI / CircleCI / Jenkins</td><td></td></tr>
-  <tr><td>Container registry</td><td class="placeholder">e.g. ECR / GCR / Docker Hub / GHCR</td><td></td></tr>
-  <tr><td>Secret manager</td><td class="placeholder">e.g. AWS Secrets Manager / GCP Secret Manager / Vault / K8s Sealed Secrets</td><td></td></tr>
+  <tr><td>Platform</td><td>Docker Compose (prod) / Kubernetes-ready boundaries</td><td>Modular monolith; microservice-ready</td></tr>
+  <tr><td>Cloud provider</td><td>AWS (EC2 / ECS)</td><td>Free-tier friendly in MVP</td></tr>
+  <tr><td>CI/CD platform</td><td>GitHub Actions</td><td>Mandatory</td></tr>
+  <tr><td>Container registry</td><td>ECR / GHCR</td><td></td></tr>
+  <tr><td>Secret manager</td><td>Environment variables initially, Vault later</td><td></td></tr>
 </table>
 
 <!-- ─── LOCAL DEV ENVIRONMENT ─────────────────────────────────────── -->
 <h2>Local Development Environment</h2>
 <table>
   <tr><th>Item</th><th>Choice</th><th>Notes</th></tr>
-  <tr><td>Container runtime</td><td>Docker Desktop</td><td>Used for local service orchestration and testing</td></tr>
-  <tr><td>Local compose file</td><td class="placeholder">e.g. <code>docker-compose.yml</code> at repo root</td><td></td></tr>
-  <tr><td>Dev server port</td><td class="placeholder">e.g. 3000 (frontend) / 8080 (backend)</td><td></td></tr>
-  <tr><td>Browser for E2E</td><td class="placeholder">e.g. Chromium (Playwright default) / Chrome / Firefox</td><td></td></tr>
+  <tr><td>Container runtime</td><td>Docker Desktop</td><td>Windows 11 host</td></tr>
+  <tr><td>Local compose file</td><td><code>docker-compose.yml</code> + <code>docker-compose.dev.yml</code></td><td>Dev override for hot-reload mounts</td></tr>
+  <tr><td>Dev server port</td><td>3000 (frontend) / 8080 (backend) / 5432 (postgres) / 11434 (ollama) / 8001 (agent)</td><td></td></tr>
+  <tr><td>Browser for E2E</td><td>Chromium (Playwright default)</td><td></td></tr>
 </table>
 
 <!-- ─── PACKAGE MANAGER ───────────────────────────────────────────── -->
 <h2>Package Manager</h2>
 <table>
   <tr><th>Ecosystem</th><th>Manager</th><th>Lockfile</th></tr>
-  <tr><td>Node.js</td><td class="placeholder">e.g. npm / pnpm / yarn</td><td class="placeholder">e.g. package-lock.json</td></tr>
-  <tr><td>Python</td><td class="placeholder">e.g. pip + requirements.txt / Poetry / uv</td><td class="placeholder"></td></tr>
-  <tr><td>JVM</td><td class="placeholder">e.g. Maven / Gradle</td><td class="placeholder"></td></tr>
+  <tr><td>Node.js</td><td>npm</td><td>package-lock.json</td></tr>
+  <tr><td>JVM</td><td>Gradle 8.x</td><td>gradle.lockfile</td></tr>
 </table>
 
 <!-- ─── ADDITIONAL NOTES ──────────────────────────────────────────── -->
 <h2>Additional Notes</h2>
-<p class="placeholder">
-  Add any non-obvious constraints, architectural decisions already made, or environment-specific
-  configuration that agents should be aware of (e.g. monorepo layout, multi-service boundaries,
-  existing shared libraries, environment variable naming conventions).
-</p>
+<ul>
+  <li>Codebase lives in <code>codebase/backend/</code> and <code>codebase/frontend/</code>.</li>
+  <li>Flyway migrations are now at V32; next migration must be V33.</li>
+  <li>All API routes must be versioned under <code>/api/v1/</code>.</li>
+  <li>Next.js App Router is used but pages are predominantly client-rendered — avoid server-side data fetching for app data.</li>
+  <li>Drag-and-drop must remain performant with 1000+ tasks (virtual rendering + pagination).</li>
+  <li>Readable IDs (PREFIX-NNN) are assigned to all cards and issues; workspace_id_counters table drives counter allocation (SELECT FOR UPDATE pattern).</li>
+  <li>Java home on dev machine: <code>C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot</code></li>
+</ul>
 
 </body>
 </html>

@@ -1,0 +1,794 @@
+feature: column-header-color
+version: "1.0"
+resolved_options: [OPT-002, OPT-A, OPT-C, OPT-R1, OPT-R2, OPT-R3]
+
+findings_resolved:
+  - id: FIND-001
+    resolution: >
+      Replaced by OPT-A. The original FIND-001 proposed assertWriteMember(). OPT-A
+      supersedes that with assertAccess(UUID boardId, UUID userId, BoardAction action).
+      BoardAction.WRITE excludes role == "VIEWER"; BoardAction.READ uses the existing
+      existsByBoardIdAndUserId check (no role inspection). The deprecated alias
+      assertMember() delegates to assertAccess(boardId, userId, BoardAction.READ) so
+      callers outside ColumnService continue compiling unchanged. assertWriteMember()
+      is never added — it was only proposed in the draft.
+
+  - id: FIND-004
+    resolution: >
+      Both ColumnResponse constructor call sites are documented and must be updated
+      together in US-002. Call site 1: ColumnService.toResponse() at approximately
+      line 121 in backend/src/main/java/com/kanban/service/ColumnService.java.
+      Call site 2: BoardService anonymous lambda at approximately line 201 in
+      backend/src/main/java/com/kanban/service/BoardService.java. Both must pass
+      col.getHeaderColor() (or c.getHeaderColor()) as the seventh constructor argument
+      once ColumnResponse gains the headerColor component.
+
+  - id: FIND-005
+    resolution: >
+      null is the only signal to clear a column headerColor. Empty string is invalid
+      and is rejected by the @Pattern constraint on UpdateColumnRequest.headerColor.
+      The frontend sends { "headerColor": null } when the user selects the None swatch.
+      ColumnService.updateColumn() does not special-case empty string; it accepts any
+      non-null value that passed @Pattern validation and passes it directly to
+      col.setHeaderColor(). Clearing is done by col.setHeaderColor(null).
+
+findings_accepted:
+  - id: FIND-002
+    note: >
+      A single PATCH that changes both name and headerColor emits two events in sequence:
+      COLUMN_UPDATED (for name change) then COLUMN_COLOR_UPDATED (for color change).
+      This is accepted behavior. Frontend consumers that handle both events must be
+      idempotent — each event carries the authoritative field value and applying it
+      twice produces the same result.
+
+  - id: ARCH-004
+    note: >
+      ColorSwatchButton and ColorPalette must be defined at module level in
+      frontend/src/components/board/Column.tsx, NOT inside the Column() function body.
+      Defining components inside a render function causes React to remount them on every
+      parent render. The existing ColumnMenu component follows the module-level pattern
+      (lines 11-64 of Column.tsx) and both new components must match it.
+
+  - id: ARCH-005
+    note: >
+      Event type strings in BoardEventPayload.of() calls (e.g. "COLUMN_COLOR_UPDATED")
+      are untyped string literals with no compile-time safety. Adding a new event type
+      requires updating BoardEventPayload.java, ColumnService.java, websocket.ts
+      BoardEvent union, and boardStore.ts applyEvent switch in four separate files.
+      No code change is required now; this is a maintenance note for the next engineer
+      who adds an event.
+
+database:
+  migration:
+    file: "backend/src/main/resources/db/migration/V15__add_header_color_to_columns.sql"
+    version: "V15"
+    sql: "ALTER TABLE columns ADD COLUMN header_color VARCHAR(20);"
+    rationale: >
+      Extends existing columns table (V3__create_columns.sql) with a nullable column.
+      VARCHAR(20) fits the longest token ("purple", 6 chars) with margin.
+      No NOT NULL constraint — all existing rows default to NULL (no color set).
+
+backend:
+  access_policy:
+    file: "backend/src/main/java/com/kanban/security/BoardAccessPolicy.java"
+    new_enum:
+      file: "backend/src/main/java/com/kanban/security/BoardAction.java"
+      package: com.kanban.security
+      values: [READ, WRITE]
+    new_method: "assertAccess(UUID boardId, UUID userId, BoardAction action)"
+    new_method_description: >
+      For BoardAction.READ: calls memberRepository.existsByBoardIdAndUserId(boardId, userId);
+      throws ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Access denied") when false.
+      For BoardAction.WRITE: calls memberRepository.findByBoardIdAndUserId(boardId, userId);
+      throws ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Access denied") when Optional
+      is empty or when returned BoardMember.getRole().equals("VIEWER").
+    deprecated_alias: "assertMember() annotated @Deprecated; body delegates to assertAccess(boardId, userId, BoardAction.READ)"
+    viewer_excluded_from: WRITE
+    column_service_write_sites:
+      - method: createColumn
+        file: "backend/src/main/java/com/kanban/service/ColumnService.java"
+        line_approx: 40
+        current_call: "accessPolicy.assertMember(boardId, requestingUserId)"
+        new_call: "accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE)"
+      - method: deleteColumn
+        file: "backend/src/main/java/com/kanban/service/ColumnService.java"
+        line_approx: 73
+        current_call: "accessPolicy.assertMember(col.getBoard().getId(), requestingUserId)"
+        new_call: "accessPolicy.assertAccess(col.getBoard().getId(), requestingUserId, BoardAction.WRITE)"
+      - method: reorderColumns
+        file: "backend/src/main/java/com/kanban/service/ColumnService.java"
+        line_approx: 90
+        current_call: "accessPolicy.assertMember(boardId, requestingUserId)"
+        new_call: "accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE)"
+      - method: renameColumn
+        note: >
+          renameColumn is removed by US-003 and replaced by updateColumn.
+          updateColumn uses assertAccess(boardId, userId, BoardAction.WRITE).
+          No separate migration of renameColumn is needed.
+
+  color_constants:
+    file: "backend/src/main/java/com/kanban/model/ColumnColor.java"
+    package: com.kanban.model
+    type: enum
+    rationale: >
+      OPT-R2: com.kanban.domain does not exist in the codebase. ColumnColor enum goes in
+      com.kanban.model (confirmed present at backend/src/main/java/com/kanban/model/).
+      OPT-C requires a canonical backend source for the 8 color tokens so that
+      GET /api/v1/column-colors derives its response from code, not a hard-coded list.
+    tokens: [yellow, green, red, blue, purple, orange, teal, gray]
+    hex_values:
+      yellow: "#FDE68A"
+      green: "#6EE7B7"
+      red: "#FCA5A5"
+      blue: "#93C5FD"
+      purple: "#C4B5FD"
+      orange: "#FCD34D"
+      teal: "#5EEAD4"
+      gray: "#D1D5DB"
+    enum_declaration: |
+      package com.kanban.model;
+
+      public enum ColumnColor {
+          YELLOW("#FDE68A"),
+          GREEN("#6EE7B7"),
+          RED("#FCA5A5"),
+          BLUE("#93C5FD"),
+          PURPLE("#C4B5FD"),
+          ORANGE("#FCD34D"),
+          TEAL("#5EEAD4"),
+          GRAY("#D1D5DB");
+
+          private final String hex;
+
+          ColumnColor(String hex) { this.hex = hex; }
+
+          public String getHex() { return hex; }
+
+          public String token() { return name().toLowerCase(); }
+      }
+
+  color_endpoint:
+    controller_file: "backend/src/main/java/com/kanban/controller/ColumnColorController.java"
+    route: "GET /api/v1/column-colors"
+    response_shape: "{ tokens: string[], colorMap: Record<string,string> }"
+    auth: "Bearer JWT (any authenticated user — static config, no board membership required)"
+    rationale: >
+      OPT-C US-006. Auth required — unauthenticated requests return 401 via existing
+      JwtAuthenticationFilter. No board-scope permission needed; color tokens are
+      board-independent display constants.
+    response_example: |
+      {
+        "tokens": ["yellow","green","red","blue","purple","orange","teal","gray"],
+        "colorMap": {
+          "yellow": "#FDE68A",
+          "green":  "#6EE7B7",
+          "red":    "#FCA5A5",
+          "blue":   "#93C5FD",
+          "purple": "#C4B5FD",
+          "orange": "#FCD34D",
+          "teal":   "#5EEAD4",
+          "gray":   "#D1D5DB"
+        }
+      }
+    error_responses:
+      401:
+        schema: { error: string, code: "UNAUTHORIZED" }
+
+  entity:
+    file: "backend/src/main/java/com/kanban/model/BoardColumn.java"
+    changes:
+      - type: add_field
+        java_field: headerColor
+        column: header_color
+        type: String
+        length: 20
+        nullable: true
+        jpa_annotation: "@Column(name = \"header_color\", length = 20)"
+        getter: getHeaderColor
+        setter: setHeaderColor
+
+  dto:
+    response:
+      file: "backend/src/main/java/com/kanban/dto/response/ColumnResponse.java"
+      changes:
+        - type: add_record_component
+          field: headerColor
+          java_type: "String"
+          nullable: true
+          position: "seventh component, appended after the existing cards component"
+          note: >
+            Current record has 6 components:
+            (UUID id, UUID boardId, String name, double position, Instant createdAt, List<CardResponse> cards).
+            New record has 7 components:
+            (UUID id, UUID boardId, String name, double position, Instant createdAt, List<CardResponse> cards, String headerColor).
+      call_sites:
+        - file: "backend/src/main/java/com/kanban/service/ColumnService.java"
+          method: toResponse
+          line_approx: 121
+          current_call: >
+            new ColumnResponse(col.getId(), col.getBoard().getId(), col.getName(),
+                col.getPosition(), col.getCreatedAt(), null)
+          new_call: >
+            new ColumnResponse(col.getId(), col.getBoard().getId(), col.getName(),
+                col.getPosition(), col.getCreatedAt(), null, col.getHeaderColor())
+        - file: "backend/src/main/java/com/kanban/service/BoardService.java"
+          method: "anonymous lambda inside toBoardResponse"
+          line_approx: 201
+          current_call: >
+            new ColumnResponse(c.getId(), c.getBoard().getId(), c.getName(),
+                c.getPosition(), c.getCreatedAt(), cards)
+          new_call: >
+            new ColumnResponse(c.getId(), c.getBoard().getId(), c.getName(),
+                c.getPosition(), c.getCreatedAt(), cards, c.getHeaderColor())
+
+    request:
+      file: "backend/src/main/java/com/kanban/dto/request/UpdateColumnRequest.java"
+      class_name: UpdateColumnRequest
+      kind: record
+      package: "com.kanban.dto.request"
+      fields:
+        - name: name
+          type: String
+          nullable: true
+          validation: "@Size(min=1, max=100)"
+          note: "null means no rename; blank string is rejected by @Size(min=1)"
+        - name: headerColor
+          type: String
+          nullable: true
+          validation: "@Pattern(regexp=\"^(yellow|green|red|blue|purple|orange|teal|gray)$\")"
+          note: "null = clear color; empty string is invalid and rejected by @Pattern"
+      full_class: |
+        package com.kanban.dto.request;
+
+        import jakarta.validation.constraints.Pattern;
+        import jakarta.validation.constraints.Size;
+
+        public record UpdateColumnRequest(
+                @Size(min = 1, max = 100) String name,
+                @Pattern(regexp = "^(yellow|green|red|blue|purple|orange|teal|gray)$") String headerColor
+        ) {}
+
+  service:
+    file: "backend/src/main/java/com/kanban/service/ColumnService.java"
+    changes:
+      - method: "updateColumn (new method, replaces renameColumn)"
+        signature: "public ColumnResponse updateColumn(UUID columnId, UpdateColumnRequest request, UUID requestingUserId)"
+        access_guard: "assertAccess(boardId, userId, BoardAction.WRITE)"
+        persists: "name (if non-null), headerColor (null clears the field)"
+        broadcasts: ["COLUMN_UPDATED (on name change)", "COLUMN_COLOR_UPDATED (on color change)"]
+        logic: >
+          Load active column or throw ApiException(404, COLUMN_NOT_FOUND).
+          Capture boardId = col.getBoard().getId().
+          Call accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE).
+          Capture oldColor = col.getHeaderColor() before mutation.
+          If request.name() is non-null, call col.setName(request.name()).
+          Always call col.setHeaderColor(request.headerColor()) — handles both setting
+          and clearing (null). Save column.
+          If request.name() was non-null, broadcast COLUMN_UPDATED.
+          If !Objects.equals(oldColor, request.headerColor()), broadcast COLUMN_COLOR_UPDATED.
+          Return toResponse(col).
+        broadcast_on_name_change: >
+          eventBroadcastService.broadcastBoardEvent(boardId,
+            BoardEventPayload.of("COLUMN_UPDATED", boardId,
+              new BoardEventPayload.ColumnUpdatedData(col.getId(), col.getName())))
+        broadcast_on_color_change: >
+          eventBroadcastService.broadcastBoardEvent(boardId,
+            BoardEventPayload.of("COLUMN_COLOR_UPDATED", boardId,
+              new BoardEventPayload.ColumnColorUpdatedData(col.getId(), col.getHeaderColor())))
+
+      - method: "toResponse (update existing private method, line approx 121)"
+        change: "Add col.getHeaderColor() as seventh argument to ColumnResponse constructor"
+
+      - method: "renameColumn (remove)"
+        change: >
+          Delete the renameColumn method entirely. updateColumn is its replacement.
+          ColumnController.rename() is also removed; see controller section.
+
+      - method: "createColumn (line approx 40)"
+        access_guard: "assertAccess(boardId, userId, BoardAction.WRITE)"
+        change: >
+          Replace accessPolicy.assertMember(boardId, requestingUserId) with
+          accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE).
+          Add import com.kanban.security.BoardAction.
+
+      - method: "deleteColumn (line approx 73)"
+        access_guard: "assertAccess(boardId, userId, BoardAction.WRITE)"
+        change: >
+          Replace accessPolicy.assertMember(col.getBoard().getId(), requestingUserId) with
+          accessPolicy.assertAccess(col.getBoard().getId(), requestingUserId, BoardAction.WRITE).
+
+      - method: "reorderColumns (line approx 90)"
+        access_guard: "assertAccess(boardId, userId, BoardAction.WRITE)"
+        change: >
+          Replace accessPolicy.assertMember(boardId, requestingUserId) with
+          accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE).
+
+  controller:
+    file: "backend/src/main/java/com/kanban/controller/ColumnController.java"
+    changes:
+      - route: "PATCH /api/v1/columns/{columnId}"
+        method_name: update
+        description: >
+          Rename existing rename() handler to update(). Change @RequestBody type from
+          CreateColumnRequest to UpdateColumnRequest. Delegate to
+          columnService.updateColumn() instead of columnService.renameColumn().
+          Remove import of CreateColumnRequest; add import of UpdateColumnRequest.
+        new_signature: |
+          @PatchMapping("/api/v1/columns/{columnId}")
+          public ResponseEntity<ColumnResponse> update(
+                  @PathVariable UUID columnId,
+                  @Valid @RequestBody UpdateColumnRequest request,
+                  @AuthenticationPrincipal AuthenticatedUser user) {
+              return ResponseEntity.ok(columnService.updateColumn(columnId, request, user.id()));
+          }
+    api_contracts:
+      - path: "/api/v1/columns/{columnId}"
+        method: PATCH
+        auth: "Bearer JWT"
+        path_params:
+          - name: columnId
+            type: uuid
+        request_body:
+          content_type: "application/json"
+          schema: UpdateColumnRequest
+          fields:
+            name:
+              type: string
+              required: false
+              constraints: "1-100 chars when provided; null means no rename"
+            headerColor:
+              type: string
+              required: false
+              constraints: "one of yellow|green|red|blue|purple|orange|teal|gray when non-null; null clears color"
+        responses:
+          200:
+            schema: ColumnResponse
+            fields: [id, boardId, name, position, createdAt, cards, headerColor]
+          400:
+            schema: { error: string, code: "VALIDATION_FAILED", fields: [] }
+          401:
+            schema: { error: string, code: "UNAUTHORIZED" }
+          403:
+            schema: { error: string, code: "FORBIDDEN" }
+          404:
+            schema: { error: string, code: "COLUMN_NOT_FOUND" }
+          422:
+            schema: { error: string, code: "VALIDATION_FAILED", fields: [{ field: string, message: string }] }
+
+      - path: "/api/v1/column-colors"
+        method: GET
+        auth: "Bearer JWT"
+        path_params: []
+        request_body: null
+        responses:
+          200:
+            schema:
+              tokens: "string[]"
+              colorMap: "Record<string, string>"
+          401:
+            schema: { error: string, code: "UNAUTHORIZED" }
+
+  card_service:
+    file: "backend/src/main/java/com/kanban/service/CardService.java"
+    rationale: "OPT-R1: extend BoardAction.WRITE guard to all mutating CardService operations"
+    changes:
+      - methods: [createCard, updateCard, deleteCard, moveCard]
+        current_call: "accessPolicy.assertMember(..., requestingUserId)"
+        new_call: "accessPolicy.assertAccess(..., requestingUserId, BoardAction.WRITE)"
+        note: >
+          Confirmed current guard is assertMember() at lines 63, 90, 98, 141, 163 of CardService.java.
+          The boardId argument is derived from column.getBoard().getId() or card.getColumn().getBoard().getId()
+          as appropriate per existing pattern. Add import com.kanban.security.BoardAction.
+
+  label_service:
+    file: "backend/src/main/java/com/kanban/service/LabelService.java"
+    rationale: "OPT-R1: extend BoardAction.WRITE guard to all mutating LabelService operations"
+    changes:
+      - methods: [createLabel, updateLabel, deleteLabel]
+        current_call: "accessPolicy.assertMember(boardId, requestingUserId)"
+        new_call: "accessPolicy.assertAccess(boardId, requestingUserId, BoardAction.WRITE)"
+        note: >
+          Confirmed current guard is assertMember() at lines 36, 50, 58, 70 of LabelService.java.
+          Add import com.kanban.security.BoardAction.
+
+  websocket:
+    payload_file: "backend/src/main/java/com/kanban/websocket/BoardEventPayload.java"
+    new_record: ColumnColorUpdatedData
+    fields:
+      - { name: id, type: UUID }
+      - { name: headerColor, type: "String (nullable)" }
+    declaration: "public record ColumnColorUpdatedData(UUID id, String headerColor) {}"
+    event_type_string: "COLUMN_COLOR_UPDATED"
+    destination: "/topic/boards/{boardId}"
+    broadcast_call: >
+      eventBroadcastService.broadcastBoardEvent(boardId,
+        BoardEventPayload.of("COLUMN_COLOR_UPDATED", boardId,
+          new BoardEventPayload.ColumnColorUpdatedData(col.getId(), col.getHeaderColor())));
+    maintenance_note: >
+      One PATCH updating both name and color emits COLUMN_UPDATED + COLUMN_COLOR_UPDATED.
+      This is accepted (FIND-002). Race condition risk is low in practice.
+      ARCH-005 accepted: event type strings are untyped literals; a future event requires
+      updating BoardEventPayload.java, ColumnService.java, websocket.ts BoardEvent union,
+      and boardStore.ts applyEvent switch.
+
+  test:
+    file: "backend/src/test/java/com/kanban/CardColorTokenConsistencyTest.java"
+    class_name: CardColorTokenConsistencyTest
+    rationale: "OPT-R3: assert @Pattern regexp on UpdateColumnRequest.headerColor matches regex generated from ColumnColor.values()"
+    assertion: >
+      Uses reflection to extract the regexp attribute from the @Pattern annotation on
+      UpdateColumnRequest.headerColor field. Builds expected regex dynamically from
+      Arrays.stream(ColumnColor.values()).map(ColumnColor::token) joined as
+      "^(yellow|green|red|blue|purple|orange|teal|gray)$" (enum declaration order).
+      Asserts extracted regexp.equals(generated regexp).
+      This enforces sync between ColumnColor enum and UpdateColumnRequest validation
+      without requiring a manual update to two files independently.
+    acceptance: >
+      Test passes with 8 tokens. Adding a 9th to ColumnColor without updating @Pattern
+      causes the test to fail, surfacing the gap at build time.
+
+frontend:
+  types:
+    file: "frontend/src/types/api.ts"
+    changes:
+      - type: add_field
+        interface: ColumnResponse
+        field: headerColor
+        ts_type: "string | null"
+        optional: true
+        declaration: "headerColor?: string | null"
+        note: "Appended to the existing ColumnResponse interface (line 55)"
+
+  config_store:
+    file: "frontend/src/store/configStore.ts"
+    new_file: true
+    rationale: "OPT-R2: static color config lives in a dedicated store, not boardStore. Not cleared on board switch."
+    state:
+      - { name: columnColors, type: "string[]", initial: "[]" }
+      - { name: columnColorMap, type: "Record<string, string>", initial: "{}" }
+    actions:
+      - "setColumnColors(colors: string[]): void"
+      - "setColumnColorMap(map: Record<string, string>): void"
+    note: "Static config fetched once on first BoardView mount; not cleared on board switch."
+
+  board_view:
+    file: "frontend/src/components/board/BoardView.tsx"
+    rationale: "ARC-I-06 fix: BoardView.tsx is a required change output in US-004"
+    changes:
+      - description: "On component mount (inside the useEffect that fetches the board), call GET /api/v1/column-colors"
+      - description: "On success, call configStore.setColumnColors(data.tokens) and configStore.setColumnColorMap(data.colorMap)"
+      - description: "On fetch error, leave configStore state as initial empty values; Column.tsx must handle empty list gracefully"
+      - description: "Fetch runs once per board mount; not re-fetched on board switch (config is static)"
+
+  store:
+    file: "frontend/src/store/boardStore.ts"
+    rationale: "OPT-R2: boardStore does NOT hold columnColors or columnColorMap (moved to configStore)"
+    changes:
+      - type: add_action
+        name: updateColumnColor
+        declaration: "updateColumnColor: (columnId: string, headerColor: string | null) => void"
+        implementation: |
+          updateColumnColor: (columnId, headerColor) => set(({ board }) => board ? {
+            board: {
+              ...board,
+              columns: (board.columns ?? []).map(col =>
+                col.id === columnId ? { ...col, headerColor } : col
+              ),
+            },
+          } : {}),
+      - type: add_websocket_case
+        event: "COLUMN_COLOR_UPDATED"
+        location: "applyEvent switch statement, after the COLUMN_DELETED case (line ~160)"
+        implementation: |
+          case 'COLUMN_COLOR_UPDATED': {
+            const d = event.data as { id: string; headerColor: string | null }
+            get().updateColumnColor(d.id, d.headerColor)
+            break
+          }
+    websocket_union:
+      file: "frontend/src/lib/websocket.ts"
+      change: >
+        Add 'COLUMN_COLOR_UPDATED' to the BoardEvent.eventType string union.
+        New union:
+        'CARD_CREATED' | 'CARD_UPDATED' | 'CARD_MOVED' | 'CARD_DELETED' |
+        'COLUMN_CREATED' | 'COLUMN_UPDATED' | 'COLUMN_REORDERED' | 'COLUMN_DELETED' |
+        'COLUMN_COLOR_UPDATED'
+
+  component:
+    file: "frontend/src/components/board/Column.tsx"
+    changes:
+      - name: ColorSwatchButton
+        type: add_module_level_component
+        location: "module level, before the Column() function body (before existing ColumnMenu)"
+        rationale: "ARCH-004: module-level prevents React remount on parent re-render"
+        props:
+          color: "string | undefined | null"
+          onClick: "() => void"
+        description: >
+          Renders a 14x14 circle. When color is non-null and colorHexMap[color] exists
+          (read from configStore inside Column() and passed down), fills with that hex.
+          When color is null or absent, renders a dashed outline circle.
+          Placed in the column header row. When canEdit is false, onClick is a no-op.
+
+      - name: ColorPalette
+        type: add_module_level_component
+        location: "module level, directly before ColorSwatchButton"
+        rationale: "ARCH-004: module-level prevents React remount on parent re-render"
+        props:
+          tokens: "string[]"
+          colorHexMap: "Record<string, string>"
+          currentColor: "string | null | undefined"
+          onSelect: "(token: string | null) => void"
+          onClose: "() => void"
+        description: >
+          Absolute-positioned popover (zIndex 60) anchored below ColorSwatchButton.
+          Renders one swatch per token from the tokens array (from configStore, not hardcoded).
+          Renders a None/clear button that calls onSelect(null).
+          Active token receives a ring indicator.
+          Outside-click dismiss uses document.addEventListener('mousedown', handler) in a
+          useEffect, with cleanup on return — same pattern as existing ColumnMenu component.
+
+      - name: header_background_color
+        type: modify_existing
+        location: "column header div (approx line 164)"
+        style_addition: |
+          backgroundColor: column.headerColor ? colorHexMap[column.headerColor] : undefined,
+          borderRadius: column.headerColor ? '8px 8px 0 0' : undefined,
+        source: "colorHexMap = useConfigStore(s => s.columnColorMap)"
+
+      - name: optimistic_update
+        type: describe_pattern
+        steps:
+          - "Capture prevColor = column.headerColor"
+          - "Call store.updateColumnColor(column.id, newToken) immediately (optimistic)"
+          - "Await api.patch('/api/v1/columns/' + column.id, { headerColor: newToken })"
+          - "On error: call store.updateColumnColor(column.id, prevColor) to revert"
+          - "On success: incoming COLUMN_COLOR_UPDATED websocket re-applies same value (idempotent)"
+
+      - name: viewer_guard
+        type: describe_pattern
+        description: >
+          canEdit = board?.role !== 'VIEWER'.
+          BoardResponse.role is present in frontend/src/types/api.ts.
+          When canEdit is false, ColorSwatchButton renders (color is visible) but onClick
+          is a no-op so the palette never opens. Roles OWNER, ADMIN, MEMBER may edit.
+
+  maintenance_notes:
+    - id: MN-001
+      text: >
+        COLOR_MAP (configStore.columnColorMap) and @Pattern regex (UpdateColumnRequest.headerColor)
+        define the same 8 tokens. Adding a 9th requires both changes.
+        CardColorTokenConsistencyTest (OPT-R3) enforces sync between ColumnColor enum and
+        @Pattern at build time.
+    - id: MN-002
+      text: >
+        ARCH-005: event type strings in BoardEventPayload.of() calls are untyped literals.
+        A future engineer adding an event must update four files in sync:
+        BoardEventPayload.java, ColumnService.java, websocket.ts (BoardEvent.eventType union),
+        boardStore.ts (applyEvent case).
+    - id: MN-003
+      text: >
+        FIND-002 accepted dual broadcast: a single PATCH changing both name and headerColor
+        emits COLUMN_UPDATED then COLUMN_COLOR_UPDATED in sequence.
+        Frontend applyEvent handlers for both events are idempotent.
+
+story_contracts:
+  - story_id: US-001
+    title: "Add header_color column to columns table"
+    agent: database
+    complexity: S
+    depends_on: []
+    inputs: []
+    outputs:
+      - type: sql_migration
+        file: "backend/src/main/resources/db/migration/V15__add_header_color_to_columns.sql"
+        description: "Adds nullable VARCHAR(20) column header_color to the columns table"
+    acceptance: >
+      Flyway applies V15 cleanly against the existing schema (V14 is the current highest).
+      SELECT header_color FROM columns returns NULL for all existing rows.
+      No other migration files are affected.
+
+  - story_id: US-002
+    title: "Expose headerColor in entity + ColumnResponse (both call sites)"
+    agent: backend
+    complexity: S
+    depends_on: [US-001]
+    inputs: [US-001]
+    outputs:
+      - type: entity_field
+        class: BoardColumn
+        file: "backend/src/main/java/com/kanban/model/BoardColumn.java"
+        field: headerColor
+        jpa_column: header_color
+        java_type: String
+        nullable: true
+      - type: dto_field
+        class: ColumnResponse
+        file: "backend/src/main/java/com/kanban/dto/response/ColumnResponse.java"
+        field: headerColor
+        java_type: "String"
+        nullable: true
+        position: "seventh record component"
+      - type: call_site_update
+        class: ColumnService
+        method: toResponse
+        file: "backend/src/main/java/com/kanban/service/ColumnService.java"
+        line_approx: 121
+        change: "Pass col.getHeaderColor() as seventh argument"
+      - type: call_site_update
+        class: BoardService
+        method: "anonymous lambda at line ~201"
+        file: "backend/src/main/java/com/kanban/service/BoardService.java"
+        line_approx: 201
+        change: "Pass c.getHeaderColor() as seventh argument"
+    acceptance: >
+      GET /api/v1/boards/{id} returns columns array where each column includes
+      headerColor: null when unset. No 500 errors from mismatched constructor arity.
+
+  - story_id: US-003
+    title: "Accept headerColor in PATCH /api/v1/columns/{id}; add BoardAction enum + assertAccess()"
+    agent: backend
+    complexity: M
+    depends_on: [US-002]
+    inputs: [US-002]
+    outputs:
+      - type: new_file
+        class: BoardAction
+        file: "backend/src/main/java/com/kanban/security/BoardAction.java"
+        description: "Enum with READ and WRITE values in package com.kanban.security"
+      - type: modified_class
+        class: BoardAccessPolicy
+        file: "backend/src/main/java/com/kanban/security/BoardAccessPolicy.java"
+        changes:
+          - "Add assertAccess(UUID boardId, UUID userId, BoardAction action) method"
+          - "Annotate existing assertMember() with @Deprecated; body delegates to assertAccess(boardId, userId, BoardAction.READ)"
+      - type: new_dto
+        class: UpdateColumnRequest
+        file: "backend/src/main/java/com/kanban/dto/request/UpdateColumnRequest.java"
+        fields: [name, headerColor]
+      - type: service_change
+        class: ColumnService
+        file: "backend/src/main/java/com/kanban/service/ColumnService.java"
+        changes:
+          - "Add updateColumn() replacing renameColumn()"
+          - "Remove renameColumn()"
+          - "Replace assertMember() with assertAccess(..., BoardAction.WRITE) in createColumn, deleteColumn, reorderColumns"
+      - type: controller_change
+        class: ColumnController
+        file: "backend/src/main/java/com/kanban/controller/ColumnController.java"
+        change: "rename() becomes update(); request body type changes to UpdateColumnRequest; delegates to updateColumn()"
+    acceptance: |
+      PATCH { headerColor: "blue" } returns 200 with headerColor: "blue".
+      PATCH { headerColor: "invalid" } returns 422.
+      PATCH { headerColor: null } returns 200 with headerColor: null.
+      PATCH { name: "New Name" } renames correctly; headerColor field unchanged.
+      PATCH { name: "N", headerColor: "red" } updates both; emits COLUMN_UPDATED then COLUMN_COLOR_UPDATED.
+      PATCH by VIEWER role returns 403.
+      POST /api/v1/boards/{id}/columns by VIEWER returns 403.
+      DELETE /api/v1/columns/{id} by VIEWER returns 403.
+      PATCH /api/v1/boards/{id}/columns/reorder by VIEWER returns 403.
+
+  - story_id: US-003b
+    title: "Extend BoardAction.WRITE to CardService + LabelService mutating ops"
+    agent: backend
+    complexity: S
+    depends_on: [US-003]
+    inputs: [US-003]
+    outputs:
+      - type: access_guard_change
+        class: CardService
+        file: "backend/src/main/java/com/kanban/service/CardService.java"
+        methods: [createCard, updateCard, deleteCard, moveCard]
+        change: "Replace assertMember() with assertAccess(..., BoardAction.WRITE) at all four call sites"
+      - type: access_guard_change
+        class: LabelService
+        file: "backend/src/main/java/com/kanban/service/LabelService.java"
+        methods: [createLabel, updateLabel, deleteLabel]
+        change: "Replace assertMember() with assertAccess(..., BoardAction.WRITE) at all three call sites"
+    acceptance: |
+      POST /api/v1/boards/{id}/columns/{colId}/cards by VIEWER returns 403.
+      PATCH /api/v1/cards/{id} by VIEWER returns 403.
+      DELETE /api/v1/cards/{id} by VIEWER returns 403.
+      PATCH /api/v1/cards/{id}/move by VIEWER returns 403.
+      POST /api/v1/boards/{id}/labels by VIEWER returns 403.
+      PATCH /api/v1/labels/{id} by VIEWER returns 403.
+      DELETE /api/v1/labels/{id} by VIEWER returns 403.
+      Same operations by MEMBER return 200.
+
+  - story_id: US-004
+    title: "Color swatch + palette popover in UI; fetch from configStore; optimistic update; BoardView.tsx fetch"
+    agent: frontend
+    complexity: M
+    depends_on: [US-003, US-006]
+    inputs: [US-003, US-006]
+    outputs:
+      - type: new_store
+        file: "frontend/src/store/configStore.ts"
+        description: "New Zustand store holding columnColors + columnColorMap; fetched once; not cleared on board switch"
+      - type: type_change
+        file: "frontend/src/types/api.ts"
+        interface: ColumnResponse
+        field: "headerColor?: string | null"
+      - type: store_change
+        file: "frontend/src/store/boardStore.ts"
+        changes:
+          - "Add updateColumnColor(columnId, headerColor) action"
+          - "Add COLUMN_COLOR_UPDATED websocket case in applyEvent"
+          - "NO columnColors or columnColorMap state (OPT-R2: lives in configStore)"
+      - type: websocket_union_change
+        file: "frontend/src/lib/websocket.ts"
+        change: "Add 'COLUMN_COLOR_UPDATED' to BoardEvent.eventType union"
+      - type: component_change
+        file: "frontend/src/components/board/Column.tsx"
+        changes:
+          - "ColorSwatchButton module-level component (ARCH-004)"
+          - "ColorPalette module-level component (ARCH-004)"
+          - "Header backgroundColor + borderRadius from configStore colorHexMap"
+          - "Optimistic update + rollback on API error"
+          - "Role gating: canEdit = board.role !== VIEWER; swatch not shown when VIEWER"
+      - type: view_change
+        file: "frontend/src/components/board/BoardView.tsx"
+        changes:
+          - "Fetch GET /api/v1/column-colors on mount"
+          - "Call configStore.setColumnColors(data.tokens) and configStore.setColumnColorMap(data.colorMap) on success"
+    acceptance: |
+      Column header shows correct hex background when headerColor is non-null.
+      Swatch click opens palette for OWNER/ADMIN/MEMBER; is a no-op for VIEWER.
+      Selecting a token updates the header immediately (optimistic).
+      Selecting None sends { headerColor: null } and clears the background.
+      On API error, header color reverts to pre-click value.
+      Outside-click closes the palette.
+      Other board members see the color update via COLUMN_COLOR_UPDATED websocket event without refresh.
+      configStore.columnColors is populated once on board mount; boardStore holds no color config state.
+
+  - story_id: US-005
+    title: "Broadcast COLUMN_COLOR_UPDATED websocket event"
+    agent: backend
+    complexity: S
+    depends_on: [US-003]
+    inputs: [US-003]
+    outputs:
+      - type: websocket_record
+        file: "backend/src/main/java/com/kanban/websocket/BoardEventPayload.java"
+        record: ColumnColorUpdatedData
+        declaration: "public record ColumnColorUpdatedData(UUID id, String headerColor) {}"
+      - type: websocket_event
+        event_type: "COLUMN_COLOR_UPDATED"
+        destination: "/topic/boards/{boardId}"
+        triggered_by: "ColumnService.updateColumn when !Objects.equals(oldColor, request.headerColor())"
+        payload_structure: "BoardEventPayload { eventType, boardId, timestamp, data: ColumnColorUpdatedData { id, headerColor } }"
+    acceptance: |
+      PATCH that changes headerColor publishes COLUMN_COLOR_UPDATED to /topic/boards/{boardId}.
+      Message: { "eventType": "COLUMN_COLOR_UPDATED", "boardId": "...", "timestamp": "...", "data": { "id": "...", "headerColor": "blue" } }.
+      PATCH that does not change headerColor does NOT emit COLUMN_COLOR_UPDATED.
+      PATCH that changes both name and headerColor emits COLUMN_UPDATED then COLUMN_COLOR_UPDATED in that order.
+
+  - story_id: US-006
+    title: "Expose GET /api/v1/column-colors; ColumnColor enum in com.kanban.model; add token sync test"
+    agent: backend
+    complexity: S
+    depends_on: []
+    inputs: []
+    outputs:
+      - type: new_file
+        class: ColumnColor
+        file: "backend/src/main/java/com/kanban/model/ColumnColor.java"
+        description: "Enum in com.kanban.model with 8 values; each holds hex via getHex() and lowercase token via token()"
+        note: "OPT-R2: package is com.kanban.model, not com.kanban.domain (which does not exist)"
+      - type: new_file
+        class: ColumnColorController
+        file: "backend/src/main/java/com/kanban/controller/ColumnColorController.java"
+        description: "GET /api/v1/column-colors; returns { tokens, colorMap } derived from ColumnColor.values()"
+      - type: new_test
+        class: CardColorTokenConsistencyTest
+        file: "backend/src/test/java/com/kanban/CardColorTokenConsistencyTest.java"
+        description: >
+          OPT-R3: uses reflection to extract @Pattern regexp from UpdateColumnRequest.headerColor;
+          asserts it equals the regex generated from ColumnColor.values() token stream.
+    acceptance: |
+      GET /api/v1/column-colors with valid JWT returns 200.
+      Response contains tokens array with exactly 8 lowercase strings in enum declaration order.
+      Response contains colorMap mapping each token to its hex string.
+      GET /api/v1/column-colors without JWT returns 401.
+      CardColorTokenConsistencyTest passes with 8 tokens.
+      Adding a 9th to ColumnColor without updating @Pattern causes the test to fail.
